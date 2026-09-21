@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controller;
+namespace App\Health\UI\Http\Controller;
 
 use App\Helpers\ApiResponse;
 use OpenApi\Attributes as OA;
