@@ -1,0 +1,23 @@
+###> symfony/framework-bundle ###
+/.phpunit.cache/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> dotenv ###
+/.env.local
+/.env.local.php
+/.env.*.local
+###< dotenv ###
+
+###> Docker / FrankenPHP / IDEs ###
+# IDEs e Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+###< Docker / FrankenPHP / IDEs ###
