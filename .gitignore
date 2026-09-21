@@ -21,3 +21,8 @@
 .DS_Store
 Thumbs.db
 ###< Docker / FrankenPHP / IDEs ###
+
+###> captainhook ###
+# Overrides pessoais (não versionar)
+captainhook.config.json
+###< captainhook ###

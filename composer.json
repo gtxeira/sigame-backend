@@ -7,6 +7,16 @@
     "extra": {
         "symfony": {
             "docker": true
+        },
+        "ramsey/conventional-commits": {
+            "config": {
+                "typeCase": "lower",
+                "types": ["ci", "docs", "perf", "refactor", "style", "test", "chore", "revert"],
+                "scopeCase": "lower",
+                "scopeRequired": false,
+                "descriptionCase": "lower",
+                "descriptionEndMark": ""
+            }
         }
     },
     "require": {
@@ -29,6 +39,8 @@
         }
     },
     "require-dev": {
-        "symfony/maker-bundle": "^1.68"
+        "symfony/maker-bundle": "^1.68",
+        "captainhook/captainhook": "^5.29",
+        "ramsey/conventional-commits": "^1.7"
     }
 }

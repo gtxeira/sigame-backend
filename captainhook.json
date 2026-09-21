@@ -1,0 +1,31 @@
+{
+  "config": {
+    "bootstrap": "vendor/autoload.php"
+  },
+  "commit-msg": {
+    "enabled": true,
+    "actions": [
+      {
+        "action": "\\Ramsey\\CaptainHook\\ValidateConventionalCommit",
+        "options": {
+          "config": {
+            "typeCase": "lower",
+            "types": ["ci", "docs", "perf", "refactor", "style", "test", "chore", "revert"],
+            "scopeCase": "lower",
+            "scopeRequired": false,
+            "descriptionCase": "lower",
+            "descriptionEndMark": ""
+          }
+        }
+      }
+    ]
+  },
+  "prepare-commit-msg": {
+    "enabled": true,
+    "actions": [
+      {
+        "action": "\\Ramsey\\CaptainHook\\PrepareConventionalCommit"
+      }
+    ]
+  }
+}
