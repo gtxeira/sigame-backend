@@ -1,0 +1,95 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: SIGAME API
+            description: API da plataforma web voltada ao incentivo à prática de atividades físicas em grupo.
+            version: 1.0.0
+
+        components:
+            schemas:
+                ApiResponseMeta:
+                    type: object
+                    description: Metadados padrão de todas as respostas da API.
+                    properties:
+                        timestamp:
+                            type: string
+                            example: "2026-09-21T10:00:00.000+00:00"
+                        pagination:
+                            $ref: "#/components/schemas/PaginationMeta"
+
+                PaginationMeta:
+                    type: object
+                    description: Metadados de paginação.
+                    properties:
+                        page:
+                            type: integer
+                            example: 1
+                        perPage:
+                            type: integer
+                            example: 20
+                        total:
+                            type: integer
+                            example: 100
+                        totalPages:
+                            type: integer
+                            example: 5
+
+                ApiErrorDetail:
+                    type: object
+                    description: Detalhe de um erro de validação.
+                    properties:
+                        field:
+                            type: string
+                            example: "email"
+                        message:
+                            type: string
+                            example: "Este campo é obrigatório."
+
+                ApiErrorItem:
+                    type: object
+                    description: Um item de erro retornado pela API.
+                    properties:
+                        code:
+                            oneOf:
+                                - type: string
+                                - type: integer
+                            example: "VALIDATION_ERROR"
+                        message:
+                            type: string
+                            example: "Dados inválidos."
+                        details:
+                            type: array
+                            items:
+                                $ref: "#/components/schemas/ApiErrorDetail"
+
+                ApiResponseSuccess:
+                    type: object
+                    description: Resposta de sucesso padrão.
+                    properties:
+                        data:
+                            description: Dados da resposta (tipo varia por endpoint).
+                        meta:
+                            $ref: "#/components/schemas/ApiResponseMeta"
+                    required:
+                        - meta
+
+                ApiResponseError:
+                    type: object
+                    description: Resposta de erro padrão.
+                    properties:
+                        meta:
+                            $ref: "#/components/schemas/ApiResponseMeta"
+                        errors:
+                            type: array
+                            items:
+                                $ref: "#/components/schemas/ApiErrorItem"
+                    required:
+                        - meta
+                        - errors
+
+    areas:
+        path_patterns:
+            - ^/api(?!/doc$)
+            - ^/health$
+
+    type_info: true

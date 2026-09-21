@@ -26,7 +26,10 @@
         "symfony/runtime": "^8.1",
         "symfony/framework-bundle": "^8.1",
         "symfony/yaml": "^8.1",
-        "symfony/dotenv": "^8.1"
+        "symfony/dotenv": "^8.1",
+        "nelmio/api-doc-bundle": "^5.12",
+        "symfony/twig-bundle": "^8.1",
+        "symfony/asset": "^8.1"
     },
     "config": {
         "allow-plugins": {
