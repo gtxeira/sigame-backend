@@ -11,7 +11,7 @@ SYMFONY  = $(PHP) bin/console
 
 # Misc
 .DEFAULT_GOAL = help
-.PHONY        : help build up start down logs sh composer vendor sf cc test
+.PHONY        : help build up start down logs sh composer vendor sf cc test cs phpstan
 
 ## —— 🎵 🐳 The Symfony Docker Makefile 🐳 🎵 ——————————————————————————————————
 help: ## Outputs this help screen
@@ -38,9 +38,25 @@ sh: ## Connect to the FrankenPHP container
 bash: ## Connect to the FrankenPHP container via bash so up and down arrows go to previous commands
 	@$(PHP_CONT) bash
 
-test: ## Start tests with phpunit, pass the parameter "c=" to add options to phpunit, example: make test c="--group e2e --stop-on-failure"
+test: ## Start tests with pest, pass the parameter "c=" to add options, example: make test c="--group e2e --stop-on-failure"
 	@$(eval c ?=)
-	@$(DOCKER_COMP) exec -e APP_ENV=test php bin/phpunit $(c)
+	@$(DOCKER_COMP) exec -e APP_ENV=test php vendor/bin/pest $(c)
+
+
+## —— Code Quality 🧹 ———————————————————————————————————————————————————————
+cs: ## Run php-cs-fixer, pass the parameter "c=" to add options, example: make cs c="--dry-run --diff"
+	@$(eval c ?=)
+	@$(DOCKER_COMP) exec php vendor/bin/php-cs-fixer fix $(c)
+
+cs-check: ## Verifica padrões de código sem alterar os arquivos
+	@$(DOCKER_COMP) exec php vendor/bin/php-cs-fixer fix --dry-run --diff
+
+phpstan: ## Run phpstan static analysis
+	@$(DOCKER_COMP) exec php bin/console cache:warmup --env=dev
+	@$(DOCKER_COMP) exec php vendor/bin/phpstan analyse --no-progress
+
+pest: ## Run pest (alias for test)
+	@$(MAKE) test
 
 
 ## —— Composer 🧙 ——————————————————————————————————————————————————————————————

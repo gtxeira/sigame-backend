@@ -12,10 +12,24 @@
 
 ###> Docker / FrankenPHP / IDEs ###
 # IDEs e Editores
-.idea/
 .vscode/
 *.swp
 *.swo
+
+# Ignorar arquivos temporários e específicos de cada desenvolvedor no PhpStorm
+.idea/*
+!.idea/php.xml
+!.idea/quality_tools.xml
+!.idea/inspectionProfiles/
+!.idea/codeStyles/
+!.idea/watcherTasks.xml
+
+# Ignorar caches do PhpStorm e indexadores
+.idea/dataSources/
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/tasks.xml
+.idea/shelf/
 
 # Sistema Operacional
 .DS_Store
@@ -26,3 +40,12 @@ Thumbs.db
 # Overrides pessoais (não versionar)
 captainhook.config.json
 ###< captainhook ###
+###> friendsofphp/php-cs-fixer ###
+/.php-cs-fixer.php
+/.php-cs-fixer.cache
+###< friendsofphp/php-cs-fixer ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###

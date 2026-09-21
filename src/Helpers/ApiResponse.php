@@ -7,15 +7,45 @@ use DateTimeInterface;
 use JsonSerializable;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
+/**
+ * @phpstan-type PaginationMeta array{
+ *     page: int,
+ *     perPage: int,
+ *     total: int,
+ *     totalPages: int
+ * }
+ * @phpstan-type ApiResponseMeta array{
+ *     timestamp?: string,
+ *     pagination?: PaginationMeta
+ * } & array<string, mixed>
+ * @phpstan-type ApiErrorDetail array{
+ *     field?: string,
+ *     message: string
+ * }
+ * @phpstan-type ApiErrorItem array{
+ *     code?: string|int,
+ *     message: string,
+ *     details?: list<ApiErrorDetail>
+ * }
+ * @phpstan-type ApiErrors list<ApiErrorItem>
+ */
 readonly class ApiResponse implements JsonSerializable
 {
+    /**
+     * @param ApiResponseMeta $meta
+     * @param ApiErrors       $errors
+     */
     public function __construct(
         public bool $isSuccess,
         public mixed $data = null,
         public array $meta = [],
         public array $errors = [],
-    ) { }
+    ) {
+    }
 
+    /**
+     * @param array<string, mixed> $extraMeta chaves customizadas `request_id`
+     */
     public static function ok(mixed $data = null, array $extraMeta = []): self
     {
         return new self(
@@ -28,6 +58,10 @@ readonly class ApiResponse implements JsonSerializable
         );
     }
 
+    /**
+     * @param ApiErrors            $errors
+     * @param array<string, mixed> $extraMeta
+     */
     public static function error(array $errors, int $statusCode, array $extraMeta = []): self
     {
         return new self(
@@ -64,19 +98,22 @@ readonly class ApiResponse implements JsonSerializable
         return new JsonResponse($this, $statusCode);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         if ($this->isSuccess) {
             return array_filter([
                 'data' => $this->data,
                 'meta' => $this->meta,
-            ], static fn($value) => $value !== null);
+            ]);
         }
 
         return array_filter([
             'meta' => $this->meta,
             'errors' => $this->errors,
-        ], static fn($value) => $value !== null);
+        ]);
     }
 
     private static function getTimestamp(): string

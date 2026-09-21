@@ -27,5 +27,16 @@
         "action": "\\Ramsey\\CaptainHook\\PrepareConventionalCommit"
       }
     ]
+  },
+  "pre-commit": {
+    "enabled": true,
+    "actions": [
+        {
+            "action": "docker compose exec -T php vendor/bin/php-cs-fixer fix --diff --dry-run"
+        },
+        {
+            "action": "docker compose exec -T php vendor/bin/phpstan analyse --no-progress"
+        }
+    ]
   }
 }
