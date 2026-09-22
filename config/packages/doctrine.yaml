@@ -2,6 +2,13 @@ doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
         profiling_collect_backtrace: '%kernel.debug%'
+        types:
+            uuid: App\Shared\Infrastructure\Persistence\ORM\Type\UuidType
+            user_id: App\Shared\Infrastructure\Persistence\ORM\Type\UserIdType
+            email: App\Shared\Infrastructure\Persistence\ORM\Type\EmailType
+            cpf: App\Shared\Infrastructure\Persistence\ORM\Type\CpfType
+            hashed_password: App\Shared\Infrastructure\Persistence\ORM\Type\HashedPasswordType
+            user_level: App\Shared\Infrastructure\Persistence\ORM\Type\UserLevelType
 
     orm:
         validate_xml_mapping: true

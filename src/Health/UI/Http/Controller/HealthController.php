@@ -15,7 +15,7 @@ final class HealthController extends AbstractController
      *
      * Retorna o status do serviço.
      */
-    #[Route('/health', name: 'app_health', methods: ['GET'])]
+    #[Route('/api/health', name: 'app_health', methods: ['GET'])]
     #[OA\Response(
         response: 200,
         description: 'Sistema operacional',

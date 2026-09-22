@@ -11,7 +11,16 @@
         "ramsey/conventional-commits": {
             "config": {
                 "typeCase": "lower",
-                "types": ["ci", "docs", "perf", "refactor", "style", "test", "chore", "revert"],
+                "types": [
+                    "ci",
+                    "docs",
+                    "perf",
+                    "refactor",
+                    "style",
+                    "test",
+                    "chore",
+                    "revert"
+                ],
                 "scopeCase": "lower",
                 "scopeRequired": false,
                 "descriptionCase": "lower",
@@ -62,10 +71,14 @@
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.2",
         "phpstan/phpstan-symfony": "^2.0",
-        "pestphp/pest": "*",
-        "pestphp/pest-plugin": "*",
-        "phpunit/phpunit": "^13.3",
+        "pestphp/pest": "^5.2",
+        "pestphp/pest-plugin": "^5.0",
         "symfony/browser-kit": "^8.1",
         "symfony/css-selector": "^8.1"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
     }
 }

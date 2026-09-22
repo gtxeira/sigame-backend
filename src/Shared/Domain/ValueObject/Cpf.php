@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use InvalidArgumentException;
+use App\Shared\Domain\Exception\InvalidCpfException;
 
 /**
  * Value Object imutável para CPF (Cadastro de Pessoas Físicas).
@@ -22,16 +22,8 @@ final readonly class Cpf
     {
         $cpf = preg_replace('/\D/', '', $cpf);
 
-        if (11 !== strlen($cpf)) {
-            throw new InvalidArgumentException('CPF must have exactly 11 digits.');
-        }
-
-        if (preg_match('/^(\d)\1{10}$/', $cpf)) {
-            throw new InvalidArgumentException('CPF cannot be all same digits.');
-        }
-
-        if (!self::isValidCheckDigits($cpf)) {
-            throw new InvalidArgumentException('Invalid CPF check digits.');
+        if (11 !== strlen($cpf) || preg_match('/^(\d)\1{10}$/', $cpf) || !self::isValidCheckDigits($cpf)) {
+            throw new InvalidCpfException();
         }
 
         return new self($cpf);

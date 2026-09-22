@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use InvalidArgumentException;
+use App\Shared\Domain\Exception\InvalidUuidException;
 use Symfony\Component\Uid\Uuid as SymfonyUuid;
 
 /**
@@ -26,11 +26,11 @@ final readonly class Uuid
 
     public static function fromString(string $value): self
     {
-        $uuid = SymfonyUuid::fromString($value);
-
         if (!SymfonyUuid::isValid($value)) {
-            throw new InvalidArgumentException("Invalid UUID: '{$value}'");
+            throw new InvalidUuidException();
         }
+
+        $uuid = SymfonyUuid::fromString($value);
 
         return new self($uuid->toRfc4122());
     }

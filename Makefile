@@ -11,7 +11,7 @@ SYMFONY  = $(PHP) bin/console
 
 # Misc
 .DEFAULT_GOAL = help
-.PHONY        : help build up start down logs sh composer vendor sf cc test cs phpstan
+.PHONY        : help build up start down logs sh composer vendor sf cc test test-db-setup test-db-drop cs phpstan
 
 ## —— 🎵 🐳 The Symfony Docker Makefile 🐳 🎵 ——————————————————————————————————
 help: ## Outputs this help screen
@@ -41,6 +41,13 @@ bash: ## Connect to the FrankenPHP container via bash so up and down arrows go t
 test: ## Start tests with pest, pass the parameter "c=" to add options, example: make test c="--group e2e --stop-on-failure"
 	@$(eval c ?=)
 	@$(DOCKER_COMP) exec -e APP_ENV=test php vendor/bin/pest $(c)
+
+test-db-setup: ## Create test database and run migrations
+	@$(DOCKER_COMP) exec -e APP_ENV=test php php bin/console doctrine:database:create --if-not-exists --no-interaction
+	@$(DOCKER_COMP) exec -e APP_ENV=test php php bin/console doctrine:migrations:migrate --no-interaction
+
+test-db-drop: ## Drop test database
+	@$(DOCKER_COMP) exec -e APP_ENV=test php php bin/console doctrine:database:drop --if-exists --force --no-interaction
 
 
 ## —— Code Quality 🧹 ———————————————————————————————————————————————————————

@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  *     message: string
  * }
  * @phpstan-type ApiErrorItem array{
- *     code?: string|int,
+ *     code: string,
  *     message: string,
  *     details?: list<ApiErrorDetail>
  * }
@@ -31,6 +31,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  */
 readonly class ApiResponse implements JsonSerializable
 {
+    /** @var ApiResponseMeta */
+    public array $meta;
+
     /**
      * @param ApiResponseMeta $meta
      * @param ApiErrors       $errors
@@ -38,9 +41,11 @@ readonly class ApiResponse implements JsonSerializable
     public function __construct(
         public bool $isSuccess,
         public mixed $data = null,
-        public array $meta = [],
+        array $meta = [],
         public array $errors = [],
     ) {
+        $meta['timestamp'] ??= self::getTimestamp();
+        $this->meta = $meta;
     }
 
     /**
@@ -51,9 +56,7 @@ readonly class ApiResponse implements JsonSerializable
         return new self(
             isSuccess: true,
             data: $data,
-            meta: array_merge([
-                'timestamp' => self::getTimestamp(),
-            ], $extraMeta),
+            meta: $extraMeta,
             errors: [],
         );
     }
@@ -62,14 +65,12 @@ readonly class ApiResponse implements JsonSerializable
      * @param ApiErrors            $errors
      * @param array<string, mixed> $extraMeta
      */
-    public static function error(array $errors, int $statusCode, array $extraMeta = []): self
+    public static function error(array $errors, array $extraMeta = []): self
     {
         return new self(
             isSuccess: false,
             data: null,
-            meta: array_merge([
-                'timestamp' => self::getTimestamp(),
-            ], $extraMeta),
+            meta: $extraMeta,
             errors: $errors,
         );
     }
@@ -95,7 +96,15 @@ readonly class ApiResponse implements JsonSerializable
 
     public function toJsonResponse(int $statusCode = 200): JsonResponse
     {
-        return new JsonResponse($this, $statusCode);
+        $response = new JsonResponse($this, $statusCode);
+
+        $response->setEncodingOptions(
+            $response->getEncodingOptions()
+            | \JSON_UNESCAPED_UNICODE
+            | \JSON_UNESCAPED_SLASHES
+        );
+
+        return $response;
     }
 
     /**

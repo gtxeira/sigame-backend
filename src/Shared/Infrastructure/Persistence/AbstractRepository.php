@@ -25,24 +25,6 @@ abstract class AbstractRepository extends ServiceEntityRepository
     }
 
     /**
-     * Salva uma entidade (persist + flush).
-     */
-    protected function save(object $entity): void
-    {
-        $this->getEntityManager()->persist($entity);
-        $this->getEntityManager()->flush();
-    }
-
-    /**
-     * Remove uma entidade (remove + flush).
-     */
-    protected function remove(object $entity): void
-    {
-        $this->getEntityManager()->remove($entity);
-        $this->getEntityManager()->flush();
-    }
-
-    /**
      * Obtém o Entity Manager atual.
      */
     protected function entityManager(): \Doctrine\ORM\EntityManagerInterface

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
+use App\Shared\Domain\Exception\InvalidDateTimeException;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use InvalidArgumentException;
 
 /**
  * Value Object imutável para datetimes.
@@ -35,7 +35,7 @@ final readonly class DateTime
         );
 
         if (false === $dt) {
-            throw new InvalidArgumentException("Invalid datetime string: '{$datetime}'");
+            throw new InvalidDateTimeException();
         }
 
         return new self($dt);
@@ -46,7 +46,7 @@ final readonly class DateTime
         $dt = DateTimeImmutable::createFromFormat('U', (string) $timestamp);
 
         if (false === $dt) {
-            throw new InvalidArgumentException("Invalid timestamp: {$timestamp}");
+            throw new InvalidDateTimeException();
         }
 
         return new self($dt);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use InvalidArgumentException;
+use App\Shared\Domain\Exception\InvalidEmailException;
 
 /**
  * Value Object imutável para endereços de e-mail.
@@ -23,7 +23,7 @@ final readonly class Email
         $email = strtolower(trim($email));
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new InvalidArgumentException("Invalid email address: '{$email}'");
+            throw new InvalidEmailException();
         }
 
         return new self($email);
