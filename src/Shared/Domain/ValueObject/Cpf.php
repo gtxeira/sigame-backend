@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Exception\InvalidCpfException;
+use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Functional\ValidationResult;
 
 /**
  * Value Object imutável para CPF (Cadastro de Pessoas Físicas).
  *
- * Valida o formato e os dígitos verificadores no construtor.
+ * Valida o formato e os dígitos verificadores na criação.
+ * Nunca permite a existência de um CPF inválido.
  */
 final readonly class Cpf
 {
@@ -18,15 +20,46 @@ final readonly class Cpf
     ) {
     }
 
-    public static function fromString(string $cpf): self
+    /**
+     * Cria um CPF a partir de uma string, validando formato e dígitos verificadores.
+     *
+     * @return ValidationResult<self>
+     */
+    public static function fromString(string $cpf): ValidationResult
     {
-        $cpf = preg_replace('/\D/', '', $cpf);
+        $normalized = preg_replace('/\D/', '', $cpf);
 
-        if (11 !== strlen($cpf) || preg_match('/^(\d)\1{10}$/', $cpf) || !self::isValidCheckDigits($cpf)) {
-            throw new InvalidCpfException();
+        if (11 !== strlen($normalized)) {
+            return ValidationResult::invalid([
+                new DomainError(
+                    code: 'CPF_INVALID',
+                    message: 'O CPF deve conter exatamente 11 dígitos.',
+                    field: 'cpf',
+                ),
+            ]);
         }
 
-        return new self($cpf);
+        if (preg_match('/^(\d)\1{10}$/', $normalized)) {
+            return ValidationResult::invalid([
+                new DomainError(
+                    code: 'CPF_INVALID',
+                    message: 'O CPF não pode conter todos os dígitos iguais.',
+                    field: 'cpf',
+                ),
+            ]);
+        }
+
+        if (!self::isValidCheckDigits($normalized)) {
+            return ValidationResult::invalid([
+                new DomainError(
+                    code: 'CPF_INVALID',
+                    message: 'O CPF possui dígitos verificadores inválidos.',
+                    field: 'cpf',
+                ),
+            ]);
+        }
+
+        return ValidationResult::valid(new self($normalized));
     }
 
     public function value(): string

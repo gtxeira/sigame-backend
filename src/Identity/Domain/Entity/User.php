@@ -18,7 +18,7 @@ use App\Identity\Domain\ValueObject\UserRole;
 use App\Identity\Domain\ValueObject\UserStatus;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
-use DateTimeImmutable;
+use App\Shared\Domain\ValueObject\Instant;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -35,12 +35,12 @@ final class User
     public function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'user_id', unique: true)]
-        private UserId $id,
+        private readonly UserId $id,
 
-        #[ORM\Column(type: 'cpf', unique: true, length: 11)]
-        private Cpf $cpf,
+        #[ORM\Column(type: 'cpf', length: 11, unique: true)]
+        private readonly Cpf $cpf,
 
-        #[ORM\Column(type: 'email', unique: true, length: 255)]
+        #[ORM\Column(type: 'email', length: 255, unique: true)]
         private Email $email,
 
         #[ORM\Column(type: 'hashed_password', length: 255)]
@@ -61,14 +61,14 @@ final class User
         #[ORM\Column(type: 'string', length: 20, enumType: UserStatus::class)]
         private UserStatus $status,
 
-        #[ORM\Column(type: 'datetime_immutable')]
-        private DateTimeImmutable $createdAt,
+        #[ORM\Column(type: 'instant')]
+        private readonly Instant $createdAt,
 
         #[ORM\Column(type: 'json', nullable: true)]
         private ?UserProfile $profile = null,
 
-        #[ORM\Column(type: 'datetime_immutable', nullable: true)]
-        private ?DateTimeImmutable $updatedAt = null,
+        #[ORM\Column(type: 'instant', nullable: true)]
+        private ?Instant $updatedAt = null,
     ) {
     }
 
@@ -93,7 +93,7 @@ final class User
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
             status: UserStatus::ACTIVE,
-            createdAt: new DateTimeImmutable(),
+            createdAt: Instant::now(),
         );
     }
 
@@ -127,8 +127,8 @@ final class User
 
         $this->profile = $profile;
         $this->onboardingStatus = OnboardingStatus::COMPLETED;
-        $this->level = UserLevel::fromInt(2);
-        $this->updatedAt = new DateTimeImmutable();
+        $this->level = $this->level->next();
+        $this->updatedAt = Instant::now();
     }
 
     /**
@@ -144,7 +144,7 @@ final class User
         }
 
         $this->status = UserStatus::SUSPENDED;
-        $this->updatedAt = new DateTimeImmutable();
+        $this->updatedAt = Instant::now();
     }
 
     /**
@@ -157,7 +157,7 @@ final class User
         }
 
         $this->status = UserStatus::ACTIVE;
-        $this->updatedAt = new DateTimeImmutable();
+        $this->updatedAt = Instant::now();
     }
 
     /**
@@ -230,12 +230,12 @@ final class User
         return $this->status;
     }
 
-    public function createdAt(): DateTimeImmutable
+    public function createdAt(): Instant
     {
         return $this->createdAt;
     }
 
-    public function updatedAt(): ?DateTimeImmutable
+    public function updatedAt(): ?Instant
     {
         return $this->updatedAt;
     }

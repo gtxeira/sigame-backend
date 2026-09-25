@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Event;
 
-use App\Shared\Domain\ValueObject\DateTime;
+use App\Shared\Domain\ValueObject\Instant;
 
 /**
  * Interface para eventos de domínio.
@@ -22,7 +22,7 @@ interface DomainEventInterface
     /**
      * Data/hora em que o evento ocorreu.
      */
-    public function occurredAt(): DateTime;
+    public function occurredAt(): Instant;
 
     /**
      * UUID do usuário que originou o evento (se aplicável).

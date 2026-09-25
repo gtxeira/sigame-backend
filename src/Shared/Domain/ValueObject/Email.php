@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Exception\InvalidEmailException;
+use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Functional\ValidationResult;
 
 /**
  * Value Object imutável para endereços de e-mail.
  *
- * Valida o formato no construtor e garante imutabilidade.
+ * Valida o formato na criação e garante imutabilidade.
+ * Nunca permite a existência de um e-mail inválido.
  */
 final readonly class Email
 {
@@ -18,15 +20,26 @@ final readonly class Email
     ) {
     }
 
-    public static function fromString(string $email): self
+    /**
+     * Cria um e-mail a partir de uma string, validando o formato.
+     *
+     * @return ValidationResult<self>
+     */
+    public static function fromString(string $email): ValidationResult
     {
-        $email = strtolower(trim($email));
+        $normalized = strtolower(trim($email));
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new InvalidEmailException();
+        if (!filter_var($normalized, FILTER_VALIDATE_EMAIL)) {
+            return ValidationResult::invalid([
+                new DomainError(
+                    code: 'EMAIL_INVALID',
+                    message: 'O e-mail informado é inválido.',
+                    field: 'email',
+                ),
+            ]);
         }
 
-        return new self($email);
+        return ValidationResult::valid(new self($normalized));
     }
 
     public function value(): string

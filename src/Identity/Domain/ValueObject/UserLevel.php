@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\ValueObject;
 
-use App\Shared\Domain\Exception\InvalidUserLevelException;
+use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Functional\ValidationResult;
 
 /**
- * Value Object imutável para nível do usuário (1–10).
+ * Value Object imutável para nível do usuário.
  */
 final readonly class UserLevel
 {
-    private const MIN_LEVEL = 1;
-    private const MAX_LEVEL = 10;
+    public const int MIN_LEVEL = 1;
+    public const int MAX_LEVEL = 10;
 
     private function __construct(
         private int $value,
@@ -24,13 +25,32 @@ final readonly class UserLevel
         return new self(self::MIN_LEVEL);
     }
 
-    public static function fromInt(int $level): self
+    /**
+     * @return ValidationResult<self>
+     */
+    public static function fromInt(int $level): ValidationResult
     {
-        if ($level < self::MIN_LEVEL || $level > self::MAX_LEVEL) {
-            throw new InvalidUserLevelException();
+        if ($level < self::MIN_LEVEL) {
+            return ValidationResult::invalid([
+                new DomainError(
+                    code: 'USER_LEVEL_INVALID',
+                    message: 'O nível do usuário deve ser maior ou igual a '.self::MIN_LEVEL,
+                    field: 'level',
+                ),
+            ]);
         }
 
-        return new self($level);
+        if ($level > self::MAX_LEVEL) {
+            return ValidationResult::invalid([
+                new DomainError(
+                    code: 'USER_LEVEL_INVALID',
+                    message: 'O nível do usuário deve ser menor ou igual a '.self::MAX_LEVEL,
+                    field: 'level',
+                ),
+            ]);
+        }
+
+        return ValidationResult::valid(new self($level));
     }
 
     public function value(): int

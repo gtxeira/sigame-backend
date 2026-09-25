@@ -17,8 +17,8 @@ use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 
 it('creates a new user via register factory method', function () {
-    $cpf = Cpf::fromString('52998224725');
-    $email = Email::fromString('test@example.com');
+    $cpf = Cpf::fromString('52998224725')->value();
+    $email = Email::fromString('test@example.com')->value();
     $password = HashedPassword::fromHash('hashed_password_123');
 
     $user = User::register(
@@ -42,8 +42,8 @@ it('creates a new user via register factory method', function () {
 
 it('completes onboarding and advances to level 2', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
@@ -62,15 +62,15 @@ it('completes onboarding and advances to level 2', function () {
     );
 
     expect($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
-        ->and($user->level()->value())->toBe(UserLevel::fromInt(2)->value())
+        ->and($user->level()->value())->toBe(UserLevel::fromInt(2)->value()->value())
         ->and($user->profile()->weight())->toBe($profile->weight())
         ->and($user->profile()->height())->toBe($profile->height());
 });
 
 it('throws exception when completing onboarding without modalities', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
@@ -84,8 +84,8 @@ it('throws exception when completing onboarding without modalities', function ()
 
 it('throws exception when completing onboarding twice', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
@@ -105,8 +105,8 @@ it('throws exception when completing onboarding twice', function () {
 
 it('can create group after completing onboarding (level 2)', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
@@ -124,8 +124,8 @@ it('can create group after completing onboarding (level 2)', function () {
 
 it('suspends and reactivates user', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
@@ -144,8 +144,8 @@ it('suspends and reactivates user', function () {
 
 it('throws exception when suspending already suspended user', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
@@ -156,8 +156,8 @@ it('throws exception when suspending already suspended user', function () {
 
 it('throws exception when reactivating already active user', function () {
     $user = User::register(
-        cpf: Cpf::fromString('52998224725'),
-        email: Email::fromString('test@example.com'),
+        cpf: Cpf::fromString('52998224725')->value(),
+        email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );

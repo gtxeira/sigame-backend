@@ -7,6 +7,7 @@ namespace App\Shared\Infrastructure\Persistence\ORM\Type;
 use App\Identity\Domain\ValueObject\UserLevel;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
+use RuntimeException;
 
 /**
  * Doctrine Type para o Value Object UserLevel.
@@ -26,7 +27,13 @@ final class UserLevelType extends Type
             return null;
         }
 
-        return UserLevel::fromInt((int) $value);
+        $result = UserLevel::fromInt((int) $value);
+
+        if ($result->isInvalid()) {
+            throw new RuntimeException('Dados inválidos no banco de dados para o campo level (UserLevel).');
+        }
+
+        return $result->value();
     }
 
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?int

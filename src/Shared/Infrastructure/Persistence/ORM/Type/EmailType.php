@@ -7,6 +7,7 @@ namespace App\Shared\Infrastructure\Persistence\ORM\Type;
 use App\Shared\Domain\ValueObject\Email;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
+use RuntimeException;
 
 /**
  * Doctrine Type para o Value Object Email.
@@ -26,7 +27,13 @@ final class EmailType extends Type
             return null;
         }
 
-        return Email::fromString($value);
+        $result = Email::fromString($value);
+
+        if ($result->isInvalid()) {
+            throw new RuntimeException('Dados inválidos no banco de dados para o campo Email.');
+        }
+
+        return $result->value();
     }
 
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string

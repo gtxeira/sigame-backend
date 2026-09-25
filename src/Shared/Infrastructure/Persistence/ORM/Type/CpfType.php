@@ -7,6 +7,7 @@ namespace App\Shared\Infrastructure\Persistence\ORM\Type;
 use App\Shared\Domain\ValueObject\Cpf;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
+use RuntimeException;
 
 /**
  * Doctrine Type para o Value Object Cpf.
@@ -26,7 +27,13 @@ final class CpfType extends Type
             return null;
         }
 
-        return Cpf::fromString($value);
+        $result = Cpf::fromString($value);
+
+        if ($result->isInvalid()) {
+            throw new RuntimeException('Dados inválidos no banco de dados para o campo CPF.');
+        }
+
+        return $result->value();
     }
 
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string

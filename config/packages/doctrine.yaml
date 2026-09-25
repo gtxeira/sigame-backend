@@ -3,12 +3,13 @@ doctrine:
         url: '%env(resolve:DATABASE_URL)%'
         profiling_collect_backtrace: '%kernel.debug%'
         types:
-            uuid: App\Shared\Infrastructure\Persistence\ORM\Type\UuidType
+            base_id: App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType
             user_id: App\Shared\Infrastructure\Persistence\ORM\Type\UserIdType
             email: App\Shared\Infrastructure\Persistence\ORM\Type\EmailType
             cpf: App\Shared\Infrastructure\Persistence\ORM\Type\CpfType
             hashed_password: App\Shared\Infrastructure\Persistence\ORM\Type\HashedPasswordType
             user_level: App\Shared\Infrastructure\Persistence\ORM\Type\UserLevelType
+            instant: App\Shared\Infrastructure\Persistence\ORM\Type\InstantType
 
     orm:
         validate_xml_mapping: true
@@ -23,48 +24,48 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Identity/Domain/Entity'
                 prefix: 'App\Identity\Domain\Entity'
                 alias: Identity
-            Groups:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Groups/Domain/Entity'
-                prefix: 'App\Groups\Domain\Entity'
-                alias: Groups
-            Activities:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Activities/Domain/Entity'
-                prefix: 'App\Activities\Domain\Entity'
-                alias: Activities
-            Gamification:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Gamification/Domain/Entity'
-                prefix: 'App\Gamification\Domain\Entity'
-                alias: Gamification
-            Moderation:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Moderation/Domain/Entity'
-                prefix: 'App\Moderation\Domain\Entity'
-                alias: Moderation
-            Sponsorship:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Sponsorship/Domain/Entity'
-                prefix: 'App\Sponsorship\Domain\Entity'
-                alias: Sponsorship
-            Notifications:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Notifications/Domain/Entity'
-                prefix: 'App\Notifications\Domain\Entity'
-                alias: Notifications
-            Reports:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Reports/Domain/Entity'
-                prefix: 'App\Reports\Domain\Entity'
-                alias: Reports
+#            Groups:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Groups/Domain/Entity'
+#                prefix: 'App\Groups\Domain\Entity'
+#                alias: Groups
+#            Activities:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Activities/Domain/Entity'
+#                prefix: 'App\Activities\Domain\Entity'
+#                alias: Activities
+#            Gamification:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Gamification/Domain/Entity'
+#                prefix: 'App\Gamification\Domain\Entity'
+#                alias: Gamification
+#            Moderation:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Moderation/Domain/Entity'
+#                prefix: 'App\Moderation\Domain\Entity'
+#                alias: Moderation
+#            Sponsorship:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Sponsorship/Domain/Entity'
+#                prefix: 'App\Sponsorship\Domain\Entity'
+#                alias: Sponsorship
+#            Notifications:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Notifications/Domain/Entity'
+#                prefix: 'App\Notifications\Domain\Entity'
+#                alias: Notifications
+#            Reports:
+#                type: attribute
+#                is_bundle: false
+#                dir: '%kernel.project_dir%/src/Reports/Domain/Entity'
+#                prefix: 'App\Reports\Domain\Entity'
+#                alias: Reports
 
 when@test:
     doctrine:

@@ -14,8 +14,8 @@ nelmio_api_doc:
                         timestamp:
                             type: string
                             example: "2026-09-21T10:00:00.000+00:00"
-                        pagination:
-                            $ref: "#/components/schemas/PaginationMeta"
+                    required:
+                        - timestamp
 
                 PaginationMeta:
                     type: object
@@ -34,6 +34,16 @@ nelmio_api_doc:
                             type: integer
                             example: 5
 
+                ApiResponsePaginatedMeta:
+                    allOf:
+                        -   $ref: "#/components/schemas/ApiResponseMeta"
+                        -   type: object
+                            properties:
+                                pagination:
+                                    $ref: "#/components/schemas/PaginationMeta"
+                            required:
+                                - pagination
+
                 ApiErrorDetail:
                     type: object
                     description: Detalhe de um erro de validação.
@@ -50,46 +60,62 @@ nelmio_api_doc:
                     description: Um item de erro retornado pela API.
                     properties:
                         code:
-                            oneOf:
-                                - type: string
-                                - type: integer
+                            type: string
                             example: "VALIDATION_ERROR"
                         message:
                             type: string
-                            example: "Dados inválidos."
+                            example: "Um ou mais erros de validação foram encontrados."
                         details:
                             type: array
                             items:
                                 $ref: "#/components/schemas/ApiErrorDetail"
+                    required:
+                        - code
+                        - message
 
                 ApiResponseSuccess:
                     type: object
                     description: Resposta de sucesso padrão.
                     properties:
                         data:
-                            description: Dados da resposta (tipo varia por endpoint).
+                            description: Dados da resposta.
                         meta:
                             $ref: "#/components/schemas/ApiResponseMeta"
                     required:
+                        - data
+                        - meta
+
+                ApiResponsePaginatedSuccess:
+                    type: object
+                    description: Resposta de sucesso com lista paginada.
+                    properties:
+                        data:
+                            type: array
+                            items:
+                                type: object
+                            description: Lista de itens paginados.
+                        meta:
+                            $ref: "#/components/schemas/ApiResponsePaginatedMeta"
+                    required:
+                        - data
                         - meta
 
                 ApiResponseError:
                     type: object
                     description: Resposta de erro padrão.
                     properties:
-                        meta:
-                            $ref: "#/components/schemas/ApiResponseMeta"
                         errors:
                             type: array
                             items:
                                 $ref: "#/components/schemas/ApiErrorItem"
+                        meta:
+                            $ref: "#/components/schemas/ApiResponseMeta"
                     required:
-                        - meta
                         - errors
+                        - meta
 
     areas:
         path_patterns:
             - ^/api(?!/doc$)
-            - ^/health$
 
     type_info: true

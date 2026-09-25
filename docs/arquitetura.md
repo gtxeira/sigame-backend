@@ -46,7 +46,7 @@ composer require symfony/http-client
 1. **Monolito modular** — cada módulo é um namespace independente com suas próprias camadas. Módulos não
    importam classes concretas uns dos outros.
 
-2. **Clean Architecture** — em cada módulo: Domain → Application → Infrastructure → UI (HTTP/Cli).
+2. **Clean Architecture** — em cada módulo: Domain → Application → Infrastructure → Presentation (HTTP/Cli).
 
 3. **Domain puro** — nenhuma dependência de framework nas entidades, Value Objects e regras de negócio. As
    entidades vivem em `Domain/Entity/`, os VOs em `Domain/ValueObject/`, e as políticas em `Domain/Policy/`.
@@ -61,7 +61,7 @@ composer require symfony/http-client
 6. **Entidades ricas** — comportamento nas entidades, não em services anêmicas. A entidade `User` *sabe*
    quando pode criar grupo, quando está suspensa, etc.
 
-7. **Value Objects imutáveis** — `Cpf`, `Email`, `Uuid`, `XpAmount`, `Level` validam e protegem invariantes
+7. **Value Objects imutáveis** — `Cpf`, `Email`, `BaseId`, `XpAmount`, `Level` validam e protegem invariantes
    no construtor. São `readonly` e comparados por valor.
 
 ---
@@ -75,8 +75,8 @@ src/
 │   │   ├── ValueObject/
 │   │   │   ├── Email.php
 │   │   │   ├── Cpf.php
-│   │   │   ├── Uuid.php
-│   │   │   └── DateTime.php
+│   │   │   ├── BaseId.php
+│   │   │   └── Instant.php
 │   │   ├── Event/
 │   │   │   ├── DomainEventInterface.php
 │   │   │   └── DomainEventDispatcherInterface.php
@@ -149,14 +149,14 @@ src/
 │   │   │       └── Type/
 │   │   │           ├── EmailType.php
 │   │   │           ├── CpfType.php
-│   │   │           └── UuidType.php
+│   │   │           └── BaseIdType.php
 │   │   ├── Security/
 │   │   │   ├── SymfonyPasswordHasher.php
 │   │   │   └── LcobucciJwtTokenGenerator.php
 │   │   └── Event/
 │   │       └── UserRegisteredListener.php
 │   │
-│   └── UI/
+│   └── Presentation/
 │       └── Http/
 │           ├── Controller/
 │           │   ├── RegistrationController.php
@@ -195,7 +195,7 @@ src/
 │   │       └── DesignateSupervisor/
 │   ├── Infrastructure/
 │   │   └── Persistence/Doctrine/
-│   └── UI/Http/
+│   └── Presentation/Http/
 │
 ├── Activities/                          # Atividades, Check-in, Presença
 │   ├── Domain/
@@ -221,7 +221,7 @@ src/
 │   │       └── ValidateAttendance/
 │   ├── Infrastructure/
 │   │   └── Persistence/Doctrine/
-│   └── UI/Http/
+│   └── Presentation/Http/
 │
 ├── Gamification/                        # XP, Níveis, Deleveling, Recompensas
 │   ├── Domain/
@@ -245,7 +245,7 @@ src/
 │   │   ├── Persistence/Doctrine/
 │   │   └── Console/
 │   │       └── DelevelingCommand.php
-│   └── UI/Http/
+│   └── Presentation/Http/
 │
 ├── Moderation/                          # Denúncias, Bloqueio, Suspensão
 │   ├── Domain/
@@ -261,7 +261,7 @@ src/
 │   │       ├── BlockUser/
 │   │       └── SuspendAccount/
 │   ├── Infrastructure/
-│   └── UI/Http/
+│   └── Presentation/Http/
 │
 ├── Sponsorship/                         # Patrocínios, Benefícios, Vouchers
 │   ├── Domain/
@@ -280,7 +280,7 @@ src/
 │   │       ├── GenerateVoucher/
 │   │       └── RedeemVoucher/
 │   ├── Infrastructure/
-│   └── UI/Http/
+│   └── Presentation/Http/
 │
 ├── Notifications/                       # Alertas internos
 │   ├── Domain/
@@ -297,7 +297,7 @@ src/
 │   │       ├── MarkAsRead/
 │   │       └── ListNotifications/
 │   ├── Infrastructure/
-│   └── UI/Http/
+│   └── Presentation/Http/
 │
 └── Reports/                             # Indicadores mensais
     ├── Domain/
@@ -312,7 +312,7 @@ src/
     │   ├── Persistence/Doctrine/
     │   └── Console/
     │       └── CalculateReportCommand.php
-    └── UI/Http/
+    └── Presentation/Http/
 ```
 
 ---
@@ -688,7 +688,7 @@ tests/
   `symfony/validator`, `symfony/uid`, `lcobucci/jwt`
 - Configurar Docker Compose com PostgreSQL 18 + Garage (S3)
 - Configurar Doctrine (conexão, migrations)
-- Estruturar `src/Shared/` com VOs base (`Uuid`, `Email`, `Cpf`, `DateTime`)
+- Estruturar `src/Shared/` com VOs base (`BaseId`, `Email`, `Cpf`, `Instant`)
 
 ### Fase 1 — Identity: cadastro
 
@@ -769,15 +769,15 @@ tests/
 
 ## 14. Resumo das decisões arquiteturais
 
-| Decisão                  | Escolha                                    | Justificativa                          |
-|--------------------------|--------------------------------------------|----------------------------------------|
-| Mecanismo de auth        | JWT (access + refresh rotativo)            | SPA Nuxt consome API pura, stateless   |
-| Refresh token            | Opaque, SHA-256, HttpOnly cookie           | Segurança contra XSS                   |
-| Rotação de refresh       | Sim, com detecção de roubo por `family_id` | Prevenção de replay attack             |
-| Access token             | Stateless, 15 min, não persistido          | Performance, simplicidade              |
-| Persistência             | Doctrine ORM, PostgreSQL 18                | Flexibilidade, migrations, constraints |
-| Arquivos (fotos)         | S3 via Flysystem (Garage local)            | Portabilidade, mesmo SDK em prod       |
-| Comunicação cross-module | Domain Events (Symfony Dispatcher)         | Desacoplamento total                   |
-| Estrutura de diretórios  | Namespace por módulo em `src/`             | Modular monolith claro                 |
-| Camadas por módulo       | Domain → Application → Infrastructure → UI | Clean Architecture                     |
-| Testes                   | PestPHP                                    | Sintaxe expressiva, bom DX             |
+| Decisão                  | Escolha                                              | Justificativa                          |
+|--------------------------|------------------------------------------------------|----------------------------------------|
+| Mecanismo de auth        | JWT (access + refresh rotativo)                      | SPA Nuxt consome API pura, stateless   |
+| Refresh token            | Opaque, SHA-256, HttpOnly cookie                     | Segurança contra XSS                   |
+| Rotação de refresh       | Sim, com detecção de roubo por `family_id`           | Prevenção de replay attack             |
+| Access token             | Stateless, 15 min, não persistido                    | Performance, simplicidade              |
+| Persistência             | Doctrine ORM, PostgreSQL 18                          | Flexibilidade, migrations, constraints |
+| Arquivos (fotos)         | S3 via Flysystem (Garage local)                      | Portabilidade, mesmo SDK em prod       |
+| Comunicação cross-module | Domain Events (Symfony Dispatcher)                   | Desacoplamento total                   |
+| Estrutura de diretórios  | Namespace por módulo em `src/`                       | Modular monolith claro                 |
+| Camadas por módulo       | Domain → Application → Infrastructure → Presentation | Clean Architecture                     |
+| Testes                   | PestPHP                                              | Sintaxe expressiva, bom DX             |
