@@ -10,7 +10,7 @@
         "options": {
           "config": {
             "typeCase": "lower",
-            "types": ["ci", "docs", "perf", "refactor", "style", "test", "chore", "revert"],
+            "types": ["feat", "fix", "ci", "docs", "perf", "refactor", "style", "test", "chore", "revert"],
             "scopeCase": "lower",
             "scopeRequired": false,
             "descriptionCase": "lower",
@@ -24,7 +24,10 @@
     "enabled": true,
     "actions": [
       {
-        "action": "\\Ramsey\\CaptainHook\\PrepareConventionalCommit"
+        "action": "\\Ramsey\\CaptainHook\\PrepareConventionalCommit",
+        "options": {
+          "mode": "interactive"
+        }
       }
     ]
   },
@@ -32,10 +35,13 @@
     "enabled": true,
     "actions": [
         {
-            "action": "docker compose exec -T php vendor/bin/php-cs-fixer fix --diff --dry-run"
+            "action": "docker compose exec -T php vendor/bin/php-cs-fixer fix {$STAGED_FILES|of-type:php}"
         },
         {
-            "action": "docker compose exec -T php vendor/bin/phpstan analyse --no-progress"
+            "action": "git add {$STAGED_FILES|of-type:php}"
+        },
+        {
+            "action": "docker compose exec -T php vendor/bin/phpstan analyse --no-progress {$STAGED_FILES|of-type:php}"
         }
     ]
   }
