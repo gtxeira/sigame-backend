@@ -19,6 +19,7 @@ final class ApiResponseErrorsMapper
     public static function fromViolations(ConstraintViolationListInterface $violations): array
     {
         $details = [];
+
         foreach ($violations as $violation) {
             $details[] = [
                 'field' => $violation->getPropertyPath(),

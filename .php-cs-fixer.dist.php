@@ -51,6 +51,22 @@ return new PhpCsFixer\Config()
             'import_constants' => true,
             'import_functions' => false,
         ],
+
+        'blank_line_before_statement' => [
+            'statements' => [
+                'break',
+                'continue',
+                'do',
+                'for',
+                'foreach',
+                'if',
+                'return',
+                'switch',
+                'throw',
+                'try',
+                'while',
+            ],
+        ],
     ])
     ->setFinder($finder)
     ->setRiskyAllowed(true);

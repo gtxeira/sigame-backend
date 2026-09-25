@@ -92,9 +92,11 @@ final readonly class Cpf
     {
         // Primeiro dígito verificador
         $sum = 0;
+
         for ($i = 0; $i < 9; ++$i) {
             $sum += (int) $cpf[$i] * (10 - $i);
         }
+
         $remainder = $sum % 11;
         $firstDigit = $remainder < 2 ? 0 : 11 - $remainder;
 
@@ -104,9 +106,11 @@ final readonly class Cpf
 
         // Segundo dígito verificador
         $sum = 0;
+
         for ($i = 0; $i < 10; ++$i) {
             $sum += (int) $cpf[$i] * (11 - $i);
         }
+
         $remainder = $sum % 11;
         $secondDigit = $remainder < 2 ? 0 : 11 - $remainder;
 
