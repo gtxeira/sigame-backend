@@ -13,7 +13,7 @@
             "types": ["feat", "fix", "ci", "docs", "perf", "refactor", "style", "test", "chore", "revert"],
             "scopeCase": "lower",
             "scopeRequired": false,
-            "descriptionCase": "lower",
+            "descriptionCase": null,
             "descriptionEndMark": ""
           }
         }
@@ -35,7 +35,7 @@
     "enabled": true,
     "actions": [
         {
-            "action": "docker compose exec -T php vendor/bin/php-cs-fixer fix {$STAGED_FILES|of-type:php}"
+            "action": "docker compose exec -T php vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php {$STAGED_FILES|of-type:php}"
         },
         {
             "action": "git add {$STAGED_FILES|of-type:php}"
