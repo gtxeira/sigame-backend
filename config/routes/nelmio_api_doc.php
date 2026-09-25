@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
+
+return static function (RoutingConfigurator $routingConfigurator): void {
+    $routingConfigurator->add('app.api_doc_json', '/doc.json')
+        ->controller('nelmio_api_doc.controller.swagger')
+        ->methods([
+            'GET',
+        ]);
+
+    $routingConfigurator->add('app.scalar', '/doc')
+        ->controller('nelmio_api_doc.controller.scalar')
+        ->methods([
+            'GET',
+        ]);
+};

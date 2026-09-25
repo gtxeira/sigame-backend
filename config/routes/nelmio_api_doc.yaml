@@ -1,9 +1,0 @@
-app.api_doc_json:
-    path: /doc.json
-    methods: GET
-    defaults: { _controller: nelmio_api_doc.controller.swagger }
-
-app.scalar:
-    path: /doc
-    methods: GET
-    defaults: { _controller: nelmio_api_doc.controller.scalar }
