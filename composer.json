@@ -70,6 +70,8 @@
             "phpstan analyse"
         ],
         "test": "pest",
+        "test:unit": "pest --group=unit",
+        "test:integration": "pest --group=integration",
         "test:db:setup": [
             "@php bin/console doctrine:database:create --if-not-exists --no-interaction",
             "@php bin/console doctrine:migrations:migrate --no-interaction"
@@ -93,7 +95,10 @@
         "pestphp/pest-plugin": "^5.0",
         "symfony/browser-kit": "^8.1",
         "symfony/css-selector": "^8.1",
-        "symplify/config-transformer": "^12.5"
+        "symplify/config-transformer": "^12.5",
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan-mockery": "^2.0",
+        "pestphp/pest-plugin-phpstan": "^5.2"
     },
     "autoload-dev": {
         "psr-4": {

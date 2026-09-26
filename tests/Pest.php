@@ -14,4 +14,15 @@ declare(strict_types=1);
 |
 */
 
-uses(Tests\TestCase::class)->in('Unit', 'Feature', 'Api');
+use Tests\TestCase;
+
+uses(TestCase::class)
+   ->in('Unit', 'Integration');
+
+pest()
+    ->group('unit')
+    ->in('Unit');
+
+pest()
+    ->group('integration')
+    ->in('Integration');

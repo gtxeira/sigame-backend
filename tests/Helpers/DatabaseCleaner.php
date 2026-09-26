@@ -6,6 +6,7 @@ namespace Tests\Helpers;
 
 use Doctrine\ORM\EntityManagerInterface;
 use PDO;
+use RuntimeException;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Throwable;
 
@@ -31,6 +32,13 @@ final class DatabaseCleaner
         $connection = $em->getConnection();
         $nativeConnection = $connection->getNativeConnection();
 
+        if (!$nativeConnection instanceof PDO) {
+            throw new RuntimeException(sprintf(
+                'Conexão nativa inesperada: %s.',
+                get_debug_type($nativeConnection),
+            ));
+        }
+
         // Obtém lista de tabelas via PDO nativo
         $stmt = $nativeConnection->query(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
@@ -47,7 +55,7 @@ final class DatabaseCleaner
 
             try {
                 $nativeConnection->exec(
-                    \sprintf('TRUNCATE TABLE "%s" CASCADE', $tableName),
+                    sprintf('TRUNCATE TABLE "%s" CASCADE', $tableName),
                 );
             } catch (Throwable) {
                 // Tabela pode ter problema — ignorar
@@ -61,7 +69,7 @@ final class DatabaseCleaner
 
             try {
                 $nativeConnection->exec(
-                    \sprintf('ALTER SEQUENCE "%s" RESTART WITH 1', $sequenceName),
+                    sprintf('ALTER SEQUENCE "%s" RESTART WITH 1', $sequenceName),
                 );
             } catch (Throwable) {
                 // Sequence não existe para esta tabela — ignorar

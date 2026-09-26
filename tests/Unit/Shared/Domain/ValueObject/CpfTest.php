@@ -4,46 +4,39 @@ declare(strict_types=1);
 
 use App\Shared\Domain\ValueObject\Cpf;
 
-it('creates a valid cpf from string', function () {
-    $result = Cpf::fromString('52998224725');
+it('creates a valid cpf from string', function (string $input, string $expected) {
+    $result = Cpf::fromString($input);
 
-    expect($result->isValid())->toBeTrue()
-        ->and($result->value()->value())->toBe('52998224725');
-});
+    expect($result->isValid())->toBeTrue();
 
-it('normalizes cpf by removing non-digit characters', function () {
-    $result = Cpf::fromString('529.982.247-25');
+    $cpf = $result->value();
 
-    expect($result->isValid())->toBeTrue()
-        ->and($result->value()->value())->toBe('52998224725');
-});
+    expect($cpf->value())->toBe($expected);
+})->with([
+    'plain digits' => ['52998224725', '52998224725'],
+    'formatted' => ['529.982.247-25', '52998224725'],
+]);
 
-it('rejects cpf with wrong length', function () {
-    $result = Cpf::fromString('1234567890');
-
-    expect($result->isInvalid())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('CPF_INVALID')
-        ->and($result->errors()[0]->field)->toBe('cpf');
-});
-
-it('rejects cpf with all same digits', function () {
-    $result = Cpf::fromString('11111111111');
-
-    expect($result->isInvalid())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('CPF_INVALID');
-});
-
-it('rejects cpf with invalid check digits', function () {
-    $result = Cpf::fromString('52998224726');
-
-    expect($result->isInvalid())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('CPF_INVALID');
-});
-
-it('rejects empty string', function () {
-    $result = Cpf::fromString('');
+it('rejects invalid cpf', function (string $input) {
+    $result = Cpf::fromString($input);
 
     expect($result->isInvalid())->toBeTrue();
+})->with([
+    'wrong length' => '1234567890',
+    'all same digits' => '11111111111',
+    'invalid check digits' => '52998224726',
+    'empty string' => '',
+]);
+
+it('reports invalid cpf with code and field', function () {
+    $result = Cpf::fromString('1234567890');
+
+    expect($result->isInvalid())->toBeTrue();
+
+    $error = $result->errors()[0];
+
+    expect($error->code)->toBe('CPF_INVALID')
+        ->and($error->field)->toBe('cpf');
 });
 
 it('formats cpf correctly', function () {

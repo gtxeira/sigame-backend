@@ -7,42 +7,46 @@ use App\Shared\Domain\ValueObject\Email;
 it('creates a valid email from string', function () {
     $result = Email::fromString('user@example.com');
 
-    expect($result->isValid())->toBeTrue()
-        ->and($result->value()->value())->toBe('user@example.com');
+    expect($result->isValid())->toBeTrue();
+
+    $email = $result->value();
+
+    expect($email->value())->toBe('user@example.com');
 });
 
-it('normalizes email to lowercase', function () {
-    $result = Email::fromString('USER@EXAMPLE.COM');
+it('normalizes email', function (string $input, string $expected) {
+    $result = Email::fromString($input);
 
-    expect($result->isValid())->toBeTrue()
-        ->and($result->value()->value())->toBe('user@example.com');
-});
+    expect($result->isValid())->toBeTrue();
 
-it('trims whitespace from email', function () {
-    $result = Email::fromString('  user@example.com  ');
+    $email = $result->value();
 
-    expect($result->isValid())->toBeTrue()
-        ->and($result->value()->value())->toBe('user@example.com');
-});
+    expect($email->value())->toBe($expected);
+})->with([
+    'lowercase' => ['user@example.com', 'user@example.com'],
+    'uppercase' => ['USER@EXAMPLE.COM', 'user@example.com'],
+    'with whitespace' => ['  user@example.com  ', 'user@example.com'],
+]);
 
-it('rejects invalid email format', function () {
+it('rejects invalid email', function (string $input) {
+    $result = Email::fromString($input);
+
+    expect($result->isInvalid())->toBeTrue();
+})->with([
+    'invalid format' => 'not-an-email',
+    'without domain' => 'user@',
+    'without local part' => '@example.com',
+]);
+
+it('reports invalid email with code and field', function () {
     $result = Email::fromString('not-an-email');
 
-    expect($result->isInvalid())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('EMAIL_INVALID')
-        ->and($result->errors()[0]->field)->toBe('email');
-});
-
-it('rejects email without domain', function () {
-    $result = Email::fromString('user@');
-
     expect($result->isInvalid())->toBeTrue();
-});
 
-it('rejects email without local part', function () {
-    $result = Email::fromString('@example.com');
+    $error = $result->errors()[0];
 
-    expect($result->isInvalid())->toBeTrue();
+    expect($error->code)->toBe('EMAIL_INVALID')
+        ->and($error->field)->toBe('email');
 });
 
 it('extracts domain from email', function () {

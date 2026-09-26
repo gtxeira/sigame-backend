@@ -2,7 +2,7 @@
 
 > **Status:** Proposta
 > **Versão:** 0.1
-> **Última atualização:** 2026-09-20
+> **Última atualização:** 2026-09-26
 > **Autor:** Gustavo Teixeira de Sousa
 
 ---
@@ -25,7 +25,7 @@ exclusivamente via **Domain Events**, garantindo desacoplamento.
 | Armazenamento de arquivos | S3 via Flysystem (Garage localmente)            |
 | Validação                 | Symfony Validator                               |
 | Serialização              | Symfony Serializer                              |
-| Testes                    | PestPHP + PHPUnit                               |
+| Testes                    | PestPHP (PHPUnit) + Mockery                         |
 | Code style                | `friendsofphp/php-cs-fixer` (regras `@Symfony`) |
 | Análise estática          | `phpstan/phpstan` + `phpstan-symfony`           |
 
@@ -640,43 +640,92 @@ services:
 
 ## 11. Estrutura de testes
 
+Os testes são divididos em dois grupos — **unidade** e **integração** — e cada um espelha a
+modularização do sistema: `tests/<Tipo>/<Módulo>/<Camada>/...` segue exatamente o caminho de
+`src/<Módulo>/<Camada>/...`.
+
 ```
 tests/
-├── Unit/
+├── Unit/                               # grupo "unit"
 │   ├── Identity/
 │   │   ├── Domain/
 │   │   │   ├── Entity/UserTest.php
-│   │   │   └── ValueObject/CpfTest.php
+│   │   │   └── ValueObject/UserIdTest.php
 │   │   └── Application/
-│   │       └── UseCase/RegisterUserHandlerTest.php
+│   │       └── UseCase/RegisterUser/RegisterUserHandlerTest.php
 │   ├── Gamification/
 │   │   └── Domain/Policy/DelevelingPolicyTest.php
 │   └── Shared/
-│       └── Domain/ValueObject/EmailTest.php
+│       └── Domain/ValueObject/CpfTest.php
 │
-├── Integration/
+├── Integration/                        # grupo "integration"
 │   ├── Identity/
-│   │   └── Infrastructure/Persistence/DoctrineUserRepositoryTest.php
+│   │   ├── Infrastructure/Persistence/DoctrineUserRepositoryTest.php
+│   │   └── Presentation/Http/RegistrationControllerTest.php
 │   └── Groups/
-│       └── Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
+│       ├── Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
+│       └── Presentation/Http/GroupControllerTest.php
 │
-└── Api/
-    ├── Identity/
-    │   ├── RegistrationControllerTest.php
-    │   └── AuthControllerTest.php
-    └── Groups/
-        └── GroupControllerTest.php
+└── Helpers/
+    └── DatabaseCleaner.php
 ```
+
+Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit')`) e rodados com
+`composer test:unit` / `composer test:integration` (ou `make test-unit` / `make test`).
 
 ### Tipos de teste
 
-| Tipo       | Objetivo                                                     | Ferramenta         |
-|------------|--------------------------------------------------------------|--------------------|
-| Unidade    | Entidades, VOs e políticas puras (sem dependências externas) | PestPHP            |
-| Aplicação  | Casos de uso com dependências simuladas (mocks)              | PestPHP            |
-| Integração | Repositórios, banco, constraints, migrations                 | Doctrine Test Pack |
-| API        | Contrato HTTP, autenticação, serialização                    | Symfony Test Pack  |
-| E2E        | Fluxos principais completos (quantidade reduzida)            | BrowserKit         |
+| Tipo       | O que cobre                                                               | Ferramenta                          |
+|------------|---------------------------------------------------------------------------|-------------------------------------|
+| Unidade    | Entidades, VOs, policies **e casos de uso (handlers) com ports mockadas** | PestPHP + Mockery                   |
+| Integração | Repositórios/banco, controllers HTTP, serialização, autenticação, eventos | PestPHP + BrowserKit + Doctrine     |
+
+### Como escrever testes
+
+1. **Mockery para as ports** — as dependências de um handler (repositórios, hashers, dispatchers)
+   sempre são simuladas com `Mockery::mock(Interface::class)` em `beforeEach`, e as expectativas
+   declaradas no teste: `shouldReceive(...)->once()->with(...)`, `Mockery::on(...)` para predicados
+   e `shouldNotReceive(...)` para garantir que algo *não* aconteceu. Nunca `createMock()` do PHPUnit.
+   O Pest fecha e verifica o Mockery automaticamente ao fim de cada teste.
+
+2. **Sem repetir `->value()`** — quando várias asserções leem o mesmo resultado, extrair para uma
+   variável local antes do `expect()`:
+
+   ```php
+   $result = ($this->handler)($command);
+
+   expect($result->isSuccess())->toBeTrue();
+
+   $user = $result->value();
+
+   expect($user->cpf()->value())->toBe($cpf)
+       ->and($user->email()->value())->toBe($email)
+       ->and($user->name())->toBe($name);
+   ```
+
+3. **Datasets do Pest quando reduzem repetição real** — casos parametrizados (entradas inválidas,
+   normalizações, payloads de rejeição) vão direto no `->with(...)`, com o dado colado ao teste:
+
+   ```php
+   it('rejects invalid cpf', function (string $input) {
+       expect(Cpf::fromString($input)->isInvalid())->toBeTrue();
+   })->with([
+       'wrong length' => '1234567890',
+       'all same digits' => '11111111111',
+       'empty string' => '',
+   ]);
+   ```
+
+   Manter sempre **chaves string** para nomear os casos (com chaves numéricas a saída do Pest vira
+   `with dataset "0"`, `"1"`, ...). Declarar um `dataset('nome', [...])` nomeado em vez do array
+   inline só quando o mesmo dataset for reutilizado por mais de um teste. Só usar dataset quando o
+   cenário varia em **dados**; testos com comportamentos distintos ou setup próprio ficam literais.
+   Atenção: entradas de dataset com chaves string são espalhadas como *named arguments* — para
+   passar um array associativo como argumento único, aninhe-o (`'caso' => [['cpf' => '123']]`).
+
+4. **Setup repetido vira helper** — quando a repetição é de construção (factory de entidade), não
+   de dados, extrair uma função auxiliar no próprio arquivo de teste (`makeUser()`) em vez de
+   dataset.
 
 ---
 
@@ -705,7 +754,7 @@ tests/
 - `AuthController` (login, refresh, logout, me)
 - Autenticador Symfony customizado (valida access_token Bearer)
 - Refresh token rotation com detecção de roubo (family_id)
-- Testes: unidade (token service) + API (login → refresh → logout)
+- Testes: unidade (token service) + integração (HTTP: login → refresh → logout)
 
 ### Fase 3 — Identity: onboarding
 
@@ -780,4 +829,4 @@ tests/
 | Comunicação cross-module | Domain Events (Symfony Dispatcher)                   | Desacoplamento total                   |
 | Estrutura de diretórios  | Namespace por módulo em `src/`                       | Modular monolith claro                 |
 | Camadas por módulo       | Domain → Application → Infrastructure → Presentation | Clean Architecture                     |
-| Testes                   | PestPHP                                              | Sintaxe expressiva, bom DX             |
+| Testes                   | PestPHP + Mockery                                    | Sintaxe expressiva, datasets, mocks de ports sem boilerplate |

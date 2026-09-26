@@ -14,9 +14,9 @@ use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 
 beforeEach(function () {
-    $this->userRepository = $this->createMock(UserRepositoryInterface::class);
-    $this->passwordHasher = $this->createMock(PasswordHasherInterface::class);
-    $this->eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+    $this->userRepository = Mockery::mock(UserRepositoryInterface::class);
+    $this->passwordHasher = Mockery::mock(PasswordHasherInterface::class);
+    $this->eventDispatcher = Mockery::mock(EventDispatcherInterface::class);
 
     $this->handler = new RegisterUserHandler(
         userRepository: $this->userRepository,
@@ -33,27 +33,31 @@ it('registers a user successfully', function () {
     $hashedPassword = HashedPassword::fromHash('hashed_secret123');
 
     $this->userRepository
-        ->method('findByCpf')
-        ->willReturn(null);
+        ->shouldReceive('findByCpf')
+        ->once()
+        ->with($cpf)
+        ->andReturn(null);
 
     $this->userRepository
-        ->method('findByEmail')
-        ->willReturn(null);
+        ->shouldReceive('findByEmail')
+        ->once()
+        ->andReturn(null);
 
     $this->passwordHasher
-        ->method('hash')
+        ->shouldReceive('hash')
+        ->once()
         ->with($password)
-        ->willReturn($hashedPassword);
+        ->andReturn($hashedPassword);
 
     $this->userRepository
-        ->expects($this->once())
-        ->method('save')
-        ->with($this->callback(fn (User $user) => $user->cpf()->value() === $cpf));
+        ->shouldReceive('save')
+        ->once()
+        ->with(Mockery::on(static fn (User $user) => $user->cpf()->value() === $cpf));
 
     $this->eventDispatcher
-        ->expects($this->once())
-        ->method('dispatch')
-        ->with($this->callback(fn (UserRegistered $event) => $event instanceof UserRegistered));
+        ->shouldReceive('dispatch')
+        ->once()
+        ->with(Mockery::type(UserRegistered::class));
 
     $command = new RegisterUserCommand(
         cpf: $cpf,
@@ -64,56 +68,36 @@ it('registers a user successfully', function () {
 
     $result = ($this->handler)($command);
 
-    expect($result->isSuccess())->toBeTrue()
-        ->and($result->value())->toBeInstanceOf(User::class)
-        ->and($result->value()->cpf()->value())->toBe($cpf)
-        ->and($result->value()->email()->value())->toBe($email)
-        ->and($result->value()->name())->toBe($name);
+    expect($result->isSuccess())->toBeTrue();
+
+    $user = $result->value();
+
+    expect($user->cpf()->value())->toBe($cpf)
+        ->and($user->email()->value())->toBe($email)
+        ->and($user->name())->toBe($name);
 });
 
-it('returns failure for invalid cpf', function () {
+it('returns failure with expected validation errors', function (string $cpf, string $email, array $expectedCodes) {
     $command = new RegisterUserCommand(
-        cpf: 'invalid',
-        email: 'test@example.com',
+        cpf: $cpf,
+        email: $email,
         name: 'João Silva',
         password: 'secret123',
     );
 
     $result = ($this->handler)($command);
 
-    expect($result->isFailure())->toBeTrue()
-        ->and($result->errors())->toHaveCount(1)
-        ->and($result->errors()[0]->code)->toBe('CPF_INVALID');
-});
+    expect($result->isFailure())->toBeTrue();
 
-it('returns failure for invalid email', function () {
-    $command = new RegisterUserCommand(
-        cpf: '52998224725',
-        email: 'invalid-email',
-        name: 'João Silva',
-        password: 'secret123',
-    );
+    $errors = $result->errors();
 
-    $result = ($this->handler)($command);
-
-    expect($result->isFailure())->toBeTrue()
-        ->and($result->errors())->toHaveCount(1)
-        ->and($result->errors()[0]->code)->toBe('EMAIL_INVALID');
-});
-
-it('accumulates multiple validation errors', function () {
-    $command = new RegisterUserCommand(
-        cpf: 'invalid',
-        email: 'invalid-email',
-        name: 'João Silva',
-        password: 'secret123',
-    );
-
-    $result = ($this->handler)($command);
-
-    expect($result->isFailure())->toBeTrue()
-        ->and($result->errors())->toHaveCount(2);
-});
+    expect($errors)->toHaveCount(count($expectedCodes))
+        ->and(array_map(static fn ($error) => $error->code, $errors))->toBe($expectedCodes);
+})->with([
+    'invalid cpf' => ['invalid', 'test@example.com', ['CPF_INVALID']],
+    'invalid email' => ['52998224725', 'invalid-email', ['EMAIL_INVALID']],
+    'invalid cpf and email' => ['invalid', 'invalid-email', ['CPF_INVALID', 'EMAIL_INVALID']],
+]);
 
 it('returns failure when cpf already exists', function () {
     $cpf = '52998224725';
@@ -127,8 +111,8 @@ it('returns failure when cpf already exists', function () {
     );
 
     $this->userRepository
-        ->method('findByCpf')
-        ->willReturn($existingUser);
+        ->shouldReceive('findByCpf')
+        ->andReturn($existingUser);
 
     $command = new RegisterUserCommand(
         cpf: $cpf,
@@ -139,8 +123,11 @@ it('returns failure when cpf already exists', function () {
 
     $result = ($this->handler)($command);
 
-    expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('USER_CPF_ALREADY_EXISTS');
+    expect($result->isFailure())->toBeTrue();
+
+    $error = $result->errors()[0];
+
+    expect($error->code)->toBe('USER_CPF_ALREADY_EXISTS');
 });
 
 it('returns failure when email already exists', function () {
@@ -155,12 +142,12 @@ it('returns failure when email already exists', function () {
     );
 
     $this->userRepository
-        ->method('findByCpf')
-        ->willReturn(null);
+        ->shouldReceive('findByCpf')
+        ->andReturn(null);
 
     $this->userRepository
-        ->method('findByEmail')
-        ->willReturn($existingUser);
+        ->shouldReceive('findByEmail')
+        ->andReturn($existingUser);
 
     $command = new RegisterUserCommand(
         cpf: $cpf,
@@ -171,8 +158,11 @@ it('returns failure when email already exists', function () {
 
     $result = ($this->handler)($command);
 
-    expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('EMAIL_ALREADY_EXISTS');
+    expect($result->isFailure())->toBeTrue();
+
+    $error = $result->errors()[0];
+
+    expect($error->code)->toBe('EMAIL_ALREADY_EXISTS');
 });
 
 it('does not save user on validation failure', function () {
@@ -183,13 +173,8 @@ it('does not save user on validation failure', function () {
         password: 'secret123',
     );
 
-    $this->userRepository
-        ->expects($this->never())
-        ->method('save');
-
-    $this->eventDispatcher
-        ->expects($this->never())
-        ->method('dispatch');
+    $this->userRepository->shouldNotReceive('save');
+    $this->eventDispatcher->shouldNotReceive('dispatch');
 
     ($this->handler)($command);
 });
@@ -206,16 +191,11 @@ it('does not save user on business rule violation', function () {
     );
 
     $this->userRepository
-        ->method('findByCpf')
-        ->willReturn($existingUser);
+        ->shouldReceive('findByCpf')
+        ->andReturn($existingUser);
 
-    $this->userRepository
-        ->expects($this->never())
-        ->method('save');
-
-    $this->eventDispatcher
-        ->expects($this->never())
-        ->method('dispatch');
+    $this->userRepository->shouldNotReceive('save');
+    $this->eventDispatcher->shouldNotReceive('dispatch');
 
     $command = new RegisterUserCommand(
         cpf: $cpf,

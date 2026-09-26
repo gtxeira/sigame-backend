@@ -59,6 +59,10 @@ test: ## Start tests with pest, pass the parameter "c=" to add options, example:
 	@$(eval c ?=)
 	@$(DOCKER_COMP) exec -e APP_ENV=test php composer test -- $(c)
 
+test-unit:
+	@$(eval c ?=)
+	@$(DOCKER_COMP) exec -e APP_ENV=test php composer test:unit -- $(c)
+
 test-db-setup: ## Create test database and run migrations
 	@$(DOCKER_COMP) exec -e APP_ENV=test php composer test:db:setup
 

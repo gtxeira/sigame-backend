@@ -1,11 +1,14 @@
 includes:
     - vendor/phpstan/phpstan-symfony/extension.neon
     - vendor/phpstan/phpstan-symfony/rules.neon
+    - vendor/pestphp/pest-plugin-phpstan/extension.neon
+    - vendor/phpstan/phpstan-mockery/extension.neon
 
 parameters:
     level: 6
     paths:
         - src
+        - tests
     tmpDir: var/cache/phpstan
 
     symfony:
