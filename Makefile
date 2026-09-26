@@ -38,32 +38,32 @@ sh: ## Connect to the FrankenPHP container
 bash: ## Connect to the FrankenPHP container via bash so up and down arrows go to previous commands
 	@$(PHP_CONT) bash
 
-test: ## Start tests with pest, pass the parameter "c=" to add options, example: make test c="--group e2e --stop-on-failure"
-	@$(eval c ?=)
-	@$(DOCKER_COMP) exec -e APP_ENV=test php vendor/bin/pest $(c)
-
-test-db-setup: ## Create test database and run migrations
-	@$(DOCKER_COMP) exec -e APP_ENV=test php php bin/console doctrine:database:create --if-not-exists --no-interaction
-	@$(DOCKER_COMP) exec -e APP_ENV=test php php bin/console doctrine:migrations:migrate --no-interaction
-
-test-db-drop: ## Drop test database
-	@$(DOCKER_COMP) exec -e APP_ENV=test php php bin/console doctrine:database:drop --if-exists --force --no-interaction
-
 
 ## —— Code Quality 🧹 ———————————————————————————————————————————————————————
-cs: ## Run php-cs-fixer, pass the parameter "c=" to add options, example: make cs c="--dry-run --diff"
+cs-fix: ## Run php-cs-fixer, pass the parameter "c=" to add options, example: make cs c="--dry-run"
 	@$(eval c ?=)
-	@$(DOCKER_COMP) exec php vendor/bin/php-cs-fixer fix $(c)
+	@$(COMPOSER) cs:fix -- $(c)
 
 cs-check: ## Verifica padrões de código sem alterar os arquivos
-	@$(DOCKER_COMP) exec php vendor/bin/php-cs-fixer fix --dry-run --diff
+	@$(COMPOSER) cs:check
 
 phpstan: ## Run phpstan static analysis
-	@$(DOCKER_COMP) exec php bin/console cache:warmup --env=dev
-	@$(DOCKER_COMP) exec php vendor/bin/phpstan analyse --no-progress
+	@$(COMPOSER) phpstan
 
 pest: ## Run pest (alias for test)
 	@$(MAKE) test
+
+
+## —— Tests 🧪 ————————————————————————————————————————————————————————————————
+test: ## Start tests with pest, pass the parameter "c=" to add options, example: make test c="--group e2e"
+	@$(eval c ?=)
+	@$(DOCKER_COMP) exec -e APP_ENV=test php composer test -- $(c)
+
+test-db-setup: ## Create test database and run migrations
+	@$(DOCKER_COMP) exec -e APP_ENV=test php composer test:db:setup
+
+test-db-drop: ## Drop test database
+	@$(DOCKER_COMP) exec -e APP_ENV=test php composer test:db:drop
 
 
 ## —— Composer 🧙 ——————————————————————————————————————————————————————————————
