@@ -671,7 +671,7 @@ tests/
 ```
 
 Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit')`) e rodados com
-`composer test:unit` / `composer test:integration` (ou `make test-unit` / `make test`).
+`composer test:unit` / `composer test:integration` (ou `just test-unit` / `just test`).
 
 ### Tipos de teste
 

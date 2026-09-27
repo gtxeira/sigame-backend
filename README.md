@@ -46,7 +46,7 @@ against a local or a remote model, with an optional network sandbox.
 6. [TLS Certificates](docs/symfony-docker/tls.md)
 7. [Using MySQL instead of PostgreSQL](docs/symfony-docker/mysql.md)
 8. [Using Alpine Linux instead of Debian](docs/symfony-docker/alpine.md)
-9. [Using a Makefile](docs/symfony-docker/makefile.md)
+9. [Using a justfile](docs/symfony-docker/justfile.md)
 10. [Updating the template](docs/symfony-docker/updating.md)
 11. [Troubleshooting](docs/symfony-docker/troubleshooting.md)
 12. [Using AI coding agents](docs/symfony-docker/agents.md)

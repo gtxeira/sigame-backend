@@ -14,7 +14,7 @@ use Throwable;
  * Helper para limpeza do banco de dados de testes.
  *
  * truncateAll() recebe o kernel do teste e limpa as tabelas via sua conexão.
- * Setup e drop do banco são feitos via Makefile (test-db-setup / test-db-drop).
+ * Setup e drop do banco são feitos via justfile (`just test-db-setup` / `just test-db-drop`).
  */
 final class DatabaseCleaner
 {
