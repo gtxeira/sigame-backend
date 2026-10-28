@@ -11,7 +11,7 @@ use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
-final readonly class ControllersTestsHelper
+final readonly class ApiClient
 {
     public function __construct(
         private KernelBrowser $client,
