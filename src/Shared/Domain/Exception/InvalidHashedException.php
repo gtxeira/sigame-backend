@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Exception;
 
+use App\Shared\Domain\Error\SharedErrorCode;
+
 /**
  * Exceção para hash de senha inválido.
  */
@@ -11,12 +13,12 @@ final class InvalidHashedException extends InvalidArgumentException
 {
     public function errorCode(): string
     {
-        return 'INVALID_HASHED_PASSWORD';
+        return SharedErrorCode::InvalidHashedPassword->value;
     }
 
     public function publicMessage(): string
     {
-        return 'The provided password hash is not valid.';
+        return 'O hash de senha informado não é válido.';
     }
 
     public function errorDetails(): array
@@ -24,7 +26,7 @@ final class InvalidHashedException extends InvalidArgumentException
         return [
             [
                 'field' => 'password',
-                'message' => 'Password hash cannot be empty.',
+                'message' => 'O hash da senha não pode ser vazio.',
             ],
         ];
     }

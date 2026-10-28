@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Exception;
 
+use App\Shared\Domain\Error\SharedErrorCode;
+
 /**
  * Exceção para UUID inválido.
  */
@@ -11,12 +13,12 @@ final class InvalidUuidException extends InvalidArgumentException
 {
     public function errorCode(): string
     {
-        return 'INVALID_UUID';
+        return SharedErrorCode::InvalidUuid->value;
     }
 
     public function publicMessage(): string
     {
-        return 'The provided UUID is not valid.';
+        return 'O identificador informado não é válido.';
     }
 
     public function errorDetails(): array
@@ -24,7 +26,7 @@ final class InvalidUuidException extends InvalidArgumentException
         return [
             [
                 'field' => 'id',
-                'message' => 'UUID must be a valid v7 (or compatible) UUID string.',
+                'message' => 'O identificador deve ser um UUID v7 válido.',
             ],
         ];
     }

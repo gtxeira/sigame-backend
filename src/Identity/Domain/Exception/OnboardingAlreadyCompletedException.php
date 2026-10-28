@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\Exception;
 
+use App\Identity\Domain\Error\IdentityErrorCode;
+
 /**
  * Exceção: onboarding já foi concluído.
  */
@@ -11,12 +13,12 @@ final class OnboardingAlreadyCompletedException extends IdentityException
 {
     public function errorCode(): string
     {
-        return 'ONBOARDING_ALREADY_COMPLETED';
+        return IdentityErrorCode::OnboardingAlreadyCompleted->value;
     }
 
     public function publicMessage(): string
     {
-        return 'Onboarding has already been completed.';
+        return 'O onboarding já foi concluído.';
     }
 
     public function errorDetails(): array

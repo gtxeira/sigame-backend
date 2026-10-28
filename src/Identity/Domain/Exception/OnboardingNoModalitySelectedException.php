@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\Exception;
 
+use App\Identity\Domain\Error\IdentityErrorCode;
+
 /**
  * Exceção: nenhuma modalidade selecionada no onboarding.
  */
@@ -11,12 +13,12 @@ final class OnboardingNoModalitySelectedException extends IdentityException
 {
     public function errorCode(): string
     {
-        return 'ONBOARDING_NO_MODALITY_SELECTED';
+        return IdentityErrorCode::OnboardingNoModalitySelected->value;
     }
 
     public function publicMessage(): string
     {
-        return 'At least one modality must be selected.';
+        return 'Pelo menos uma modalidade deve ser selecionada.';
     }
 
     public function errorDetails(): array
@@ -24,7 +26,7 @@ final class OnboardingNoModalitySelectedException extends IdentityException
         return [
             [
                 'field' => 'modalities',
-                'message' => 'At least one modality is required to complete onboarding.',
+                'message' => 'É necessário selecionar ao menos uma modalidade.',
             ],
         ];
     }

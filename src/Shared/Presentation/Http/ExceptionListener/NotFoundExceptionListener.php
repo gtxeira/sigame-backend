@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Presentation\Http\ExceptionListener;
 
+use App\Shared\Presentation\Http\Response\ApiErrorCode;
 use App\Shared\Presentation\Http\Response\ApiResponse;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,7 +24,7 @@ final class NotFoundExceptionListener
         if ($exception instanceof NotFoundHttpException) {
             $response = ApiResponse::error([
                 [
-                    'code' => 'NOT_FOUND',
+                    'code' => ApiErrorCode::NotFound->value,
                     'message' => 'Recurso não encontrado.',
                 ],
             ]);

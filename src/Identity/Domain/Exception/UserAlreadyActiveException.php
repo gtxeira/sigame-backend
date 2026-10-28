@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\Exception;
 
+use App\Identity\Domain\Error\IdentityErrorCode;
+
 /**
  * Exceção: usuário já está ativo.
  */
@@ -11,12 +13,12 @@ final class UserAlreadyActiveException extends IdentityException
 {
     public function errorCode(): string
     {
-        return 'USER_ALREADY_ACTIVE';
+        return IdentityErrorCode::UserAlreadyActive->value;
     }
 
     public function publicMessage(): string
     {
-        return 'This user account is already active.';
+        return 'Esta conta de usuário já está ativa.';
     }
 
     public function errorDetails(): array
@@ -24,7 +26,7 @@ final class UserAlreadyActiveException extends IdentityException
         return [
             [
                 'field' => 'status',
-                'message' => 'User is already active.',
+                'message' => 'O usuário já está ativo.',
             ],
         ];
     }

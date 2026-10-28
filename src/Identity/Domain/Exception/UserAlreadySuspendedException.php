@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\Exception;
 
+use App\Identity\Domain\Error\IdentityErrorCode;
+
 /**
  * Exceção: usuário já está suspenso.
  */
@@ -11,12 +13,12 @@ final class UserAlreadySuspendedException extends IdentityException
 {
     public function errorCode(): string
     {
-        return 'USER_ALREADY_SUSPENDED';
+        return IdentityErrorCode::UserAlreadySuspended->value;
     }
 
     public function publicMessage(): string
     {
-        return 'This user account is already suspended.';
+        return 'Esta conta de usuário já está suspensa.';
     }
 
     public function errorDetails(): array
@@ -24,7 +26,7 @@ final class UserAlreadySuspendedException extends IdentityException
         return [
             [
                 'field' => 'status',
-                'message' => 'User is already suspended.',
+                'message' => 'O usuário já está suspenso.',
             ],
         ];
     }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\Exception;
 
+use App\Identity\Domain\Error\IdentityErrorCode;
+
 /**
  * Exceção: modalidade principal não está entre as modalidades ativas.
  */
@@ -11,12 +13,12 @@ final class OnboardingInvalidPrimaryModalityException extends IdentityException
 {
     public function errorCode(): string
     {
-        return 'ONBOARDING_INVALID_PRIMARY_MODALITY';
+        return IdentityErrorCode::OnboardingInvalidPrimaryModality->value;
     }
 
     public function publicMessage(): string
     {
-        return 'The primary modality must be one of the selected modalities.';
+        return 'A modalidade principal deve ser uma das modalidades selecionadas.';
     }
 
     public function errorDetails(): array
@@ -24,7 +26,7 @@ final class OnboardingInvalidPrimaryModalityException extends IdentityException
         return [
             [
                 'field' => 'primaryModality',
-                'message' => 'Primary modality must be one of the active modalities.',
+                'message' => 'A modalidade principal deve ser uma das modalidades ativas.',
             ],
         ];
     }

@@ -64,6 +64,22 @@ composer require symfony/http-client
 7. **Value Objects imutáveis** — `Cpf`, `Email`, `BaseId`, `XpAmount`, `Level` validam e protegem invariantes
    no construtor. São `readonly` e comparados por valor.
 
+### 2.1 Política de erros
+
+- **Falha esperada e recuperável** (regra de negócio que o cliente deve tratar) → `Result` com
+  `list<DomainError>`. Não usar exceção.
+- **Invariante violada ou quebra de fluxo** (estado impossível, argumento inválido de VO) →
+  `DomainException`, com subclasse concreta por erro.
+- **Todo código de erro nasce em um catálogo** (`*ErrorCode`) do módulo:
+  `SharedErrorCode`, `IdentityErrorCode`, e assim por diante. Alterar o *valor* de um caso é breaking
+  change de contrato com o cliente; renomear o caso não é.
+- **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código
+  não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
+- Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`INTERNAL_ERROR`, `VALIDATION_ERROR`,
+  `NOT_FOUND`) e não são erros de domínio.
+- **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os
+  `message` de `errorDetails()` são exibidos ao cliente da API.
+
 ---
 
 ## 3. Estrutura de diretórios
@@ -77,6 +93,10 @@ src/
 │   │   │   ├── Cpf.php
 │   │   │   ├── BaseId.php
 │   │   │   └── Instant.php
+│   │   ├── Error/
+│   │   │   ├── DomainError.php
+│   │   │   ├── SharedErrorCode.php
+│   │   │   └── SharedErrors.php
 │   │   ├── Event/
 │   │   │   ├── DomainEventInterface.php
 │   │   │   └── DomainEventDispatcherInterface.php
@@ -105,6 +125,9 @@ src/
 │   │   │   ├── HashedPassword.php
 │   │   │   ├── OnboardingStatus.php
 │   │   │   └── UserProfile.php
+│   │   ├── Error/
+│   │   │   ├── IdentityErrorCode.php
+│   │   │   └── IdentityErrors.php
 │   │   ├── Event/
 │   │   │   ├── UserRegistered.php
 │   │   │   └── OnboardingCompleted.php

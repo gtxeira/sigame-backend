@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\SharedErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -31,31 +31,19 @@ final readonly class Cpf
 
         if (11 !== strlen($normalized)) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'CPF_INVALID',
-                    message: 'O CPF deve conter exatamente 11 dígitos.',
-                    field: 'cpf',
-                ),
+                SharedErrors::cpfInvalidLength(),
             ]);
         }
 
         if (preg_match('/^(\d)\1{10}$/', $normalized)) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'CPF_INVALID',
-                    message: 'O CPF não pode conter todos os dígitos iguais.',
-                    field: 'cpf',
-                ),
+                SharedErrors::cpfAllDigitsEqual(),
             ]);
         }
 
         if (!self::isValidCheckDigits($normalized)) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'CPF_INVALID',
-                    message: 'O CPF possui dígitos verificadores inválidos.',
-                    field: 'cpf',
-                ),
+                SharedErrors::cpfInvalidCheckDigits(),
             ]);
         }
 

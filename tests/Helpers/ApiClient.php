@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Helpers;
 
+use JsonException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -114,6 +115,36 @@ final readonly class ApiClient
     public function getKernelBrowser(): KernelBrowser
     {
         return $this->client;
+    }
+
+    /**
+     * Códigos de erro da última resposta, na ordem em que vieram.
+     *
+     * @return list<string>
+     */
+    public function errorCodes(): array
+    {
+        $content = (string) $this->client->getResponse()->getContent();
+
+        try {
+            $decoded = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        if (!is_array($decoded) || !isset($decoded['errors']) || !is_array($decoded['errors'])) {
+            return [];
+        }
+
+        $codes = [];
+
+        foreach ($decoded['errors'] as $error) {
+            if (is_array($error) && isset($error['code']) && is_string($error['code'])) {
+                $codes[] = $error['code'];
+            }
+        }
+
+        return $codes;
     }
 
     /**

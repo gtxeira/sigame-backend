@@ -26,7 +26,7 @@ final class DomainErrorResponse extends OA\Response
                                 type: 'array',
                                 items: new OA\Items(
                                     properties: [
-                                        new OA\Property(property: 'code', type: 'string', example: 'CPF_ALREADY_EXISTS'),
+                                        new OA\Property(property: 'code', type: 'string', example: 'USER_CPF_ALREADY_EXISTS'),
                                         new OA\Property(property: 'message', type: 'string', example: 'Já existe um usuário com este CPF.'),
                                         new OA\Property(
                                             property: 'details',

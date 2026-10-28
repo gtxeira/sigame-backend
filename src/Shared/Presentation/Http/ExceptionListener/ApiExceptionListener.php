@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Presentation\Http\ExceptionListener;
 
+use App\Shared\Presentation\Http\Response\ApiErrorCode;
 use App\Shared\Presentation\Http\Response\ApiResponse;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +25,7 @@ final class ApiExceptionListener
         $response = ApiResponse::error(
             errors: [
                 [
-                    'code' => 'INTERNAL_ERROR',
+                    'code' => ApiErrorCode::InternalError->value,
                     'message' => 'Um erro interno ocorreu. Por favor, aguarde e tente novamente.',
                 ],
             ],

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\ValueObject;
 
-use App\Shared\Domain\Error\DomainError;
+use App\Identity\Domain\Error\IdentityErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -32,21 +32,13 @@ final readonly class UserLevel
     {
         if ($level < self::MIN_LEVEL) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'USER_LEVEL_INVALID',
-                    message: 'O nível do usuário deve ser maior ou igual a '.self::MIN_LEVEL,
-                    field: 'level',
-                ),
+                IdentityErrors::userLevelBelowMinimum(self::MIN_LEVEL),
             ]);
         }
 
         if ($level > self::MAX_LEVEL) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'USER_LEVEL_INVALID',
-                    message: 'O nível do usuário deve ser menor ou igual a '.self::MAX_LEVEL,
-                    field: 'level',
-                ),
+                IdentityErrors::userLevelAboveMaximum(self::MAX_LEVEL),
             ]);
         }
 

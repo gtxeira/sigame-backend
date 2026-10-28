@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\SharedErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 use DateInterval;
 use DateInvalidOperationException;
@@ -56,11 +56,7 @@ final readonly class Instant
         }
 
         return ValidationResult::invalid([
-            new DomainError(
-                code: 'DATE_TIME_INVALID',
-                message: 'Informe uma data RFC 3339 (com ou sem milissegundos) com timezone.',
-                field: 'datetime',
-            ),
+            SharedErrors::dateTimeInvalidFormat(),
         ]);
     }
 
@@ -80,11 +76,7 @@ final readonly class Instant
             );
         } catch (Throwable) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'DATE_TIME_INVALID',
-                    message: 'O timestamp informado é inválido.',
-                    field: 'timestamp',
-                ),
+                SharedErrors::dateTimeInvalidTimestamp(),
             ]);
         }
     }
@@ -258,11 +250,7 @@ final readonly class Instant
         string $operation,
     ): ValidationResult {
         return ValidationResult::invalid([
-            new DomainError(
-                code: 'DATE_TIME_INVALID',
-                message: "Informe um valor positivo maior que zero para $operation $field.",
-                field: $field,
-            ),
+            SharedErrors::dateTimeInvalidAmount($field, $operation),
         ]);
     }
 
@@ -284,11 +272,7 @@ final readonly class Instant
             );
         } catch (DateInvalidOperationException) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'DATE_TIME_INVALID',
-                    message: "Não foi possível modificar o datetime em $unit.",
-                    field: $unit,
-                ),
+                SharedErrors::dateTimeInvalidShift($unit),
             ]);
         }
     }

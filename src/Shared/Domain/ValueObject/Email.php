@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\SharedErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -31,11 +31,7 @@ final readonly class Email
 
         if (!filter_var($normalized, FILTER_VALIDATE_EMAIL)) {
             return ValidationResult::invalid([
-                new DomainError(
-                    code: 'EMAIL_INVALID',
-                    message: 'O e-mail informado é inválido.',
-                    field: 'email',
-                ),
+                SharedErrors::emailInvalid(),
             ]);
         }
 

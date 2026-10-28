@@ -6,10 +6,10 @@ namespace App\Identity\Application\UseCase\RegisterUser;
 
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Domain\Entity\User;
+use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\Event\UserRegistered;
 use App\Identity\Domain\Repository\UserRepositoryInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
-use App\Shared\Domain\Error\DomainError;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\Functional\ValidationResult;
 use App\Shared\Domain\ValueObject\Cpf;
@@ -50,22 +50,14 @@ final readonly class RegisterUserHandler
         // RN01.1: CPF único
         if (null !== $this->userRepository->findByCpf($cpf)) {
             return Result::failure([
-                new DomainError(
-                    code: 'USER_CPF_ALREADY_EXISTS',
-                    message: 'Já existe um usuário com este CPF.',
-                    field: 'cpf',
-                ),
+                IdentityErrors::cpfAlreadyExists(),
             ]);
         }
 
         // RN01.2: Email único
         if (null !== $this->userRepository->findByEmail($email)) {
             return Result::failure([
-                new DomainError(
-                    code: 'EMAIL_ALREADY_EXISTS',
-                    message: 'Já existe um usuário com este e-mail.',
-                    field: 'email',
-                ),
+                IdentityErrors::emailAlreadyExists(),
             ]);
         }
 

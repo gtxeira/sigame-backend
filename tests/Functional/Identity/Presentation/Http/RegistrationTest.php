@@ -44,7 +44,24 @@ it('rejects duplicate email', function () {
     expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
 
     $response = $jsonRequest();
-    expect($response->getStatusCode())->not->toBe(Response::HTTP_CREATED);
+    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
+        ->and($this->api->errorCodes())->toBe(['EMAIL_ALREADY_EXISTS']);
+});
+
+it('rejects duplicate cpf', function () {
+    $cpf = faker()->cpf();
+
+    $jsonRequest = fn () => $this->api->post(
+        route: 'app_auth_register',
+        payload: RegisterUserRequestFactory::new(['cpf' => $cpf])->create(),
+    );
+
+    $response = $jsonRequest();
+    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
+
+    $response = $jsonRequest();
+    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
+        ->and($this->api->errorCodes())->toBe(['USER_CPF_ALREADY_EXISTS']);
 });
 
 it('rejects invalid registration payload', function (array $overrides) {
@@ -53,7 +70,8 @@ it('rejects invalid registration payload', function (array $overrides) {
         payload: RegisterUserRequestFactory::new($overrides)->create(),
     );
 
-    expect($response->getStatusCode())->not->toBe(Response::HTTP_CREATED);
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
 })->with([
     'invalid cpf' => [fn () => ['cpf' => faker()->numerify()]],
     'short password' => [fn () => ['password' => faker()->numerify()]],
