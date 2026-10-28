@@ -7,6 +7,7 @@ $finder = new PhpCsFixer\Finder()
     ->exclude('var')
     ->notPath([
         'config/bundles.php',
+        // Gerado pelo `cache:warmup`; o gerador do Symfony não emite declare(strict_types=1).
         'config/reference.php',
     ])
 ;
