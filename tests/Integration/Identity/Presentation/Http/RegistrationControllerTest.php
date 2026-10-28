@@ -18,10 +18,9 @@ it('returns 201 created with valid data', function () {
         'name' => $name,
     ])->create();
 
-    $response = $this->controllersTestsHelper->sendRequest(
+    $response = $this->controllersTestsHelper->post(
         controllerAction: [RegistrationController::class, 'register'],
         payload: $payload,
-        method: 'POST',
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
@@ -37,10 +36,9 @@ it('returns 201 created with valid data', function () {
 it('rejects duplicate email', function () {
     $email = faker()->email();
 
-    $jsonRequest = fn () => $this->controllersTestsHelper->sendRequest(
+    $jsonRequest = fn () => $this->controllersTestsHelper->post(
         controllerAction: [RegistrationController::class, 'register'],
         payload: RegisterUserRequestFactory::new(['email' => $email])->create(),
-        method: 'POST',
     );
 
     $response = $jsonRequest();
@@ -51,10 +49,9 @@ it('rejects duplicate email', function () {
 });
 
 it('rejects invalid registration payload', function (array $overrides) {
-    $response = $this->controllersTestsHelper->sendRequest(
+    $response = $this->controllersTestsHelper->post(
         controllerAction: [RegistrationController::class, 'register'],
         payload: RegisterUserRequestFactory::new($overrides)->create(),
-        method: 'POST',
     );
 
     expect($response->getStatusCode())->not->toBe(Response::HTTP_CREATED);

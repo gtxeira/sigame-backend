@@ -22,6 +22,61 @@ final readonly class ControllersTestsHelper
     }
 
     /**
+     * Envia uma requisição GET para o controller (em memória).
+     *
+     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
+     * @param array<string, mixed>|object              $payload
+     */
+    public function get(string|array $controllerAction, array|object $payload): Response
+    {
+        return $this->sendRequest($controllerAction, $payload);
+    }
+
+    /**
+     * Envia uma requisição POST para o controller (em memória).
+     *
+     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
+     * @param array<string, mixed>|object              $payload
+     */
+    public function post(string|array $controllerAction, array|object $payload): Response
+    {
+        return $this->sendRequest($controllerAction, $payload, 'POST');
+    }
+
+    /**
+     * Envia uma requisição PATCH para o controller (em memória).
+     *
+     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
+     * @param array<string, mixed>|object              $payload
+     */
+    public function patch(string|array $controllerAction, array|object $payload): Response
+    {
+        return $this->sendRequest($controllerAction, $payload, 'PATCH');
+    }
+
+    /**
+     * Envia uma requisição PUT para o controller (em memória).
+     *
+     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
+     * @param array<string, mixed>|object              $payload
+     */
+    public function put(string|array $controllerAction, array|object $payload): Response
+    {
+        return $this->sendRequest($controllerAction, $payload, 'PUT');
+    }
+
+    /**
+     * Envia uma requisição DELETE para o controller (em memória).
+     *
+     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
+     * @param array<string, mixed>|object              $payload
+     */
+    public function delete(string|array $controllerAction, array|object $payload): Response
+    {
+        return $this->sendRequest($controllerAction, $payload, 'DELETE');
+    }
+
+    /**
      * Envia uma requisição para o controller (em memória).
      *
      * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
