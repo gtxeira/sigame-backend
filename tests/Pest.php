@@ -46,13 +46,11 @@ pest()
         $serializer = $container->get(SerializerInterface::class);
 
         $router = $container->get('router');
-        $serverName = $_ENV['SERVER_NAME'] ?? $_SERVER['SERVER_NAME'];
 
         $this->api = new ApiClient(
             client: $client,
             serializer: $serializer,
             router: $router,
-            apiDomain: $serverName,
         );
     })
     ->group('functional')

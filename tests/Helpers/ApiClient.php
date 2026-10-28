@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Helpers;
 
-use InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -17,88 +17,62 @@ final readonly class ApiClient
         private KernelBrowser $client,
         private SerializerInterface|NormalizerInterface $serializer,
         private RouterInterface $router,
-        private string $apiDomain,
     ) {
     }
 
     /**
-     * Envia uma requisição GET para o controller (em memória).
+     * Envia uma requisição GET para a rota (em memória). O payload vira query string.
      *
-     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
-     * @param array<string, mixed>|object              $payload
+     * @param array<string, mixed>|object $payload
+     * @param array<string, mixed>        $routeParams
      */
-    public function get(string|array $controllerAction, array|object $payload): Response
+    public function get(string $route, array|object $payload = [], array $routeParams = []): Response
     {
-        return $this->sendRequest($controllerAction, $payload);
+        return $this->sendRequest($route, $payload, 'GET', $routeParams);
     }
 
     /**
-     * Envia uma requisição POST para o controller (em memória).
+     * Envia uma requisição POST para a rota (em memória).
      *
-     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
-     * @param array<string, mixed>|object              $payload
+     * @param array<string, mixed>|object $payload
+     * @param array<string, mixed>        $routeParams
      */
-    public function post(string|array $controllerAction, array|object $payload): Response
+    public function post(string $route, array|object $payload = [], array $routeParams = []): Response
     {
-        return $this->sendRequest($controllerAction, $payload, 'POST');
+        return $this->sendRequest($route, $payload, 'POST', $routeParams);
     }
 
     /**
-     * Envia uma requisição PATCH para o controller (em memória).
+     * Envia uma requisição PATCH para a rota (em memória).
      *
-     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
-     * @param array<string, mixed>|object              $payload
+     * @param array<string, mixed>|object $payload
+     * @param array<string, mixed>        $routeParams
      */
-    public function patch(string|array $controllerAction, array|object $payload): Response
+    public function patch(string $route, array|object $payload = [], array $routeParams = []): Response
     {
-        return $this->sendRequest($controllerAction, $payload, 'PATCH');
+        return $this->sendRequest($route, $payload, 'PATCH', $routeParams);
     }
 
     /**
-     * Envia uma requisição PUT para o controller (em memória).
+     * Envia uma requisição PUT para a rota (em memória).
      *
-     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
-     * @param array<string, mixed>|object              $payload
+     * @param array<string, mixed>|object $payload
+     * @param array<string, mixed>        $routeParams
      */
-    public function put(string|array $controllerAction, array|object $payload): Response
+    public function put(string $route, array|object $payload = [], array $routeParams = []): Response
     {
-        return $this->sendRequest($controllerAction, $payload, 'PUT');
+        return $this->sendRequest($route, $payload, 'PUT', $routeParams);
     }
 
     /**
-     * Envia uma requisição DELETE para o controller (em memória).
+     * Envia uma requisição DELETE para a rota (em memória).
      *
-     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
-     * @param array<string, mixed>|object              $payload
+     * @param array<string, mixed>|object $payload
+     * @param array<string, mixed>        $routeParams
      */
-    public function delete(string|array $controllerAction, array|object $payload): Response
+    public function delete(string $route, array|object $payload = [], array $routeParams = []): Response
     {
-        return $this->sendRequest($controllerAction, $payload, 'DELETE');
-    }
-
-    /**
-     * Envia uma requisição para o controller (em memória).
-     *
-     * @param class-string|array{class-string, string} $controllerAction Ex: RegistrationController::class ou [UserController::class, 'show']
-     * @param array<string, mixed>|object              $payload
-     * @param 'GET'|'POST'|'PUT'|'PATCH'|'DELETE'|null $method
-     *
-     * @throws void
-     */
-    public function sendRequest(string|array $controllerAction, array|object $payload, ?string $method = 'GET'): Response
-    {
-        // TODO: Terminar lógica de obter o método http direto do controllerAction
-        /** @phpstan-ignore-next-line */
-        $arrayPayload = $this->serializer->normalize($payload);
-        $uri = $this->resolveUriFromController($controllerAction, $arrayPayload);
-
-        $this->client->jsonRequest(
-            method: $method ?? 'GET',
-            uri: $uri,
-            parameters: $arrayPayload,
-        );
-
-        return $this->client->getResponse();
+        return $this->sendRequest($route, $payload, 'DELETE', $routeParams);
     }
 
     /**
@@ -143,32 +117,36 @@ final readonly class ApiClient
     }
 
     /**
-     * Localiza a rota no Symfony Router correspondente ao Controller/Método informado.
+     * Envia uma requisição para a rota nomeada (em memória).
      *
-     * @param class-string|array{class-string, string} $controllerAction
-     * @param array<string, mixed>                     $urlParameters
+     * @param array<string, mixed>|object         $payload
+     * @param 'GET'|'POST'|'PUT'|'PATCH'|'DELETE' $method
+     * @param array<string, mixed>                $routeParams
      */
-    private function resolveUriFromController(string|array $controllerAction, array $urlParameters = []): string
+    private function sendRequest(string $route, array|object $payload, string $method, array $routeParams = []): Response
     {
-        // Converte array [Controller::class, 'method'] ou string em formato 'Class::method' ou 'Class'
-        $targetController = match (true) {
-            is_array($controllerAction) => sprintf('%s::%s', $controllerAction[0], $controllerAction[1]),
-            class_exists($controllerAction) && method_exists($controllerAction, '__invoke') => sprintf('%s::__invoke', $controllerAction),
-            default => $controllerAction,
-        };
+        $uri = $this->router->generate($route, $routeParams, UrlGeneratorInterface::ABSOLUTE_PATH);
+        $parameters = $this->normalize($payload);
 
-        foreach ($this->router->getRouteCollection() as $routeName => $route) {
-            $controllerAttr = $route->getDefault('_controller');
-
-            if ($controllerAttr === $targetController || $controllerAttr === $controllerAction) {
-                return $this->router->generate($routeName, $urlParameters)
-                    |> (fn (string $route) => str_replace($this->apiDomain, '', $route));
-            }
+        if ('GET' === $method) {
+            $this->client->request($method, $uri, $parameters);
+        } else {
+            $this->client->jsonRequest($method, $uri, $parameters);
         }
 
-        throw new InvalidArgumentException(sprintf(
-            'Nenhuma rota cadastrada foi encontrada para o Controller/Ação "%s".',
-            is_array($controllerAction) ? implode('::', $controllerAction) : $controllerAction,
-        ));
+        return $this->client->getResponse();
+    }
+
+    /**
+     * @param array<string, mixed>|object $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function normalize(array|object $payload): array
+    {
+        /** @var array<string, mixed> $parameters */
+        $parameters = $this->serializer->normalize($payload);
+
+        return $parameters;
     }
 }

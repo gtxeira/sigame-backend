@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Identity\Domain\ValueObject\UserLevel;
 use App\Identity\Domain\ValueObject\UserStatus;
-use App\Identity\Presentation\Http\Controller\RegistrationController;
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Helpers\Factories\RegisterUserRequestFactory;
@@ -19,7 +18,7 @@ it('returns 201 created with valid data', function () {
     ])->create();
 
     $response = $this->api->post(
-        controllerAction: [RegistrationController::class, 'register'],
+        route: 'app_auth_register',
         payload: $payload,
     );
 
@@ -37,7 +36,7 @@ it('rejects duplicate email', function () {
     $email = faker()->email();
 
     $jsonRequest = fn () => $this->api->post(
-        controllerAction: [RegistrationController::class, 'register'],
+        route: 'app_auth_register',
         payload: RegisterUserRequestFactory::new(['email' => $email])->create(),
     );
 
@@ -50,7 +49,7 @@ it('rejects duplicate email', function () {
 
 it('rejects invalid registration payload', function (array $overrides) {
     $response = $this->api->post(
-        controllerAction: [RegistrationController::class, 'register'],
+        route: 'app_auth_register',
         payload: RegisterUserRequestFactory::new($overrides)->create(),
     );
 
