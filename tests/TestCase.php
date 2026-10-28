@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Tests\Helpers\ControllersTestsHelper;
+use PHPUnit\Framework\TestCase as BaseTestCase;
 
-/**
- * @property ControllersTestsHelper $controllersTestsHelper
- */
-abstract class TestCase extends WebTestCase
+abstract class TestCase extends BaseTestCase
 {
 }

@@ -75,9 +75,9 @@
             "pest"
         ],
         "test:unit": "pest --group=unit",
-        "test:integration": [
+        "test:functional": [
             "@test:db:setup",
-            "pest --group=integration"
+            "pest --group=functional"
         ],
         "quality": [
             "@cs:check",

@@ -72,6 +72,11 @@ test *args:
 test-unit:
     @{{ _test_php }} composer test:unit
 
+# Roda apenas os testes funcionais (HTTP)
+[group('Testes')]
+test-functional:
+    @{{ _test_php }} composer test:functional
+
 # Alias para `just test`
 alias pest := test
 
