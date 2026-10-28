@@ -640,8 +640,8 @@ services:
 
 ## 11. Estrutura de testes
 
-Os testes são divididos em dois grupos — **unidade** e **integração** — e cada um espelha a
-modularização do sistema: `tests/<Tipo>/<Módulo>/<Camada>/...` segue exatamente o caminho de
+Os testes são divididos por **tipo** — **unidade**, **funcional** e **integração** — e cada grupo
+espelha a modularização do sistema: `tests/<Tipo>/<Módulo>/<Camada>/...` segue o caminho de
 `src/<Módulo>/<Camada>/...`.
 
 ```
@@ -658,27 +658,28 @@ tests/
 │   └── Shared/
 │       └── Domain/ValueObject/CpfTest.php
 │
-├── Integration/                        # grupo "integration"
-│   ├── Identity/
-│   │   ├── Infrastructure/Persistence/DoctrineUserRepositoryTest.php
-│   │   └── Presentation/Http/RegistrationControllerTest.php
-│   └── Groups/
-│       ├── Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
-│       └── Presentation/Http/GroupControllerTest.php
+├── Functional/                         # grupo "functional"
+│   └── Identity/
+│       └── Presentation/Http/RegistrationTest.php
+│
+├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
+│   └── ...                             # criado junto com o primeiro teste de infraestrutura
 │
 └── Helpers/
-    └── DatabaseCleaner.php
+    ├── ApiClient.php
+    └── Factories/
 ```
 
 Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit')`) e rodados com
-`composer test:unit` / `composer test:integration` (ou `just test-unit` / `just test`).
+`composer test:unit` / `composer test:functional` (ou `just test-unit` / `just test-functional`).
 
 ### Tipos de teste
 
-| Tipo       | O que cobre                                                               | Ferramenta                          |
-|------------|---------------------------------------------------------------------------|-------------------------------------|
-| Unidade    | Entidades, VOs, policies **e casos de uso (handlers) com ports mockadas** | PestPHP + Mockery                   |
-| Integração | Repositórios/banco, controllers HTTP, serialização, autenticação, eventos | PestPHP + BrowserKit + Doctrine     |
+| Tipo       | O que cobre                                                                    | Ferramenta                          |
+|------------|--------------------------------------------------------------------------------|-------------------------------------|
+| Unidade    | Entidades, VOs, policies **e casos de uso (handlers) com ports mockadas**       | PestPHP + Mockery                   |
+| Funcional  | Fronteira HTTP: rotas, status code, payload, serialização, autenticação         | PestPHP + WebTestCase + BrowserKit  |
+| Integração | Adaptadores reais: repositórios/banco, storage, JWT, hasher, eventos            | PestPHP + Doctrine (sem BrowserKit) |
 
 ### Como escrever testes
 
