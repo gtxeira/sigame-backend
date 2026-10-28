@@ -32,7 +32,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 final class User
 {
-    public function __construct(
+    private function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'user_id', unique: true)]
         private readonly UserId $id,

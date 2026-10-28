@@ -47,7 +47,7 @@ bash:
 # Roda o php-cs-fixer --fix (altera os arquivos)
 [group('Código')]
 cs-fix *args:
-    @{{ _php }} composer cs:fix -- "$@"
+    @{{ _php }} composer cs:fix -- {{ args }}
 
 # Verifica o padrão de código sem alterar os arquivos
 [group('Código')]
@@ -64,22 +64,13 @@ phpstan:
 # Roda os testes (pest); ex.: `just test --group e2e`
 [group('Testes')]
 test *args:
-    @{{ _test_php }} composer test -- "$@"
+    @{{ _test_php }} composer test:db:setup
+    @{{ _test_php }} vendor/bin/pest {{ args }}
 
 # Roda apenas os testes unitários
 [group('Testes')]
-test-unit *args:
-    @{{ _test_php }} composer test:unit -- "$@"
-
-# Cria o banco de testes e roda as migrations
-[group('Testes')]
-test-db-setup:
-    @{{ _test_php }} composer test:db:setup
-
-# Remove o banco de testes
-[group('Testes')]
-test-db-drop:
-    @{{ _test_php }} composer test:db:drop
+test-unit:
+    @{{ _test_php }} composer test:unit
 
 # Alias para `just test`
 alias pest := test
@@ -89,7 +80,7 @@ alias pest := test
 # Roda qualquer subcomando do composer; ex.: `just composer req symfony/orm-pack`
 [group('Composer')]
 composer *args:
-    @{{ _php }} composer "$@"
+    @{{ _php }} composer {{ args }}
 
 # Instala as dependências do composer.lock (sem dev)
 [group('Composer')]
@@ -101,7 +92,7 @@ vendor:
 # Roda um comando do console; ex.: `just sf about`
 [group('Symfony')]
 sf *args:
-    @{{ _php }} php bin/console "$@"
+    @{{ _php }} php bin/console {{ args }}
 
 # Limpa o cache
 [group('Symfony')]

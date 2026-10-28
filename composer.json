@@ -69,14 +69,16 @@
             "@php bin/console cache:warmup --env=dev",
             "phpstan analyse"
         ],
-        "test": "pest",
-        "test:unit": "pest --group=unit",
-        "test:integration": "pest --group=integration",
-        "test:db:setup": [
-            "@php bin/console doctrine:database:create --if-not-exists --no-interaction",
-            "@php bin/console doctrine:migrations:migrate --no-interaction"
+        "test:db:setup": "@php bin/console doctrine:database:create --env=test --if-not-exists",
+        "test": [
+            "@test:db:setup",
+            "pest"
         ],
-        "test:db:drop": "@php bin/console doctrine:database:drop --if-exists --force --no-interaction",
+        "test:unit": "pest --group=unit",
+        "test:integration": [
+            "@test:db:setup",
+            "pest --group=integration"
+        ],
         "quality": [
             "@cs:check",
             "@phpstan -- --no-progress",
@@ -98,7 +100,9 @@
         "symplify/config-transformer": "^12.5",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan-mockery": "^2.0",
-        "pestphp/pest-plugin-phpstan": "^5.2"
+        "pestphp/pest-plugin-phpstan": "^5.2",
+        "zenstruck/foundry": "^2.13",
+        "phpstan/phpstan-phpunit": "^2.0"
     },
     "autoload-dev": {
         "psr-4": {

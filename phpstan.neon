@@ -3,6 +3,7 @@ includes:
     - vendor/phpstan/phpstan-symfony/rules.neon
     - vendor/pestphp/pest-plugin-phpstan/extension.neon
     - vendor/phpstan/phpstan-mockery/extension.neon
+    - vendor/phpstan/phpstan-phpunit/extension.neon
 
 parameters:
     level: 6

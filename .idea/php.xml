@@ -212,6 +212,10 @@
       <path value="$PROJECT_DIR$/vendor/mockery/mockery" />
       <path value="$PROJECT_DIR$/vendor/phpstan/phpstan-mockery" />
       <path value="$PROJECT_DIR$/vendor/pestphp/pest-plugin-phpstan" />
+      <path value="$PROJECT_DIR$/vendor/fakerphp/faker" />
+      <path value="$PROJECT_DIR$/vendor/zenstruck/foundry" />
+      <path value="$PROJECT_DIR$/vendor/zenstruck/assert" />
+      <path value="$PROJECT_DIR$/vendor/phpstan/phpstan-phpunit" />
     </include_path>
   </component>
   <component name="PhpInterpreters">
