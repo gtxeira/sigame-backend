@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Monitoring\Infrastructure\Service;
 
+use App\Monitoring\Application\Service\SystemHealthCheckerInterface;
 use Doctrine\DBAL\Connection;
 use Throwable;
 

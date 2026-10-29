@@ -33,7 +33,7 @@ it('resolves a single validation error to 422', function () {
 
 it('resolves a single conflict error to 409', function () {
     $errors = [
-        new DomainError(code: 'USER_CPF_ALREADY_EXISTS', message: 'CPF já cadastrado.', kind: ErrorKind::Conflict),
+        new DomainError(code: 'RESOURCE_CONFLICT', message: 'Recurso já cadastrado.', kind: ErrorKind::Conflict),
     ];
 
     expect((new ErrorStatusResolver())->fromErrors($errors))
@@ -42,7 +42,7 @@ it('resolves a single conflict error to 409', function () {
 
 it('prefers validation when errors are mixed', function () {
     $errors = [
-        new DomainError(code: 'USER_CPF_ALREADY_EXISTS', message: 'CPF já cadastrado.', kind: ErrorKind::Conflict),
+        new DomainError(code: 'RESOURCE_CONFLICT', message: 'Recurso já cadastrado.', kind: ErrorKind::Conflict),
         new DomainError(code: 'EMAIL_INVALID', message: 'E-mail inválido.', kind: ErrorKind::Validation),
     ];
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\ValueObject;
 
-use App\Shared\Domain\Exception\InvalidHashedException;
+use App\Identity\Domain\Exception\InvalidHashedPasswordException;
 
 /**
  * Value Object imutável para senhas hasheadas.
@@ -21,7 +21,7 @@ final readonly class HashedPassword
     public static function fromHash(string $hash): self
     {
         if (empty($hash)) {
-            throw new InvalidHashedException();
+            throw new InvalidHashedPasswordException();
         }
 
         return new self($hash);

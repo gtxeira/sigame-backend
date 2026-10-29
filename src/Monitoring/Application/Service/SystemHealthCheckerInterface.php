@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Monitoring\Infrastructure\Service;
+namespace App\Monitoring\Application\Service;
 
 interface SystemHealthCheckerInterface
 {

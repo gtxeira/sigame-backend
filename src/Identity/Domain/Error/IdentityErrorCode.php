@@ -16,6 +16,7 @@ enum IdentityErrorCode: string
 {
     case UserCpfAlreadyExists = 'USER_CPF_ALREADY_EXISTS';
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
+    case InvalidHashedPassword = 'INVALID_HASHED_PASSWORD';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
     case OnboardingAlreadyCompleted = 'ONBOARDING_ALREADY_COMPLETED';
     case OnboardingInvalidPrimaryModality = 'ONBOARDING_INVALID_PRIMARY_MODALITY';
@@ -33,6 +34,7 @@ enum IdentityErrorCode: string
             self::UserAlreadySuspended => ErrorKind::Conflict,
 
             self::UserLevelInvalid,
+            self::InvalidHashedPassword,
             self::OnboardingInvalidPrimaryModality,
             self::OnboardingNoModalitySelected => ErrorKind::Validation,
         };

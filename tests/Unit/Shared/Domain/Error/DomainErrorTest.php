@@ -34,8 +34,8 @@ it('creates a domain error with optional field', function () {
 
 it('creates a domain error with null field explicitly', function () {
     $error = new DomainError(
-        code: 'USER_CPF_ALREADY_EXISTS',
-        message: 'Já existe um usuário com este CPF.',
+        code: 'RESOURCE_CONFLICT',
+        message: 'O recurso já existe.',
         kind: ErrorKind::Conflict,
         field: null,
     );

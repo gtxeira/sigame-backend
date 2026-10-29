@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Monitoring\Presentation\Http\Controller;
 
-use App\Monitoring\Infrastructure\Service\SystemHealthCheckerInterface;
+use App\Monitoring\Application\Service\SystemHealthCheckerInterface;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
 use App\Shared\Presentation\Http\Response\ApiResponse;
 use OpenApi\Attributes as OA;

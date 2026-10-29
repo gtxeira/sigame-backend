@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\Error\IdentityErrors;
+use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Error\SharedErrors;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Presentation\Http\Response\ErrorStatusResolver;
@@ -23,7 +24,14 @@ it('returns 409 for conflict failures', function () {
     $responder = new ResultResponder(new ErrorStatusResolver());
 
     $response = $responder->failure(
-        Result::failure([IdentityErrors::cpfAlreadyExists()]),
+        Result::failure([
+            new DomainError(
+                code: 'RESOURCE_CONFLICT',
+                message: 'O recurso já existe.',
+                kind: ErrorKind::Conflict,
+                field: 'resource',
+            ),
+        ]),
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT);

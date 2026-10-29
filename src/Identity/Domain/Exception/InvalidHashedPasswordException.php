@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace App\Shared\Domain\Exception;
+namespace App\Identity\Domain\Exception;
 
+use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Shared\Domain\Error\ErrorKind;
-use App\Shared\Domain\Error\SharedErrorCode;
 
 /**
  * Exceção para hash de senha inválido.
  */
-final class InvalidHashedException extends InvalidArgumentException
+final class InvalidHashedPasswordException extends IdentityException
 {
     public function errorCode(): string
     {
-        return SharedErrorCode::InvalidHashedPassword->value;
+        return IdentityErrorCode::InvalidHashedPassword->value;
     }
 
     public function kind(): ErrorKind
     {
-        return SharedErrorCode::InvalidHashedPassword->kind();
+        return IdentityErrorCode::InvalidHashedPassword->kind();
     }
 
     public function publicMessage(): string

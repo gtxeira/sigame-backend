@@ -52,11 +52,12 @@ composer require symfony/http-client
    entidades vivem em `Domain/Entity/`, os VOs em `Domain/ValueObject/`, e as políticas em `Domain/Policy/`.
 
 4. **Comunicação cross-module via Domain Events** — um módulo publica eventos, outro escuta. Nunca
-   importação direta entre módulos. Eventos são disparados via `DomainEventDispatcherInterface` (porta)
-   implementado por `SymfonyEventDispatcherAdapter`.
+   importação direta entre módulos. Eventos são disparados via `EventDispatcherInterface` (porta em
+   `Shared/Application/Event/`) implementado por `SymfonyEventDispatcherAdapter`.
 
-5. **Ports & Adapters** — repositórios e serviços externos são definidos como interfaces no Domain. A
-   Infrastructure fornece as implementações concretas (Doctrine, Lcobucci, Flysystem, etc.).
+5. **Ports & Adapters** — repositórios e serviços externos são definidos como interfaces no Domain ou na
+   Application (quando a porta representa uma capacidade da aplicação, como hashing). A Infrastructure
+   fornece as implementações concretas (Doctrine, Lcobucci, Flysystem, etc.).
 
 6. **Entidades ricas** — comportamento nas entidades, não em services anêmicas. A entidade `User` *sabe*
    quando pode criar grupo, quando está suspensa, etc.
@@ -87,9 +88,41 @@ composer require symfony/http-client
 - **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os
   `message` de `errorDetails()` são exibidos ao cliente da API.
 
+### 2.2 Regras de fronteira entre módulos
+
+Estas regras definem o que pertence a cada módulo e são verificadas automaticamente pelo teste
+`tests/Unit/Architecture/ModuleBoundariesTest.php`:
+
+1. **`Shared` é o kernel, não um depósito** — não pode importar nenhum módulo funcional (`Identity`,
+   `Monitoring`, futuros módulos). Tudo que é específico de um módulo fica dentro dele.
+2. **Módulo funcional importa apenas a si próprio e `Shared`** — um módulo não referencia classes
+   concretas de outro módulo. A comunicação é feita por Domain Events.
+3. **Adapters específicos ficam no módulo dono** — Doctrine Types, listeners, controllers, DTOs,
+   Policies e configurações de mapeamento de um módulo vivem sob o namespace desse módulo.
+4. **Cada camada tem um dono** — a Presentation só conhece Application; a Infrastructure implementa
+   portas de Domain/Application; o Domain não conhece Infrastructure nem Presentation.
+5. **Testes espelham a origem** — `tests/Unit/<Módulo>/<Camada>/...` acompanha
+   `src/<Módulo>/<Camada>/...`. Testes transversais (catálogos de erro e fronteiras) ficam em
+   `tests/Unit/Architecture/`.
+
+### 2.3 Checklist para um novo módulo
+
+- Criar `src/<Módulo>/{Domain,Application,Infrastructure,Presentation}` conforme as camadas necessárias.
+- Declarar portas em `Domain` (regras/repositórios) ou `Application` (capacidades da aplicação).
+- Registrar mapeamentos Doctrine no `config/packages/doctrine.php`, apontando para o diretório de
+  entidades do módulo.
+- Publicar/consumir Domain Events com `EventDispatcherInterface`; não importar o outro módulo.
+- Espelhar os testes em `tests/Unit/<Módulo>/...` e, se houver HTTP, `tests/Functional/<Módulo>/...`.
+- Rodar `composer quality` (cs, phpstan e Pest) — o teste de fronteiras impede regressões.
+
 ---
 
 ## 3. Estrutura de diretórios
+
+Cada módulo declara apenas as camadas que fazem sentido para o seu domínio. Módulos de negócio
+(`Identity`, `Groups`, ...) usam Domain → Application → Infrastructure → Presentation; módulos
+técnicos (como `Monitoring`) podem omitir Domain, mantendo a porta na Application e o adapter na
+Infrastructure.
 
 ```
 src/
@@ -102,22 +135,40 @@ src/
 │   │   │   └── Instant.php
 │   │   ├── Error/
 │   │   │   ├── DomainError.php
+│   │   │   ├── ErrorKind.php
 │   │   │   ├── SharedErrorCode.php
 │   │   │   └── SharedErrors.php
 │   │   ├── Event/
 │   │   │   ├── DomainEventInterface.php
-│   │   │   └── DomainEventDispatcherInterface.php
+│   │   │   └── AbstractDomainEvent.php
 │   │   └── Exception/
 │   │       ├── DomainException.php
-│   │       └── InvalidArgumentException.php
+│   │       ├── InvalidArgumentException.php
+│   │       └── InvalidUuidException.php
 │   ├── Application/
 │   │   └── Event/
 │   │       └── EventDispatcherInterface.php
 │   └── Infrastructure/
 │       ├── Persistence/
-│       │   └── AbstractRepository.php
+│       │   ├── AbstractRepository.php
+│       │   └── ORM/Type/               # Tipos dos VOs realmente compartilhados
+│       │       ├── BaseIdType.php
+│       │       ├── CpfType.php
+│       │       ├── EmailType.php
+│       │       └── InstantType.php
 │       └── Event/
 │           └── SymfonyEventDispatcherAdapter.php
+│
+├── Monitoring/                          # Liveness, Readiness e saúde das dependências
+│   ├── Application/
+│   │   └── Service/
+│   │       └── SystemHealthCheckerInterface.php   # porta da aplicação
+│   ├── Infrastructure/
+│   │   └── Service/
+│   │       └── SystemHealthChecker.php            # adapter (Doctrine/DBAL)
+│   └── Presentation/
+│       └── Http/Controller/
+│           └── HealthController.php
 │
 ├── Identity/                            # Cadastro, Autenticação, Onboarding
 │   ├── Domain/
@@ -138,6 +189,9 @@ src/
 │   │   ├── Event/
 │   │   │   ├── UserRegistered.php
 │   │   │   └── OnboardingCompleted.php
+│   │   ├── Exception/
+│   │   │   ├── IdentityException.php
+│   │   │   └── InvalidHashedPasswordException.php
 │   │   └── Repository/
 │   │       ├── UserRepositoryInterface.php
 │   │       └── RefreshTokenRepositoryInterface.php
@@ -167,19 +221,16 @@ src/
 │   ├── Infrastructure/
 │   │   ├── Persistence/
 │   │   │   ├── Doctrine/
-│   │   │   │   ├── Entity/
-│   │   │   │   │   ├── User.orm.php
-│   │   │   │   │   └── RefreshToken.orm.php
 │   │   │   │   ├── Repository/
 │   │   │   │   │   ├── DoctrineUserRepository.php
 │   │   │   │   │   └── DoctrineRefreshTokenRepository.php
 │   │   │   │   └── Migration/
 │   │   │   │       └── Version*.php
 │   │   │   └── ORM/
-│   │   │       └── Type/
-│   │   │           ├── EmailType.php
-│   │   │           ├── CpfType.php
-│   │   │           └── BaseIdType.php
+│   │   │       └── Type/               # Tipos específicos do módulo Identity
+│   │   │           ├── UserIdType.php
+│   │   │           ├── UserLevelType.php
+│   │   │           └── HashedPasswordType.php
 │   │   ├── Security/
 │   │   │   ├── SymfonyPasswordHasher.php
 │   │   │   └── LcobucciJwtTokenGenerator.php
@@ -577,7 +628,7 @@ final class User
 
 - `DomainEventInterface` — interface base com `eventName(): string` e `occurredAt(): DateTimeImmutable`
 - Cada módulo define seus eventos como classes `final` que implementam `DomainEventInterface`
-- `DomainEventDispatcherInterface` — porta definida no `Shared/Domain/Event/`
+- `EventDispatcherInterface` — porta definida no `Shared/Application/Event/` (usada pelos handlers)
 - `SymfonyEventDispatcherAdapter` — adapta para o EventDispatcher nativo do Symfony
 - Listeners registrados como serviços com `#[AsEventListener]`
 
@@ -591,6 +642,7 @@ final class User
 | `RefreshTokenRepositoryInterface` | `DoctrineRefreshTokenRepository` | `doctrine/orm-pack`        |
 | `PasswordHasherInterface`         | `SymfonyPasswordHasher`          | `symfony/security-bundle`  |
 | `JwtTokenGeneratorInterface`      | `LcobucciJwtTokenGenerator`      | `lcobucci/jwt`             |
+| `SystemHealthCheckerInterface`    | `SystemHealthChecker`            | `doctrine/dbal`            |
 | `EventDispatcherInterface`        | `SymfonyEventDispatcherAdapter`  | `symfony/event-dispatcher` |
 | `FileStorageInterface` (futuro)   | `FlysystemS3Adapter`             | `league/flysystem`         |
 
@@ -645,25 +697,47 @@ Todas as rotas da API utilizam o prefixo `/api/v1`.
 
 ## 10. Configuração de serviços
 
-```yaml
-# config/services.yaml
-services:
-    _defaults:
-        autowire: true
-        autoconfigure: true
+A configuração é PHP puro. O carregamento é global (`App\` → `src/`) e cada classe é registrada
+automaticamente por autowiring/autoconfiguração; não há service definition por módulo.
 
-    App\:
-        resource: '../src/'
+```php
+// config/services.php
+return static function (ContainerConfigurator $containerConfigurator): void {
+    $services = $containerConfigurator->services();
 
-    # Event listeners (módulo Identity)
-    App\Identity\Infrastructure\Event\:
-        resource: '../src/Identity/Infrastructure/Event/'
-        tags: [ 'event_listener' ]
+    $services->defaults()
+        ->autowire()
+        ->autoconfigure();
 
-    # Security adapters
-    App\Identity\Infrastructure\Security\:
-        resource: '../src/Identity/Infrastructure/Security/'
-        tags: [ 'controller.service_arguments' ]
+    $services->load('App\\', __DIR__.'/../src/');
+};
+```
+
+O registro de mapeamentos e DBAL Types é centralizado em `config/packages/doctrine.php`, mas os
+Types ficam no módulo dono do VO:
+
+```php
+use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
+use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
+use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
+use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
+use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
+
+'dbal' => [
+    'types' => [
+        // Shared
+        'base_id' => BaseIdType::class,
+        'email' => EmailType::class,
+        'cpf' => CpfType::class,
+        'instant' => InstantType::class,
+        // Identity
+        'user_id' => UserIdType::class,
+        'hashed_password' => HashedPasswordType::class,
+        'user_level' => UserLevelType::class,
+    ],
+],
 ```
 
 ---
@@ -672,32 +746,49 @@ services:
 
 Os testes são divididos por **tipo** — **unidade**, **funcional** e **integração** — e cada grupo
 espelha a modularização do sistema: `tests/<Tipo>/<Módulo>/<Camada>/...` segue o caminho de
-`src/<Módulo>/<Camada>/...`.
+`src/<Módulo>/<Camada>/...`. Testes que atravessam módulos (catálogos de erro, fronteiras) ficam em
+`tests/Unit/Architecture/`.
 
 ```
 tests/
 ├── Unit/                               # grupo "unit"
+│   ├── Architecture/
+│   │   ├── ErrorCodeCatalogTest.php       # unicidade/classificação entre catálogos
+│   │   └── ModuleBoundariesTest.php       # Shared × módulos e imports cruzados
 │   ├── Identity/
 │   │   ├── Domain/
 │   │   │   ├── Entity/UserTest.php
-│   │   │   └── ValueObject/UserIdTest.php
+│   │   │   ├── Error/IdentityErrorsTest.php
+│   │   │   ├── Exception/IdentityExceptionTest.php
+│   │   │   └── ValueObject/
+│   │   │       ├── UserIdTest.php
+│   │   │       └── HashedPasswordTest.php
 │   │   └── Application/
 │   │       └── UseCase/RegisterUser/RegisterUserHandlerTest.php
 │   ├── Gamification/
 │   │   └── Domain/Policy/DelevelingPolicyTest.php
 │   └── Shared/
-│       └── Domain/ValueObject/CpfTest.php
+│       ├── Domain/
+│       │   ├── Error/
+│       │   ├── Exception/
+│       │   ├── Functional/
+│       │   └── ValueObject/CpfTest.php
+│       └── Presentation/Http/Response/
 │
 ├── Functional/                         # grupo "functional"
-│   └── Identity/
-│       └── Presentation/Http/RegistrationTest.php
+│   ├── Identity/
+│   │   └── Presentation/Http/
+│   │       ├── RegistrationTest.php
+│   │       └── Request/RegisterUserRequestFactory.php
+│   └── Monitoring/
+│       └── Presentation/Http/HealthTest.php
 │
 ├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
 │   └── ...                             # criado junto com o primeiro teste de infraestrutura
 │
-└── Helpers/
+└── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php
-    └── Factories/
+    └── Factories/HasBrFakerTrait.php
 ```
 
 Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit')`) e rodados com

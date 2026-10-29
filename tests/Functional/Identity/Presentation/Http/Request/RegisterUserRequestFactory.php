@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Tests\Helpers\Factories;
+namespace Tests\Functional\Identity\Presentation\Http\Request;
 
 use App\Identity\Presentation\Http\Request\RegisterUserRequest;
+use Tests\Helpers\Factories\HasBrFakerTrait;
 use Zenstruck\Foundry\ObjectFactory;
 
 /**

@@ -81,7 +81,7 @@
         ],
         "quality": [
             "@cs:check",
-            "@phpstan -- --no-progress",
+            "@phpstan",
             "@test"
         ],
         "config-transformer": "vendor/bin/config-transformer"

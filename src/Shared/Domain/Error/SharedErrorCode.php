@@ -16,7 +16,6 @@ enum SharedErrorCode: string
     case EmailInvalid = 'EMAIL_INVALID';
     case DateTimeInvalid = 'DATE_TIME_INVALID';
     case InvalidUuid = 'INVALID_UUID';
-    case InvalidHashedPassword = 'INVALID_HASHED_PASSWORD';
 
     public function kind(): ErrorKind
     {
@@ -24,8 +23,7 @@ enum SharedErrorCode: string
             self::CpfInvalid,
             self::EmailInvalid,
             self::DateTimeInvalid,
-            self::InvalidUuid,
-            self::InvalidHashedPassword => ErrorKind::Validation,
+            self::InvalidUuid => ErrorKind::Validation,
         };
     }
 }

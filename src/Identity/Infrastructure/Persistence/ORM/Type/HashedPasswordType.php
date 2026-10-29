@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Shared\Infrastructure\Persistence\ORM\Type;
+namespace App\Identity\Infrastructure\Persistence\ORM\Type;
 
 use App\Identity\Domain\ValueObject\HashedPassword;
 use Doctrine\DBAL\Platforms\AbstractPlatform;

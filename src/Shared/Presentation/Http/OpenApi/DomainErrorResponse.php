@@ -26,14 +26,14 @@ final class DomainErrorResponse extends OA\Response
                                 type: 'array',
                                 items: new OA\Items(
                                     properties: [
-                                        new OA\Property(property: 'code', type: 'string', example: 'USER_CPF_ALREADY_EXISTS'),
-                                        new OA\Property(property: 'message', type: 'string', example: 'Já existe um usuário com este CPF.'),
+                                        new OA\Property(property: 'code', type: 'string', example: 'RESOURCE_CONFLICT'),
+                                        new OA\Property(property: 'message', type: 'string', example: 'A operação conflita com o estado atual do recurso.'),
                                         new OA\Property(
                                             property: 'details',
                                             type: 'array',
                                             items: new OA\Items(
                                                 properties: [
-                                                    new OA\Property(property: 'field', type: 'string', example: 'cpf'),
+                                                    new OA\Property(property: 'field', type: 'string', example: 'field'),
                                                 ],
                                                 type: 'object',
                                             ),

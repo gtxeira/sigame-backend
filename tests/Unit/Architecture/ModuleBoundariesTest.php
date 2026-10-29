@@ -1,0 +1,151 @@
+<?php
+
+declare(strict_types=1);
+
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
+
+/**
+ * Módulos encontrados em `src/` (tudo que não seja o Kernel).
+ *
+ * @return list<string>
+ */
+function sourceModules(): array
+{
+    $sourceDirectory = dirname(__DIR__, 3).'/src';
+    $modules = [];
+
+    foreach (new DirectoryIterator($sourceDirectory) as $entry) {
+        if ($entry->isDir() && !$entry->isDot()) {
+            $modules[] = $entry->getFilename();
+        }
+    }
+
+    sort($modules);
+
+    return $modules;
+}
+
+/**
+ * Extrai o módulo de um FQCN `App\<Módulo>\...`.
+ */
+function moduleOfClass(string $className): ?string
+{
+    $parts = explode('\\', $className);
+
+    if ('App' !== $parts[0] || !isset($parts[1])) {
+        return null;
+    }
+
+    return $parts[1];
+}
+
+/**
+ * Regra de importação entre módulos:
+ * - um módulo pode importar a si próprio;
+ * - qualquer módulo pode importar `Shared`;
+ * - `Shared` não pode importar módulos funcionais.
+ */
+function moduleImportIsAllowed(string $sourceModule, string $targetModule): bool
+{
+    if ($targetModule === $sourceModule) {
+        return true;
+    }
+
+    return 'Shared' === $targetModule && 'Shared' !== $sourceModule;
+}
+
+/**
+ * Verifica as regras de fronteira da modularização:
+ * - `Shared` não pode importar nenhum módulo funcional;
+ * - um módulo funcional só pode importar a si próprio e `Shared`.
+ *
+ * @return list<array{file: string, module: string, imported: string, target: string}>
+ */
+function moduleBoundaryViolations(): array
+{
+    $projectDirectory = dirname(__DIR__, 3);
+    $violations = [];
+
+    foreach (sourceModules() as $module) {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator(
+                $projectDirectory.'/src/'.$module,
+                FilesystemIterator::SKIP_DOTS,
+            ),
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file instanceof SplFileInfo || !$file->isFile() || 'php' !== $file->getExtension()) {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($file->getPathname());
+
+            preg_match_all(
+                '/^use\s+(App\\\\[A-Za-z0-9_\\\\]+)(?:\s+as\s+\w+)?;/m',
+                $contents,
+                $matches,
+            );
+
+            foreach ($matches[1] as $imported) {
+                $target = moduleOfClass($imported);
+
+                if (null === $target || $target === $module) {
+                    continue;
+                }
+
+                if (moduleImportIsAllowed($module, $target)) {
+                    continue;
+                }
+
+                $violations[] = [
+                    'file' => str_replace($projectDirectory.'/', '', $file->getPathname()),
+                    'module' => $module,
+                    'imported' => $imported,
+                    'target' => $target,
+                ];
+            }
+        }
+    }
+
+    return $violations;
+}
+
+it('discovers the current source modules', function () {
+    expect(sourceModules())->toContain('Shared', 'Identity', 'Monitoring');
+});
+
+it('classifies imports according to the module boundary rules', function (
+    string $sourceModule,
+    string $targetModule,
+    bool $allowed,
+) {
+    expect(moduleImportIsAllowed($sourceModule, $targetModule))->toBe($allowed);
+})->with([
+    'module imports itself' => ['Identity', 'Identity', true],
+    'module imports Shared' => ['Identity', 'Shared', true],
+    'Shared imports itself' => ['Shared', 'Shared', true],
+    'Shared imports feature module' => ['Shared', 'Identity', false],
+    'feature module imports another feature module' => ['Identity', 'Monitoring', false],
+]);
+
+it('keeps Shared independent from feature modules', function () {
+    $violations = array_values(array_filter(
+        moduleBoundaryViolations(),
+        static fn (array $violation): bool => 'Shared' === $violation['module'],
+    ));
+
+    expect($violations)->toBe([]);
+});
+
+it('prevents direct imports between feature modules', function () {
+    $violations = array_values(array_filter(
+        moduleBoundaryViolations(),
+        static fn (array $violation): bool => 'Shared' !== $violation['module'],
+    ));
+
+    expect($violations)->toBe([]);
+});

@@ -6,7 +6,7 @@ use App\Identity\Domain\ValueObject\UserLevel;
 use App\Identity\Domain\ValueObject\UserStatus;
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Tests\Helpers\Factories\RegisterUserRequestFactory;
+use Tests\Functional\Identity\Presentation\Http\Request\RegisterUserRequestFactory;
 
 it('returns 201 created with valid data', function () {
     $cpf = faker()->cpf();

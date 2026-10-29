@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\UserIdType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\UserLevelType;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 

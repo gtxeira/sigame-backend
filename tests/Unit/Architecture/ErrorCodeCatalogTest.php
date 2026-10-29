@@ -69,7 +69,7 @@ it('classifies input problems as validation', function (SharedErrorCode|Identity
     SharedErrorCode::EmailInvalid,
     SharedErrorCode::DateTimeInvalid,
     SharedErrorCode::InvalidUuid,
-    SharedErrorCode::InvalidHashedPassword,
+    IdentityErrorCode::InvalidHashedPassword,
     IdentityErrorCode::UserLevelInvalid,
     IdentityErrorCode::OnboardingInvalidPrimaryModality,
     IdentityErrorCode::OnboardingNoModalitySelected,
