@@ -64,7 +64,7 @@ final class User
         #[ORM\Column(type: 'instant')]
         private readonly Instant $createdAt,
 
-        #[ORM\Column(type: 'json', nullable: true)]
+        #[ORM\Column(type: 'user_profile', nullable: true)]
         private ?UserProfile $profile = null,
 
         #[ORM\Column(type: 'instant', nullable: true)]

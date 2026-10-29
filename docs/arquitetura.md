@@ -737,12 +737,17 @@ Types ficam no módulo dono do VO:
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserProfileType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
 
 'dbal' => [
+    // Necessário para o schema manager reconhecer o tipo customizado `instant`
+    'mapping_types' => [
+        'timestamptz' => 'instant',
+    ],
     'types' => [
         // Shared
         'base_id' => BaseIdType::class,
@@ -753,9 +758,13 @@ use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
         'user_id' => UserIdType::class,
         'hashed_password' => HashedPasswordType::class,
         'user_level' => UserLevelType::class,
+        'user_profile' => UserProfileType::class,
     ],
 ],
 ```
+
+O `mapping_types` mapeia `timestamptz` para o tipo `instant`, permitindo que o Doctrine compare
+corretamente a precisão de microssegundos das colunas de timestamp com o tipo customizado.
 
 ---
 

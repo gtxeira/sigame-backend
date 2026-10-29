@@ -8,6 +8,7 @@ use App\Shared\Domain\ValueObject\Instant;
 use DateMalformedStringException;
 use DateTimeImmutable;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Type;
 use RuntimeException;
 
@@ -19,6 +20,10 @@ final class InstantType extends Type
         array $column,
         AbstractPlatform $platform,
     ): string {
+        if ($platform instanceof PostgreSQLPlatform) {
+            return 'TIMESTAMP(6) WITH TIME ZONE';
+        }
+
         $column['precision'] = 6;
 
         return $platform->getDateTimeTzTypeDeclarationSQL($column);

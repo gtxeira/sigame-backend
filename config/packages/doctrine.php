@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserProfileType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
@@ -17,6 +18,9 @@ return static function (ContainerConfigurator $containerConfigurator): void {
         'dbal' => [
             'url' => '%env(resolve:DATABASE_URL)%',
             'profiling_collect_backtrace' => '%kernel.debug%',
+            'mapping_types' => [
+                'timestamptz' => 'instant',
+            ],
             'types' => [
                 'base_id' => BaseIdType::class,
                 'user_id' => UserIdType::class,
@@ -24,6 +28,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'cpf' => CpfType::class,
                 'hashed_password' => HashedPasswordType::class,
                 'user_level' => UserLevelType::class,
+                'user_profile' => UserProfileType::class,
                 'instant' => InstantType::class,
             ],
         ],

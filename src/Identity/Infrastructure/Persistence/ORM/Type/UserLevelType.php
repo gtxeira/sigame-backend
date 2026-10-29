@@ -18,7 +18,7 @@ final class UserLevelType extends Type
 {
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
-        return 'INTEGER';
+        return $platform->getIntegerTypeDeclarationSQL($column);
     }
 
     public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?UserLevel
