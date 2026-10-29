@@ -22,6 +22,7 @@ use Faker\Provider\pt_BR\PhoneNumber;
 use Symfony\Component\Serializer\SerializerInterface;
 use Tests\FunctionalTestCase;
 use Tests\Helpers\ApiClient;
+use Tests\IntegrationTestCase;
 use Tests\TestCase;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Test\ResetDatabase;
@@ -32,6 +33,12 @@ pest()
     ->extend(TestCase::class)
     ->group('unit')
     ->in('Unit');
+
+pest()
+    ->extend(IntegrationTestCase::class)
+    ->use(ResetDatabase::class)
+    ->group('integration')
+    ->in('Integration');
 
 pest()
     ->extend(FunctionalTestCase::class)

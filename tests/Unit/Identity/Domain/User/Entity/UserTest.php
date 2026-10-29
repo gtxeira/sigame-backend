@@ -3,18 +3,23 @@
 declare(strict_types=1);
 
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\InvalidHeightException;
+use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
+use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
 use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
 use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
+use App\Identity\Domain\User\ValueObject\Height;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
 use App\Identity\Domain\User\ValueObject\UserLevel;
-use App\Identity\Domain\User\ValueObject\UserProfile;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
+use App\Identity\Domain\User\ValueObject\Weight;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
+use App\Shared\Domain\ValueObject\Modality;
 
 /**
  * Cria um usuário de teste com dados padrão, evitando repetir o factory em cada teste.
@@ -49,6 +54,11 @@ it('creates a new user via register factory method', function () {
         ->and($user->level()->value())->toBe(UserLevel::initial()->value())
         ->and($user->onboardingStatus())->toBe(OnboardingStatus::PENDING)
         ->and($user->status())->toBe(UserStatus::ACTIVE)
+        ->and($user->height())->toBeNull()
+        ->and($user->weight())->toBeNull()
+        ->and($user->photoUrl())->toBeNull()
+        ->and($user->modalities())->toBe([])
+        ->and($user->primaryModality())->toBeNull()
         ->and($user->isActive())->toBeTrue()
         ->and($user->isSuspended())->toBeFalse();
 });
@@ -56,50 +66,126 @@ it('creates a new user via register factory method', function () {
 it('completes onboarding and advances to level 2', function () {
     $user = makeUser();
 
-    $profile = UserProfile::create(
-        weight: 75.5,
-        height: 1.78,
-        modalities: ['caminhada', 'corrida'],
-        primaryModality: 'caminhada',
-    );
-
     $user->completeOnboarding(
-        profile: $profile,
-        modalities: ['caminhada', 'corrida'],
-        primaryModality: 'caminhada',
+        heightCm: 178,
+        weightKg: 75.5,
+        photoUrl: 'https://example.com/photo.jpg',
+        modalities: [Modality::WALKING, Modality::RUNNING],
+        primaryModality: Modality::WALKING,
     );
 
-    $level = $user->level();
-    $expectedLevel = UserLevel::fromInt(2)->value();
+    $height = $user->height();
+    $weight = $user->weight();
 
     expect($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
-        ->and($level->value())->toBe($expectedLevel->value())
-        ->and($user->profile()->weight())->toBe($profile->weight())
-        ->and($user->profile()->height())->toBe($profile->height());
+        ->and($user->level()->value())->toBe(2)
+        ->and($height?->centimeters())->toBe(178)
+        ->and($height?->meters())->toBe(1.78)
+        ->and($weight?->kilograms())->toBe(75.5)
+        ->and($user->photoUrl())->toBe('https://example.com/photo.jpg')
+        ->and($user->modalities())->toBe([Modality::WALKING, Modality::RUNNING])
+        ->and($user->primaryModality())->toBe(Modality::WALKING)
+        ->and($user->hasModality(Modality::RUNNING))->toBeTrue()
+        ->and($user->hasModality(Modality::CYCLING))->toBeFalse();
+});
+
+it('completes onboarding without optional profile data', function () {
+    $user = makeUser();
+
+    $user->completeOnboarding(
+        heightCm: null,
+        weightKg: null,
+        photoUrl: null,
+        modalities: [Modality::CYCLING],
+        primaryModality: null,
+    );
+
+    expect($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
+        ->and($user->height())->toBeNull()
+        ->and($user->weight())->toBeNull()
+        ->and($user->photoUrl())->toBeNull()
+        ->and($user->modalities())->toBe([Modality::CYCLING])
+        ->and($user->primaryModality())->toBeNull();
+});
+
+it('deduplicates modalities and keeps a deterministic order', function () {
+    $user = makeUser();
+
+    $user->completeOnboarding(
+        heightCm: null,
+        weightKg: null,
+        photoUrl: null,
+        modalities: [Modality::RUNNING, Modality::WALKING, Modality::RUNNING],
+        primaryModality: null,
+    );
+
+    expect($user->modalities())->toBe([Modality::WALKING, Modality::RUNNING]);
 });
 
 it('throws exception when completing onboarding without modalities', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        profile: UserProfile::create(),
+        heightCm: null,
+        weightKg: null,
+        photoUrl: null,
         modalities: [],
         primaryModality: null,
     );
 })->throws(OnboardingNoModalitySelectedException::class);
 
+it('throws exception when the primary modality is not selected', function () {
+    $user = makeUser();
+
+    $user->completeOnboarding(
+        heightCm: null,
+        weightKg: null,
+        photoUrl: null,
+        modalities: [Modality::WALKING],
+        primaryModality: Modality::RUNNING,
+    );
+})->throws(OnboardingInvalidPrimaryModalityException::class);
+
+it('throws exception when height is below the minimum', function () {
+    $user = makeUser();
+
+    $user->completeOnboarding(
+        heightCm: Height::MIN_CENTIMETERS - 1,
+        weightKg: null,
+        photoUrl: null,
+        modalities: [Modality::WALKING],
+        primaryModality: null,
+    );
+})->throws(InvalidHeightException::class);
+
+it('throws exception when weight is below the minimum', function () {
+    $user = makeUser();
+
+    $user->completeOnboarding(
+        heightCm: null,
+        weightKg: Weight::MIN_KILOGRAMS - 0.1,
+        photoUrl: null,
+        modalities: [Modality::WALKING],
+        primaryModality: null,
+    );
+})->throws(InvalidWeightException::class);
+
 it('throws exception when completing onboarding twice', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        profile: UserProfile::create(modalities: ['caminhada']),
-        modalities: ['caminhada'],
+        heightCm: 178,
+        weightKg: 75.5,
+        photoUrl: null,
+        modalities: [Modality::WALKING],
         primaryModality: null,
     );
 
     $user->completeOnboarding(
-        profile: UserProfile::create(modalities: ['corrida']),
-        modalities: ['corrida'],
+        heightCm: 180,
+        weightKg: 80.0,
+        photoUrl: null,
+        modalities: [Modality::RUNNING],
         primaryModality: null,
     );
 })->throws(OnboardingAlreadyCompletedException::class);
@@ -110,8 +196,10 @@ it('can create group after completing onboarding (level 2)', function () {
     expect($user->canCreateGroup())->toBeFalse();
 
     $user->completeOnboarding(
-        profile: UserProfile::create(modalities: ['caminhada']),
-        modalities: ['caminhada'],
+        heightCm: null,
+        weightKg: null,
+        photoUrl: null,
+        modalities: [Modality::WALKING],
         primaryModality: null,
     );
 

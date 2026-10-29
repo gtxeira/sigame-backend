@@ -3,9 +3,10 @@
 declare(strict_types=1);
 
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\UserProfileType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\WeightType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
@@ -28,7 +29,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'cpf' => CpfType::class,
                 'hashed_password' => HashedPasswordType::class,
                 'user_level' => UserLevelType::class,
-                'user_profile' => UserProfileType::class,
+                'height' => HeightType::class,
+                'weight' => WeightType::class,
                 'instant' => InstantType::class,
             ],
         ],

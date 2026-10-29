@@ -79,6 +79,10 @@
             "@test:db:setup",
             "pest --group=functional"
         ],
+        "test:integration": [
+            "@test:db:setup",
+            "pest --group=integration"
+        ],
         "quality": [
             "@cs:check",
             "@phpstan",

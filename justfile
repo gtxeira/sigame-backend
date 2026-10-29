@@ -77,6 +77,11 @@ test-unit:
 test-functional:
     @{{ _test_php }} composer test:functional
 
+# Roda apenas os testes de integração (adaptadores reais, sem HTTP)
+[group('Testes')]
+test-integration:
+    @{{ _test_php }} composer test:integration
+
 # Alias para `just test`
 alias pest := test
 

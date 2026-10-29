@@ -139,6 +139,7 @@ src/
 │   │   │   ├── Email.php
 │   │   │   ├── Cpf.php
 │   │   │   ├── BaseId.php
+│   │   │   ├── Modality.php
 │   │   │   └── Instant.php
 │   │   ├── Error/
 │   │   │   ├── DomainError.php
@@ -181,15 +182,17 @@ src/
 │   ├── Domain/
 │   │   ├── User/                        # agregado User
 │   │   │   ├── Entity/
-│   │   │   │   └── User.php
+│   │   │   │   ├── User.php
+│   │   │   │   └── UserModality.php
 │   │   │   ├── ValueObject/
 │   │   │   │   ├── UserId.php
 │   │   │   │   ├── UserRole.php
 │   │   │   │   ├── UserLevel.php
 │   │   │   │   ├── UserStatus.php
 │   │   │   │   ├── HashedPassword.php
-│   │   │   │   ├── OnboardingStatus.php
-│   │   │   │   └── UserProfile.php
+│   │   │   │   ├── Height.php
+│   │   │   │   ├── Weight.php
+│   │   │   │   └── OnboardingStatus.php
 │   │   │   ├── Repository/
 │   │   │   │   └── UserRepositoryInterface.php
 │   │   │   ├── Event/
@@ -560,7 +563,11 @@ final class User
         private readonly Email $email,
         private readonly HashedPassword $password,
         private readonly string $name,
-        private UserProfile $profile,
+        private ?Height $height,
+        private ?Weight $weight,
+        private ?string $photoUrl,
+        /** @var Collection<int, UserModality> */
+        private Collection $modalities,
         private UserLevel $level,
         private OnboardingStatus $onboardingStatus,
         private UserStatus $status,
@@ -577,9 +584,11 @@ final class User
 
     // Comportamento de negócio
     public function completeOnboarding(
-        UserProfile $profile,
+        ?int $heightCm,
+        ?float $weightKg,
+        ?string $photoUrl,
         array $modalities,
-        ?string $primaryModality,
+        ?Modality $primaryModality,
     ): void;  // RN03: valida dados → concede nível 2
 
     public function suspend(string $reason): void;  // RN18
@@ -735,9 +744,10 @@ Types ficam no módulo dono do VO:
 
 ```php
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\UserProfileType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\WeightType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
@@ -758,7 +768,8 @@ use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
         'user_id' => UserIdType::class,
         'hashed_password' => HashedPasswordType::class,
         'user_level' => UserLevelType::class,
-        'user_profile' => UserProfileType::class,
+        'height' => HeightType::class,
+        'weight' => WeightType::class,
     ],
 ],
 ```
@@ -789,7 +800,9 @@ tests/
 │   │   │       ├── Exception/UserExceptionTest.php
 │   │   │       └── ValueObject/
 │   │   │           ├── UserIdTest.php
-│   │   │           └── HashedPasswordTest.php
+│   │   │           ├── HashedPasswordTest.php
+│   │   │           ├── HeightTest.php
+│   │   │           └── WeightTest.php
 │   │   └── Application/
 │   │       └── UseCase/RegisterUser/RegisterUserHandlerTest.php
 │   ├── Gamification/
@@ -799,7 +812,9 @@ tests/
 │       │   ├── Error/
 │       │   ├── Exception/
 │       │   ├── Functional/
-│       │   └── ValueObject/CpfTest.php
+│       │   └── ValueObject/
+│       │       ├── CpfTest.php
+│       │       └── ModalityTest.php
 │       └── Presentation/Http/Response/
 │
 ├── Functional/                         # grupo "functional"
@@ -811,7 +826,8 @@ tests/
 │       └── Presentation/Http/HealthTest.php
 │
 ├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
-│   └── ...                             # criado junto com o primeiro teste de infraestrutura
+│   └── Identity/
+│       └── Infrastructure/Persistence/DoctrineUserRepositoryTest.php
 │
 └── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php
@@ -819,7 +835,8 @@ tests/
 ```
 
 Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit')`) e rodados com
-`composer test:unit` / `composer test:functional` (ou `just test-unit` / `just test-functional`).
+`composer test:unit` / `composer test:functional` / `composer test:integration` (ou
+`just test-unit` / `just test-functional` / `just test-integration`).
 
 ### Tipos de teste
 

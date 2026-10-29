@@ -18,6 +18,8 @@ enum IdentityErrorCode: string
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
     case InvalidHashedPassword = 'INVALID_HASHED_PASSWORD';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
+    case UserHeightInvalid = 'USER_HEIGHT_INVALID';
+    case UserWeightInvalid = 'USER_WEIGHT_INVALID';
     case OnboardingAlreadyCompleted = 'ONBOARDING_ALREADY_COMPLETED';
     case OnboardingInvalidPrimaryModality = 'ONBOARDING_INVALID_PRIMARY_MODALITY';
     case OnboardingNoModalitySelected = 'ONBOARDING_NO_MODALITY_SELECTED';
@@ -34,6 +36,8 @@ enum IdentityErrorCode: string
             self::UserAlreadySuspended => ErrorKind::Conflict,
 
             self::UserLevelInvalid,
+            self::UserHeightInvalid,
+            self::UserWeightInvalid,
             self::InvalidHashedPassword,
             self::OnboardingInvalidPrimaryModality,
             self::OnboardingNoModalitySelected => ErrorKind::Validation,

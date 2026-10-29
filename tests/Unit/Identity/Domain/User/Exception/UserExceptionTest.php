@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\Exception\IdentityException;
 use App\Identity\Domain\User\Exception\InvalidHashedPasswordException;
+use App\Identity\Domain\User\Exception\InvalidHeightException;
+use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
 use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
@@ -24,6 +26,8 @@ it('exposes a cataloged code, kind and public message', function (
         ->and($exception->publicMessage())->not->toBe($exception->errorCode());
 })->with([
     [InvalidHashedPasswordException::class, IdentityErrorCode::InvalidHashedPassword],
+    [InvalidHeightException::class, IdentityErrorCode::UserHeightInvalid],
+    [InvalidWeightException::class, IdentityErrorCode::UserWeightInvalid],
     [OnboardingAlreadyCompletedException::class, IdentityErrorCode::OnboardingAlreadyCompleted],
     [OnboardingInvalidPrimaryModalityException::class, IdentityErrorCode::OnboardingInvalidPrimaryModality],
     [OnboardingNoModalitySelectedException::class, IdentityErrorCode::OnboardingNoModalitySelected],

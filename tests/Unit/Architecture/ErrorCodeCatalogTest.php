@@ -71,6 +71,8 @@ it('classifies input problems as validation', function (SharedErrorCode|Identity
     SharedErrorCode::InvalidUuid,
     IdentityErrorCode::InvalidHashedPassword,
     IdentityErrorCode::UserLevelInvalid,
+    IdentityErrorCode::UserHeightInvalid,
+    IdentityErrorCode::UserWeightInvalid,
     IdentityErrorCode::OnboardingInvalidPrimaryModality,
     IdentityErrorCode::OnboardingNoModalitySelected,
 ]);
