@@ -9,11 +9,12 @@ use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
 use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
-use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
-use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
+use App\Identity\Domain\User\ValueObject\AccessState;
+use App\Identity\Domain\User\ValueObject\Credentials;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
+use App\Identity\Domain\User\ValueObject\Profile;
 use App\Identity\Domain\User\ValueObject\UserId;
 use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserRole;
@@ -32,6 +33,14 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Representa um usuário do sistema com todas as regras de negócio
  * relacionadas a cadastro, onboarding e status da conta.
+ *
+ * As responsabilidades estão separadas em três VOs embutidos:
+ * - {@see Credentials}: identificador de login e senha hasheada;
+ * - {@see Profile}: dados de perfil;
+ * - {@see AccessState}: papel e situação da conta.
+ *
+ * Cada um pode virar entidade/tabela própria sem alterar o comportamento
+ * desta raiz.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
@@ -55,17 +64,14 @@ final class User
         #[ORM\Column(type: 'cpf', length: 11, unique: true)]
         private readonly Cpf $cpf,
 
-        #[ORM\Column(type: 'email', length: 255, unique: true)]
-        private Email $email,
+        #[ORM\Embedded(class: Credentials::class, columnPrefix: false)]
+        private Credentials $credentials,
 
-        #[ORM\Column(type: 'hashed_password', length: 255)]
-        private HashedPassword $password,
+        #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
+        private Profile $profile,
 
-        #[ORM\Column(type: 'string', length: 255)]
-        private string $name,
-
-        #[ORM\Column(type: 'string', length: 10, enumType: UserRole::class)]
-        private UserRole $role,
+        #[ORM\Embedded(class: AccessState::class, columnPrefix: false)]
+        private AccessState $access,
 
         #[ORM\Column(type: 'user_level')]
         private UserLevel $level,
@@ -73,20 +79,8 @@ final class User
         #[ORM\Column(type: 'string', length: 20, enumType: OnboardingStatus::class)]
         private OnboardingStatus $onboardingStatus,
 
-        #[ORM\Column(type: 'string', length: 20, enumType: UserStatus::class)]
-        private UserStatus $status,
-
         #[ORM\Column(type: 'instant')]
         private readonly Instant $createdAt,
-
-        #[ORM\Column(name: 'height_cm', type: 'height', nullable: true)]
-        private ?Height $height = null,
-
-        #[ORM\Column(name: 'weight_kg', type: 'weight', nullable: true)]
-        private ?Weight $weight = null,
-
-        #[ORM\Column(name: 'photo_url', type: 'string', length: 2048, nullable: true)]
-        private ?string $photoUrl = null,
 
         #[ORM\Column(type: 'instant', nullable: true)]
         private ?Instant $updatedAt = null,
@@ -108,13 +102,11 @@ final class User
         return new self(
             id: UserId::generate(),
             cpf: $cpf,
-            email: $email,
-            password: $password,
-            name: $name,
-            role: UserRole::USER,
+            credentials: Credentials::create($email, $password),
+            profile: Profile::create($name),
+            access: AccessState::initial(),
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
-            status: UserStatus::ACTIVE,
             createdAt: Instant::now(),
         );
     }
@@ -184,9 +176,7 @@ final class User
             ));
         }
 
-        $this->height = $height;
-        $this->weight = $weight;
-        $this->photoUrl = $photoUrl;
+        $this->profile = $this->profile->withPhysicalData($height, $weight, $photoUrl);
         $this->onboardingStatus = OnboardingStatus::COMPLETED;
         $this->level = $this->level->next();
         $this->updatedAt = Instant::now();
@@ -197,14 +187,13 @@ final class User
      *
      * RN18.3: Conta suspensa não pode autenticar.
      * RN18.4: Registra motivo e data.
+     *
+     * O motivo ainda não é persistido; o registro dele é tratado em
+     * mudança separada, junto do histórico de suspensões.
      */
     public function suspend(string $reason): void
     {
-        if (UserStatus::SUSPENDED === $this->status) {
-            throw new UserAlreadySuspendedException();
-        }
-
-        $this->status = UserStatus::SUSPENDED;
+        $this->access = $this->access->suspend();
         $this->updatedAt = Instant::now();
     }
 
@@ -213,11 +202,7 @@ final class User
      */
     public function reactivate(): void
     {
-        if (UserStatus::ACTIVE === $this->status) {
-            throw new UserAlreadyActiveException();
-        }
-
-        $this->status = UserStatus::ACTIVE;
+        $this->access = $this->access->reactivate();
         $this->updatedAt = Instant::now();
     }
 
@@ -233,12 +218,12 @@ final class User
 
     public function isActive(): bool
     {
-        return UserStatus::ACTIVE === $this->status;
+        return $this->access->isActive();
     }
 
     public function isSuspended(): bool
     {
-        return UserStatus::SUSPENDED === $this->status;
+        return $this->access->isSuspended();
     }
 
     public function id(): UserId
@@ -251,34 +236,49 @@ final class User
         return $this->cpf;
     }
 
+    public function credentials(): Credentials
+    {
+        return $this->credentials;
+    }
+
+    public function profile(): Profile
+    {
+        return $this->profile;
+    }
+
+    public function access(): AccessState
+    {
+        return $this->access;
+    }
+
     public function email(): Email
     {
-        return $this->email;
+        return $this->credentials->email();
     }
 
     public function password(): HashedPassword
     {
-        return $this->password;
+        return $this->credentials->password();
     }
 
     public function name(): string
     {
-        return $this->name;
+        return $this->profile->name();
     }
 
     public function height(): ?Height
     {
-        return $this->height;
+        return $this->profile->height();
     }
 
     public function weight(): ?Weight
     {
-        return $this->weight;
+        return $this->profile->weight();
     }
 
     public function photoUrl(): ?string
     {
-        return $this->photoUrl;
+        return $this->profile->photoUrl();
     }
 
     /**
@@ -314,7 +314,7 @@ final class User
 
     public function role(): UserRole
     {
-        return $this->role;
+        return $this->access->role();
     }
 
     public function level(): UserLevel
@@ -329,7 +329,7 @@ final class User
 
     public function status(): UserStatus
     {
-        return $this->status;
+        return $this->access->status();
     }
 
     public function createdAt(): Instant

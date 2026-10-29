@@ -37,7 +37,7 @@ final class DoctrineUserRepository extends AbstractRepository implements UserRep
 
     public function findByEmail(Email $email): ?User
     {
-        return $this->findOneBy(['email' => $email->value()]);
+        return $this->findOneBy(['credentials.email' => $email->value()]);
     }
 
     public function findByCpf(Cpf $cpf): ?User

@@ -186,6 +186,9 @@ src/
 │   │   │   │   └── UserModality.php
 │   │   │   ├── ValueObject/
 │   │   │   │   ├── UserId.php
+│   │   │   │   ├── Credentials.php
+│   │   │   │   ├── Profile.php
+│   │   │   │   ├── AccessState.php
 │   │   │   │   ├── UserRole.php
 │   │   │   │   ├── UserLevel.php
 │   │   │   │   ├── UserStatus.php
@@ -557,21 +560,22 @@ final class RefreshToken
 
 final class User
 {
+    /** @var Collection<int, UserModality> */
+    private Collection $modalities;
+
     private function __construct(
         private readonly UserId $id,
         private readonly Cpf $cpf,
-        private readonly Email $email,
-        private readonly HashedPassword $password,
-        private readonly string $name,
-        private ?Height $height,
-        private ?Weight $weight,
-        private ?string $photoUrl,
-        /** @var Collection<int, UserModality> */
-        private Collection $modalities,
+        #[ORM\Embedded(class: Credentials::class, columnPrefix: false)]
+        private Credentials $credentials,   // email + senha hasheada
+        #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
+        private Profile $profile,           // nome, altura, peso, foto
+        #[ORM\Embedded(class: AccessState::class, columnPrefix: false)]
+        private AccessState $access,        // role + status
         private UserLevel $level,
         private OnboardingStatus $onboardingStatus,
-        private UserStatus $status,
-        private readonly \DateTimeImmutable $createdAt,
+        private readonly Instant $createdAt,
+        private ?Instant $updatedAt = null,
     ) {}
 
     // Factory method — único ponto de criação de um novo usuário
@@ -600,6 +604,30 @@ final class User
     public function isSuspended(): bool;
 }
 ```
+
+#### 5.1.1 Separação de responsabilidades
+
+O agregado mantém **uma única tabela** (`users`), com as responsabilidades agrupadas em
+Value Objects mapeados como embeddables, sem prefixo de coluna:
+
+| VO | Responsabilidade | Colunas |
+|---|---|---|
+| `Credentials` | Identificador de login e segredo | `email`, `password` |
+| `Profile` | Dados de perfil e biometria | `name`, `height_cm`, `weight_kg`, `photo_url` |
+| `AccessState` | Autenticação/autorização (RN18) | `role`, `status` |
+
+Os acessores planos (`email()`, `name()`, `status()`, ...) são delegadores e mantêm o contrato
+público da entidade; os VOs ficam disponíveis por `credentials()`, `profile()` e `access()` para
+adapters de infraestrutura (ex.: `SecurityUser`).
+
+**Auth não vira entidade 1:1.** Quando houver login por redes sociais, a forma correta é o
+relacionamento `users` 1—N `user_identities` (`provider`, `provider_subject`, `email`,
+`password` nullable), com migração de backfill `provider='local'` para os usuários existentes.
+O VO `Credentials` já delimita exatamente o que será movido, então a extração não exige mexer
+em `Profile`, `AccessState` nem nos casos de uso.
+
+`level` e `onboardingStatus` permanecem na raiz por enquanto; o destino de `level` é
+`Gamification/UserProgress`.
 
 ### 5.2 Comandos e Handlers
 
@@ -800,6 +828,9 @@ tests/
 │   │   │       ├── Exception/UserExceptionTest.php
 │   │   │       └── ValueObject/
 │   │   │           ├── UserIdTest.php
+│   │   │           ├── CredentialsTest.php
+│   │   │           ├── ProfileTest.php
+│   │   │           ├── AccessStateTest.php
 │   │   │           ├── HashedPasswordTest.php
 │   │   │           ├── HeightTest.php
 │   │   │           └── WeightTest.php
@@ -918,9 +949,13 @@ Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit'
 - Entidade `RefreshToken`
 - `LcobucciJwtTokenGenerator` (lcobucci/jwt)
 - `AuthController` (login, refresh, logout, me)
+- Adapter de segurança sobre o agregado: `Infrastructure/Security/SecurityUser`
+  (`UserInterface` + `PasswordAuthenticatedUserInterface`), `UserProvider`
+  (`loadUserByIdentifier` via `findByEmail`) e `ActiveUserChecker`
+  (`checkPreAuth` → `AccessState::canAuthenticate()`, RN18.3)
 - Autenticador Symfony customizado (valida access_token Bearer)
 - Refresh token rotation com detecção de roubo (family_id)
-- Testes: unidade (token service) + integração (HTTP: login → refresh → logout)
+- Testes: unidade (token service + adapter de segurança) + integração (HTTP: login → refresh → logout)
 
 ### Fase 3 — Identity: onboarding
 
@@ -995,4 +1030,5 @@ Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit'
 | Comunicação cross-module | Domain Events (Symfony Dispatcher)                   | Desacoplamento total                   |
 | Estrutura de diretórios  | Namespace por módulo em `src/`                       | Modular monolith claro                 |
 | Camadas por módulo       | Domain → Application → Infrastructure → Presentation | Clean Architecture                     |
+| Responsabilidades do User | VOs embutidos (`Credentials`, `Profile`, `AccessState`) em uma tabela | Separa auth/perfil/acesso sem quebrar a transação; split em `LoginIdentity` 1:N só quando houver login social |
 | Testes                   | PestPHP + Mockery                                    | Sintaxe expressiva, datasets, mocks de ports sem boilerplate |
