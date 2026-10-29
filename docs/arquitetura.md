@@ -75,6 +75,13 @@ composer require symfony/http-client
   change de contrato com o cliente; renomear o caso não é.
 - **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código
   não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
+- **Todo `DomainError` carrega um `ErrorKind`** (`Validation` ou `Conflict`), derivado do catálogo de
+  códigos. O `kind` não é serializado: é insumo interno para a presentation.
+- **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia
+  `Validation` → 422 e `Conflict` → 409. Quando um `Result` acumula os dois tipos, **Validation vence**
+  (422), e o corpo continua trazendo todos os erros — inclusive os de conflito.
+- **`DomainException` também declara `kind()`**, de modo que os dois caminhos (exceção e `Result`) usam a
+  mesma regra de status.
 - Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`INTERNAL_ERROR`, `VALIDATION_ERROR`,
   `NOT_FOUND`) e não são erros de domínio.
 - **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os

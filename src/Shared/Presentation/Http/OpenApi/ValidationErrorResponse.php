@@ -15,7 +15,7 @@ final class ValidationErrorResponse extends OA\Response
     {
         parent::__construct(
             response: Response::HTTP_UNPROCESSABLE_ENTITY,
-            description: 'Um ou mais erros de validação foram encontrados.',
+            description: 'Erros de validação de entrada, incluindo erros de Value Object (ex.: CPF_INVALID).',
             content: new OA\JsonContent(
                 allOf: [
                     new OA\Schema(ref: '#/components/schemas/ApiResponseError'),

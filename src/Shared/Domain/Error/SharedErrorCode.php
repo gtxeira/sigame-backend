@@ -17,4 +17,15 @@ enum SharedErrorCode: string
     case DateTimeInvalid = 'DATE_TIME_INVALID';
     case InvalidUuid = 'INVALID_UUID';
     case InvalidHashedPassword = 'INVALID_HASHED_PASSWORD';
+
+    public function kind(): ErrorKind
+    {
+        return match ($this) {
+            self::CpfInvalid,
+            self::EmailInvalid,
+            self::DateTimeInvalid,
+            self::InvalidUuid,
+            self::InvalidHashedPassword => ErrorKind::Validation,
+        };
+    }
 }

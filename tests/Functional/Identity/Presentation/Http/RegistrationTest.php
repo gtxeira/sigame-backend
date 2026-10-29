@@ -64,6 +64,19 @@ it('rejects duplicate cpf', function () {
         ->and($this->api->errorCodes())->toBe(['USER_CPF_ALREADY_EXISTS']);
 });
 
+it('rejects cpf that fails domain validation', function (string $cpf) {
+    $response = $this->api->post(
+        route: 'app_auth_register',
+        payload: RegisterUserRequestFactory::new(['cpf' => $cpf])->create(),
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['CPF_INVALID']);
+})->with([
+    'repeated digits' => '11111111111',
+    'invalid check digits' => '52998224726',
+]);
+
 it('rejects invalid registration payload', function (array $overrides) {
     $response = $this->api->post(
         route: 'app_auth_register',

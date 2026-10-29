@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Functional\ValidationResult;
 
 it('creates a valid result with value', function () {
@@ -16,7 +17,7 @@ it('creates a valid result with value', function () {
 
 it('creates an invalid result with errors', function () {
     $errors = [
-        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', field: 'cpf'),
+        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', kind: ErrorKind::Validation, field: 'cpf'),
     ];
 
     $result = ValidationResult::invalid($errors);
@@ -29,7 +30,7 @@ it('creates an invalid result with errors', function () {
 
 it('throws logic exception when accessing value on invalid result', function () {
     $result = ValidationResult::invalid([
-        new DomainError(code: 'ERROR', message: 'Erro.'),
+        new DomainError(code: 'ERROR', message: 'Erro.', kind: ErrorKind::Validation),
     ]);
 
     $result->value();
@@ -48,11 +49,11 @@ it('combines multiple valid results', function () {
 
 it('combines results with errors and accumulates all', function () {
     $r1 = ValidationResult::invalid([
-        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', field: 'cpf'),
+        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', kind: ErrorKind::Validation, field: 'cpf'),
     ]);
     $r2 = ValidationResult::valid('ok');
     $r3 = ValidationResult::invalid([
-        new DomainError(code: 'EMAIL_INVALID', message: 'Email inválido.', field: 'email'),
+        new DomainError(code: 'EMAIL_INVALID', message: 'Email inválido.', kind: ErrorKind::Validation, field: 'email'),
     ]);
 
     $combined = ValidationResult::combine($r1, $r2, $r3);
@@ -65,11 +66,11 @@ it('combines results with errors and accumulates all', function () {
 
 it('combines all invalid results', function () {
     $r1 = ValidationResult::invalid([
-        new DomainError(code: 'ERROR_1', message: 'Erro 1.'),
+        new DomainError(code: 'ERROR_1', message: 'Erro 1.', kind: ErrorKind::Validation),
     ]);
     $r2 = ValidationResult::invalid([
-        new DomainError(code: 'ERROR_2', message: 'Erro 2.'),
-        new DomainError(code: 'ERROR_3', message: 'Erro 3.'),
+        new DomainError(code: 'ERROR_2', message: 'Erro 2.', kind: ErrorKind::Validation),
+        new DomainError(code: 'ERROR_3', message: 'Erro 3.', kind: ErrorKind::Validation),
     ]);
 
     $combined = ValidationResult::combine($r1, $r2);

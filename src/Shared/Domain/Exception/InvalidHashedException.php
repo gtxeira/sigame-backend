@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Exception;
 
+use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Error\SharedErrorCode;
 
 /**
@@ -14,6 +15,11 @@ final class InvalidHashedException extends InvalidArgumentException
     public function errorCode(): string
     {
         return SharedErrorCode::InvalidHashedPassword->value;
+    }
+
+    public function kind(): ErrorKind
+    {
+        return SharedErrorCode::InvalidHashedPassword->kind();
     }
 
     public function publicMessage(): string

@@ -15,6 +15,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class ResultResponder
 {
+    public function __construct(
+        private readonly ErrorStatusResolver $errorStatusResolver,
+    ) {
+    }
+
     /**
      * @param Result<mixed> $result
      */
@@ -42,11 +47,11 @@ final class ResultResponder
     /**
      * @param Result<mixed> $result
      */
-    public function failure(Result $result, int $statusCode = Response::HTTP_CONFLICT): JsonResponse
+    public function failure(Result $result): JsonResponse
     {
         $errors = ApiResponseErrorsMapper::fromDomainErrors($result->errors());
 
         return ApiResponse::error($errors)
-            ->toJsonResponse($statusCode);
+            ->toJsonResponse($this->errorStatusResolver->fromErrors($result->errors()));
     }
 }

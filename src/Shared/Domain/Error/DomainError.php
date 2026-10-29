@@ -14,6 +14,7 @@ final readonly class DomainError
     public function __construct(
         public string $code,
         public string $message,
+        public ErrorKind $kind,
         public ?string $field = null,
     ) {
     }

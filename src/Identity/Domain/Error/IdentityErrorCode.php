@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\Error;
 
+use App\Shared\Domain\Error\ErrorKind;
+
 /**
  * Catálogo de códigos de erro do módulo Identity.
  *
@@ -20,4 +22,19 @@ enum IdentityErrorCode: string
     case OnboardingNoModalitySelected = 'ONBOARDING_NO_MODALITY_SELECTED';
     case UserAlreadyActive = 'USER_ALREADY_ACTIVE';
     case UserAlreadySuspended = 'USER_ALREADY_SUSPENDED';
+
+    public function kind(): ErrorKind
+    {
+        return match ($this) {
+            self::UserCpfAlreadyExists,
+            self::EmailAlreadyExists,
+            self::OnboardingAlreadyCompleted,
+            self::UserAlreadyActive,
+            self::UserAlreadySuspended => ErrorKind::Conflict,
+
+            self::UserLevelInvalid,
+            self::OnboardingInvalidPrimaryModality,
+            self::OnboardingNoModalitySelected => ErrorKind::Validation,
+        };
+    }
 }

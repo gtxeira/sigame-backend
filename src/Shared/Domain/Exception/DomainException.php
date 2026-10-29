@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Exception;
 
+use App\Shared\Domain\Error\ErrorKind;
 use DomainException as NativeDomainException;
 use Throwable;
 
@@ -18,6 +19,8 @@ abstract class DomainException extends NativeDomainException
     }
 
     abstract public function errorCode(): string;
+
+    abstract public function kind(): ErrorKind;
 
     abstract public function publicMessage(): string;
 

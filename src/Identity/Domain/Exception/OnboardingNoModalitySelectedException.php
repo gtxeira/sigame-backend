@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Identity\Domain\Exception;
 
 use App\Identity\Domain\Error\IdentityErrorCode;
+use App\Shared\Domain\Error\ErrorKind;
 
 /**
  * Exceção: nenhuma modalidade selecionada no onboarding.
@@ -14,6 +15,11 @@ final class OnboardingNoModalitySelectedException extends IdentityException
     public function errorCode(): string
     {
         return IdentityErrorCode::OnboardingNoModalitySelected->value;
+    }
+
+    public function kind(): ErrorKind
+    {
+        return IdentityErrorCode::OnboardingNoModalitySelected->kind();
     }
 
     public function publicMessage(): string

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\Functional\ValidationResult;
 
@@ -17,7 +18,7 @@ it('creates a success result with value', function () {
 
 it('creates a failure result with errors', function () {
     $errors = [
-        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', field: 'cpf'),
+        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', kind: ErrorKind::Validation, field: 'cpf'),
     ];
 
     $result = Result::failure($errors);
@@ -30,7 +31,7 @@ it('creates a failure result with errors', function () {
 
 it('throws logic exception when accessing value on failure', function () {
     $result = Result::failure([
-        new DomainError(code: 'ERROR', message: 'Erro.'),
+        new DomainError(code: 'ERROR', message: 'Erro.', kind: ErrorKind::Validation),
     ]);
 
     $result->value();
@@ -47,7 +48,7 @@ it('creates result from valid validation result', function () {
 
 it('creates result from invalid validation result', function () {
     $validation = ValidationResult::invalid([
-        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', field: 'cpf'),
+        new DomainError(code: 'CPF_INVALID', message: 'CPF inválido.', kind: ErrorKind::Validation, field: 'cpf'),
     ]);
 
     $result = Result::fromValidation($validation);
@@ -68,7 +69,7 @@ it('maps success value', function () {
 
 it('map is no-op on failure', function () {
     $result = Result::failure([
-        new DomainError(code: 'ERROR', message: 'Erro.'),
+        new DomainError(code: 'ERROR', message: 'Erro.', kind: ErrorKind::Validation),
     ]);
 
     $mapped = $result->map(fn ($v) => 'nunca');
@@ -90,7 +91,7 @@ it('chains operations with then', function () {
 
 it('then is no-op on failure', function () {
     $result = Result::failure([
-        new DomainError(code: 'ERROR', message: 'Erro.'),
+        new DomainError(code: 'ERROR', message: 'Erro.', kind: ErrorKind::Validation),
     ]);
 
     $chained = $result->then(function ($v) {
@@ -106,7 +107,7 @@ it('then propagates failure from chained operation', function () {
 
     $chained = $result->then(function (int $v) {
         return Result::failure([
-            new DomainError(code: 'CHAIN_ERROR', message: 'Falha no encadeamento.'),
+            new DomainError(code: 'CHAIN_ERROR', message: 'Falha no encadeamento.', kind: ErrorKind::Validation),
         ]);
     });
 

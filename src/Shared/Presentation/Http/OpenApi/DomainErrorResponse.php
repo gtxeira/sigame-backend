@@ -15,7 +15,7 @@ final class DomainErrorResponse extends OA\Response
     {
         parent::__construct(
             response: Response::HTTP_CONFLICT,
-            description: 'Uma ou mais regras de negócio foram violadas.',
+            description: 'A operação conflita com o estado atual do recurso.',
             content: new OA\JsonContent(
                 allOf: [
                     new OA\Schema(ref: '#/components/schemas/ApiResponseError'),

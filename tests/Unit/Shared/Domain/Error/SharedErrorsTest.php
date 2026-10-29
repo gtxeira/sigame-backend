@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Error\SharedErrors;
 
 it('builds cpf error for invalid length', function () {
@@ -9,6 +10,7 @@ it('builds cpf error for invalid length', function () {
 
     expect($error->code)->toBe('CPF_INVALID')
         ->and($error->message)->toBe('O CPF deve conter exatamente 11 dígitos.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('cpf');
 });
 
@@ -17,6 +19,7 @@ it('builds cpf error for repeated digits', function () {
 
     expect($error->code)->toBe('CPF_INVALID')
         ->and($error->message)->toBe('O CPF não pode conter todos os dígitos iguais.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('cpf');
 });
 
@@ -25,6 +28,7 @@ it('builds cpf error for invalid check digits', function () {
 
     expect($error->code)->toBe('CPF_INVALID')
         ->and($error->message)->toBe('O CPF possui dígitos verificadores inválidos.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('cpf');
 });
 
@@ -33,6 +37,7 @@ it('builds email error', function () {
 
     expect($error->code)->toBe('EMAIL_INVALID')
         ->and($error->message)->toBe('O e-mail informado é inválido.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('email');
 });
 
@@ -41,6 +46,7 @@ it('builds datetime format error', function () {
 
     expect($error->code)->toBe('DATE_TIME_INVALID')
         ->and($error->message)->toBe('Informe uma data RFC 3339 (com ou sem milissegundos) com timezone.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('datetime');
 });
 
@@ -49,6 +55,7 @@ it('builds invalid timestamp error', function () {
 
     expect($error->code)->toBe('DATE_TIME_INVALID')
         ->and($error->message)->toBe('O timestamp informado é inválido.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('timestamp');
 });
 
@@ -57,6 +64,7 @@ it('builds datetime invalid amount error with contextual message', function () {
 
     expect($error->code)->toBe('DATE_TIME_INVALID')
         ->and($error->message)->toBe('Informe um valor positivo maior que zero para adicionar days.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('days');
 });
 
@@ -65,5 +73,6 @@ it('builds datetime invalid shift error with contextual field', function () {
 
     expect($error->code)->toBe('DATE_TIME_INVALID')
         ->and($error->message)->toBe('Não foi possível modificar o datetime em hours.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
         ->and($error->field)->toBe('hours');
 });
