@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Identity\Presentation\Http\Response;
 
-use App\Identity\Domain\Entity\User;
-use App\Identity\Domain\ValueObject\UserLevel;
-use App\Identity\Domain\ValueObject\UserStatus;
+use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\ValueObject\UserLevel;
+use App\Identity\Domain\User\ValueObject\UserStatus;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(description: 'Dados do usuário cadastrado')]

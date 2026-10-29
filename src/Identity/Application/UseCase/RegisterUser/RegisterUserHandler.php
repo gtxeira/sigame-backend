@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Identity\Application\UseCase\RegisterUser;
 
 use App\Identity\Application\Service\PasswordHasherInterface;
-use App\Identity\Domain\Entity\User;
 use App\Identity\Domain\Error\IdentityErrors;
-use App\Identity\Domain\Event\UserRegistered;
-use App\Identity\Domain\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Event\UserRegistered;
+use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\Functional\ValidationResult;

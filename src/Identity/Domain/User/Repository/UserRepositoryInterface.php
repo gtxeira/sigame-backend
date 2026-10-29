@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Identity\Domain\Repository;
+namespace App\Identity\Domain\User\Repository;
 
-use App\Identity\Domain\Entity\User;
-use App\Identity\Domain\ValueObject\UserId;
+use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\ValueObject\UserId;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 

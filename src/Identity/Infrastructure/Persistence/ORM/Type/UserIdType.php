@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Infrastructure\Persistence\ORM\Type;
 
-use App\Identity\Domain\ValueObject\UserId;
+use App\Identity\Domain\User\ValueObject\UserId;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 

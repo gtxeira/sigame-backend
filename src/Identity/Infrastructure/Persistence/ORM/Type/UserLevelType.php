@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Infrastructure\Persistence\ORM\Type;
 
-use App\Identity\Domain\ValueObject\UserLevel;
+use App\Identity\Domain\User\ValueObject\UserLevel;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 use RuntimeException;

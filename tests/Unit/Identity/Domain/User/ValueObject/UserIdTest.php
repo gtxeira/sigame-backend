@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\ValueObject\UserId;
+use App\Identity\Domain\User\ValueObject\UserId;
 use App\Shared\Domain\Exception\InvalidUuidException;
 
 it('generates a unique user id', function () {

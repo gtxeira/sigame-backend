@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Identity\Domain\ValueObject;
+namespace App\Identity\Domain\User\ValueObject;
 
 /**
  * Value Object para status da conta do usuário.

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Application\Service;
 
-use App\Identity\Domain\ValueObject\HashedPassword;
+use App\Identity\Domain\User\ValueObject\HashedPassword;
 
 /**
  * Interface para hash de senhas (porta no Domain/Application).

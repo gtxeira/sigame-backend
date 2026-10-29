@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\Exception\IdentityException;
-use App\Identity\Domain\Exception\InvalidHashedPasswordException;
-use App\Identity\Domain\Exception\OnboardingAlreadyCompletedException;
-use App\Identity\Domain\Exception\OnboardingInvalidPrimaryModalityException;
-use App\Identity\Domain\Exception\OnboardingNoModalitySelectedException;
-use App\Identity\Domain\Exception\UserAlreadyActiveException;
-use App\Identity\Domain\Exception\UserAlreadySuspendedException;
+use App\Identity\Domain\User\Exception\InvalidHashedPasswordException;
+use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
+use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
+use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
+use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
+use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
 
 it('exposes a cataloged code, kind and public message', function (
     string $exceptionClass,

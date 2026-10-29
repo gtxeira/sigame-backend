@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Identity\Domain\Exception;
+namespace App\Identity\Domain\User\Exception;
 
 use App\Identity\Domain\Error\IdentityErrorCode;
+use App\Identity\Domain\Exception\IdentityException;
 use App\Shared\Domain\Error\ErrorKind;
 
 /**

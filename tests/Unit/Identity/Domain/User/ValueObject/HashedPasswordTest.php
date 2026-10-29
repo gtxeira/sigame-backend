@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\Exception\InvalidHashedPasswordException;
-use App\Identity\Domain\ValueObject\HashedPassword;
+use App\Identity\Domain\User\Exception\InvalidHashedPasswordException;
+use App\Identity\Domain\User\ValueObject\HashedPassword;
 
 it('creates a hashed password from a non-empty hash', function () {
     $hashedPassword = HashedPassword::fromHash('hashed_password_123');

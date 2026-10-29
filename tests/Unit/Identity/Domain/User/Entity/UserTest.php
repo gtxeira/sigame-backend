@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\Entity\User;
-use App\Identity\Domain\Exception\OnboardingAlreadyCompletedException;
-use App\Identity\Domain\Exception\OnboardingNoModalitySelectedException;
-use App\Identity\Domain\Exception\UserAlreadyActiveException;
-use App\Identity\Domain\Exception\UserAlreadySuspendedException;
-use App\Identity\Domain\ValueObject\HashedPassword;
-use App\Identity\Domain\ValueObject\OnboardingStatus;
-use App\Identity\Domain\ValueObject\UserLevel;
-use App\Identity\Domain\ValueObject\UserProfile;
-use App\Identity\Domain\ValueObject\UserRole;
-use App\Identity\Domain\ValueObject\UserStatus;
+use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
+use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
+use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
+use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
+use App\Identity\Domain\User\ValueObject\HashedPassword;
+use App\Identity\Domain\User\ValueObject\OnboardingStatus;
+use App\Identity\Domain\User\ValueObject\UserLevel;
+use App\Identity\Domain\User\ValueObject\UserProfile;
+use App\Identity\Domain\User\ValueObject\UserRole;
+use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 

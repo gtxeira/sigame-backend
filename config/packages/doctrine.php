@@ -38,8 +38,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'Identity' => [
                     'type' => 'attribute',
                     'is_bundle' => false,
-                    'dir' => '%kernel.project_dir%/src/Identity/Domain/Entity',
-                    'prefix' => 'App\Identity\Domain\Entity',
+                    'dir' => '%kernel.project_dir%/src/Identity/Domain',
+                    'prefix' => 'App\Identity\Domain',
                     'alias' => 'Identity',
                 ],
             ],

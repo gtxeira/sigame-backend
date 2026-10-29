@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Identity\Domain\ValueObject;
+namespace App\Identity\Domain\User\ValueObject;
 
-use App\Identity\Domain\Exception\OnboardingInvalidPrimaryModalityException;
+use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 
 /**
  * Value Object para dados opcionais do perfil do usuário.

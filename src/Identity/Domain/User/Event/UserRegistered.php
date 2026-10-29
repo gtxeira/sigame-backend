@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Identity\Domain\Event;
+namespace App\Identity\Domain\User\Event;
 
 use App\Shared\Domain\Event\AbstractDomainEvent;
 use App\Shared\Domain\ValueObject\Instant;

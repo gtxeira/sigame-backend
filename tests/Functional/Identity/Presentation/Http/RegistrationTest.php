@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\ValueObject\UserLevel;
-use App\Identity\Domain\ValueObject\UserStatus;
+use App\Identity\Domain\User\ValueObject\UserLevel;
+use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Functional\Identity\Presentation\Http\Request\RegisterUserRequestFactory;

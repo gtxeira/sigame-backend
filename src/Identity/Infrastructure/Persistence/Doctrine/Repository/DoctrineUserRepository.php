@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Identity\Infrastructure\Persistence\Doctrine\Repository;
 
-use App\Identity\Domain\Entity\User;
-use App\Identity\Domain\Repository\UserRepositoryInterface;
-use App\Identity\Domain\ValueObject\UserId;
+use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\ValueObject\UserId;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Infrastructure\Persistence\AbstractRepository;

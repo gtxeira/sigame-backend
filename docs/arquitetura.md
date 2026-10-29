@@ -49,7 +49,8 @@ composer require symfony/http-client
 2. **Clean Architecture** — em cada módulo: Domain → Application → Infrastructure → Presentation (HTTP/Cli).
 
 3. **Domain puro** — nenhuma dependência de framework nas entidades, Value Objects e regras de negócio. As
-   entidades vivem em `Domain/Entity/`, os VOs em `Domain/ValueObject/`, e as políticas em `Domain/Policy/`.
+   entidades vivem em `Domain/<Agregado>/Entity/`, os VOs em `Domain/<Agregado>/ValueObject/`, e as
+   políticas em `Domain/<Agregado>/Policy/`.
 
 4. **Comunicação cross-module via Domain Events** — um módulo publica eventos, outro escuta. Nunca
    importação direta entre módulos. Eventos são disparados via `EventDispatcherInterface` (porta em
@@ -101,7 +102,11 @@ Estas regras definem o que pertence a cada módulo e são verificadas automatica
    Policies e configurações de mapeamento de um módulo vivem sob o namespace desse módulo.
 4. **Cada camada tem um dono** — a Presentation só conhece Application; a Infrastructure implementa
    portas de Domain/Application; o Domain não conhece Infrastructure nem Presentation.
-5. **Testes espelham a origem** — `tests/Unit/<Módulo>/<Camada>/...` acompanha
+5. **Domain agrupado por agregado** — dentro de cada módulo,
+   `Domain/<Agregado>/{Entity,ValueObject,Repository,Event,Exception}`. Conceitos que pertencem ao
+   módulo inteiro, como o catálogo de erros e a exceção base, ficam em `Domain/Error` e
+   `Domain/Exception`, não dentro de um agregado.
+6. **Testes espelham a origem** — `tests/Unit/<Módulo>/<Camada>/...` acompanha
    `src/<Módulo>/<Camada>/...`. Testes transversais (catálogos de erro e fronteiras) ficam em
    `tests/Unit/Architecture/`.
 
@@ -109,8 +114,10 @@ Estas regras definem o que pertence a cada módulo e são verificadas automatica
 
 - Criar `src/<Módulo>/{Domain,Application,Infrastructure,Presentation}` conforme as camadas necessárias.
 - Declarar portas em `Domain` (regras/repositórios) ou `Application` (capacidades da aplicação).
-- Registrar mapeamentos Doctrine no `config/packages/doctrine.php`, apontando para o diretório de
-  entidades do módulo.
+- Agrupar o Domain por agregado: `Domain/<Agregado>/{Entity,ValueObject,Repository,Event,Exception}`.
+- Manter catálogo de erros e exceção base no nível do módulo (`Domain/Error` e `Domain/Exception`).
+- Registrar mapeamentos Doctrine no `config/packages/doctrine.php`, apontando para a raiz
+  `src/<Módulo>/Domain` do módulo.
 - Publicar/consumir Domain Events com `EventDispatcherInterface`; não importar o outro módulo.
 - Espelhar os testes em `tests/Unit/<Módulo>/...` e, se houver HTTP, `tests/Functional/<Módulo>/...`.
 - Rodar `composer quality` (cs, phpstan e Pest) — o teste de fronteiras impede regressões.
@@ -172,29 +179,39 @@ src/
 │
 ├── Identity/                            # Cadastro, Autenticação, Onboarding
 │   ├── Domain/
-│   │   ├── Entity/
-│   │   │   ├── User.php
-│   │   │   └── RefreshToken.php
-│   │   ├── ValueObject/
-│   │   │   ├── UserId.php
-│   │   │   ├── UserRole.php
-│   │   │   ├── UserLevel.php
-│   │   │   ├── UserStatus.php
-│   │   │   ├── HashedPassword.php
-│   │   │   ├── OnboardingStatus.php
-│   │   │   └── UserProfile.php
-│   │   ├── Error/
+│   │   ├── User/                        # agregado User
+│   │   │   ├── Entity/
+│   │   │   │   └── User.php
+│   │   │   ├── ValueObject/
+│   │   │   │   ├── UserId.php
+│   │   │   │   ├── UserRole.php
+│   │   │   │   ├── UserLevel.php
+│   │   │   │   ├── UserStatus.php
+│   │   │   │   ├── HashedPassword.php
+│   │   │   │   ├── OnboardingStatus.php
+│   │   │   │   └── UserProfile.php
+│   │   │   ├── Repository/
+│   │   │   │   └── UserRepositoryInterface.php
+│   │   │   ├── Event/
+│   │   │   │   ├── UserRegistered.php
+│   │   │   │   └── OnboardingCompleted.php
+│   │   │   └── Exception/
+│   │   │       ├── InvalidHashedPasswordException.php
+│   │   │       ├── OnboardingAlreadyCompletedException.php
+│   │   │       ├── OnboardingInvalidPrimaryModalityException.php
+│   │   │       ├── OnboardingNoModalitySelectedException.php
+│   │   │       ├── UserAlreadyActiveException.php
+│   │   │       └── UserAlreadySuspendedException.php
+│   │   ├── RefreshToken/                # agregado futuro
+│   │   │   ├── Entity/
+│   │   │   │   └── RefreshToken.php
+│   │   │   └── Repository/
+│   │   │       └── RefreshTokenRepositoryInterface.php
+│   │   ├── Error/                       # catálogo do módulo
 │   │   │   ├── IdentityErrorCode.php
 │   │   │   └── IdentityErrors.php
-│   │   ├── Event/
-│   │   │   ├── UserRegistered.php
-│   │   │   └── OnboardingCompleted.php
-│   │   ├── Exception/
-│   │   │   ├── IdentityException.php
-│   │   │   └── InvalidHashedPasswordException.php
-│   │   └── Repository/
-│   │       ├── UserRepositoryInterface.php
-│   │       └── RefreshTokenRepositoryInterface.php
+│   │   └── Exception/                   # base do módulo
+│   │       └── IdentityException.php
 │   │
 │   ├── Application/
 │   │   ├── UseCase/
@@ -496,7 +513,7 @@ O `RefreshTokenId` é o identificador interno da entidade.
 ### 4.6 Entidade RefreshToken
 
 ```php
-// src/Identity/Domain/Entity/RefreshToken.php
+// src/Identity/Domain/RefreshToken/Entity/RefreshToken.php
 
 final class RefreshToken
 {
@@ -533,7 +550,7 @@ final class RefreshToken
 ### 5.1 Entidade User (domínio rico)
 
 ```php
-// src/Identity/Domain/Entity/User.php
+// src/Identity/Domain/User/Entity/User.php
 
 final class User
 {
@@ -757,12 +774,13 @@ tests/
 │   │   └── ModuleBoundariesTest.php       # Shared × módulos e imports cruzados
 │   ├── Identity/
 │   │   ├── Domain/
-│   │   │   ├── Entity/UserTest.php
 │   │   │   ├── Error/IdentityErrorsTest.php
-│   │   │   ├── Exception/IdentityExceptionTest.php
-│   │   │   └── ValueObject/
-│   │   │       ├── UserIdTest.php
-│   │   │       └── HashedPasswordTest.php
+│   │   │   └── User/
+│   │   │       ├── Entity/UserTest.php
+│   │   │       ├── Exception/UserExceptionTest.php
+│   │   │       └── ValueObject/
+│   │   │           ├── UserIdTest.php
+│   │   │           └── HashedPasswordTest.php
 │   │   └── Application/
 │   │       └── UseCase/RegisterUser/RegisterUserHandlerTest.php
 │   ├── Gamification/
