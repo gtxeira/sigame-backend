@@ -25,7 +25,7 @@ final readonly class Weight
      */
     public static function fromKilograms(float $kilograms): ValidationResult
     {
-        if ($kilograms < self::MIN_KILOGRAMS || $kilograms > self::MAX_KILOGRAMS) {
+        if ($kilograms < self::MIN_KILOGRAMS || $kilograms > self::MAX_KILOGRAMS || !is_finite($kilograms)) {
             return ValidationResult::invalid([
                 IdentityErrors::userWeightInvalid(self::MIN_KILOGRAMS, self::MAX_KILOGRAMS),
             ]);
