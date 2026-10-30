@@ -55,7 +55,6 @@ final class ValidationErrorResponse extends ApiErrorResponse
                             ],
                         ],
                     ],
-                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                 ],
             ),
         ];

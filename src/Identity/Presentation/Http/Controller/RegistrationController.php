@@ -68,7 +68,6 @@ final class RegistrationController extends AbstractController
                             ],
                         ],
                     ],
-                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                 ],
             ),
             'CPF_INVALID' => new ApiExample(
@@ -84,7 +83,6 @@ final class RegistrationController extends AbstractController
                             ],
                         ],
                     ],
-                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                 ],
             ),
             'EMAIL_INVALID' => new ApiExample(
@@ -100,7 +98,6 @@ final class RegistrationController extends AbstractController
                             ],
                         ],
                     ],
-                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                 ],
             ),
         ],
@@ -126,7 +123,6 @@ final class RegistrationController extends AbstractController
                             ],
                         ],
                     ],
-                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                 ],
             ),
             'EMAIL_ALREADY_EXISTS' => new ApiExample(
@@ -142,7 +138,6 @@ final class RegistrationController extends AbstractController
                             ],
                         ],
                     ],
-                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                 ],
             ),
         ],

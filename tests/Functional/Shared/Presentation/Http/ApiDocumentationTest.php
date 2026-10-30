@@ -124,6 +124,41 @@ it('fills a value for every named example', function () {
     expect($missing)->toBe([]);
 });
 
+it('derives meta for every error example and keeps it last', function () {
+    $doc = readApiDoc($this);
+
+    $missingMeta = [];
+    $metaNotLast = [];
+
+    foreach (apiDocValue($doc, 'paths') as $path => $operations) {
+        foreach ($operations as $method => $operation) {
+            foreach ($operation['responses'] ?? [] as $status => $response) {
+                foreach ($response['content'] ?? [] as $mediaType => $content) {
+                    foreach ($content['examples'] ?? [] as $name => $example) {
+                        $value = $example['value'] ?? null;
+                        $label = sprintf('%s %s %s %s %s', strtoupper((string) $method), $path, $status, $mediaType, $name);
+
+                        if (!is_array($value)) {
+                            continue;
+                        }
+
+                        if (array_key_exists('meta', $value) && 'meta' !== array_key_last($value)) {
+                            $metaNotLast[] = $label;
+                        }
+
+                        if ((int) $status >= 400 && !isset($value['meta']['timestamp'])) {
+                            $missingMeta[] = $label;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    expect($missingMeta)->toBe([])
+        ->and($metaNotLast)->toBe([]);
+});
+
 it('documents the register error codes with named examples', function () {
     $doc = readApiDoc($this);
 
@@ -156,6 +191,11 @@ it('documents the register error codes with named examples', function () {
     $validationExamples = apiDocValue($responses, '422', 'content', 'application/json', 'examples');
 
     expect(array_keys($validationExamples))->toBe(['VALIDATION_ERROR', 'CPF_INVALID', 'EMAIL_INVALID']);
+
+    $validationError = apiDocValue($responses, '422', 'content', 'application/json', 'examples', 'VALIDATION_ERROR');
+
+    expect(array_keys($validationError['value']))->toBe(['errors', 'meta'])
+        ->and($validationError['value']['meta']['timestamp'])->toBe('2026-09-21T10:00:00.000+00:00');
 
     $conflictCodes = apiDocValue(
         $responses,

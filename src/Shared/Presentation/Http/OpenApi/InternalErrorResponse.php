@@ -32,7 +32,6 @@ final class InternalErrorResponse extends ApiErrorResponse
                                 'message' => 'Um erro interno ocorreu. Por favor, aguarde e tente novamente.',
                             ],
                         ],
-                        'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
                     ],
                 ),
             ],

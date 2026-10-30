@@ -10,12 +10,13 @@ use OpenApi\Undefined;
 use Symfony\Component\DependencyInjection\Attribute\Autoconfigure;
 
 /**
- * Preenche o `value` de exemplos nomeados a partir do schema da resposta.
+ * Preenche e completa o `value` de exemplos nomeados a partir do schema da resposta.
  *
  * O Nelmio executa processors customizados depois de resolver `#[Model]` e de
  * registrar os schemas em `components`, então aqui o documento já está no
  * formato final: basta percorrer `responses.*.content.*.examples.*` e derivar o
- * body do schema do media type. Exemplos com `value` explícito são preservados.
+ * body do schema do media type. Exemplos sem `value` recebem o body completo;
+ * exemplos com `value` parcial recebem apenas o `meta` que estiver faltando.
  */
 #[Autoconfigure(tags: ['nelmio_api_doc.swagger.processor'])]
 final class FillNamedExampleValues
@@ -59,24 +60,49 @@ final class FillNamedExampleValues
             return;
         }
 
+        $derived = $this->resolver->resolve($mediaType->schema, $components);
+
         foreach ($mediaType->examples as $example) {
-            if (!Undefined::isDefault($example->value)) {
+            if (Undefined::isDefault($example->value)) {
+                if (Undefined::isDefault($derived)) {
+                    $example->_context->logger->warning(sprintf(
+                        'Não foi possível derivar o value do exemplo "%s" a partir do schema da resposta.',
+                        (string) $example->example,
+                    ));
+
+                    continue;
+                }
+
+                $example->value = $this->withMetaLast($derived);
+
                 continue;
             }
 
-            $value = $this->resolver->resolve($mediaType->schema, $components);
-
-            if (Undefined::isDefault($value)) {
-                $example->_context->logger->warning(sprintf(
-                    'Não foi possível derivar o value do exemplo "%s" a partir do schema da resposta.',
-                    (string) $example->example,
-                ));
-
-                continue;
-            }
-
-            $example->value = $this->withMetaLast($value);
+            $example->value = $this->withMetaLast(
+                $this->appendMeta($example->value, $derived),
+            );
         }
+    }
+
+    /**
+     * Completa o `meta` ausente em um body explícito usando o schema da resposta.
+     *
+     * O `meta` é derivado de `ApiResponseMeta` (definido no YAML), então o
+     * exemplo do attribute não precisa repetir o timestamp.
+     */
+    private function appendMeta(mixed $value, mixed $derived): mixed
+    {
+        if (!is_array($value) || array_is_list($value) || array_key_exists('meta', $value)) {
+            return $value;
+        }
+
+        if (!is_array($derived) || !array_key_exists('meta', $derived)) {
+            return $value;
+        }
+
+        $value['meta'] = $derived['meta'];
+
+        return $value;
     }
 
     /**
