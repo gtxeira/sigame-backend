@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Monitoring\Presentation\Http\Controller;
 
 use App\Monitoring\Application\Service\SystemHealthCheckerInterface;
+use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
 use App\Shared\Presentation\Http\Response\ApiResponse;
 use OpenApi\Attributes as OA;
@@ -36,6 +37,7 @@ final class HealthController extends AbstractController
             new OA\Property(property: 'status', type: 'string', example: 'UP', const: 'UP'),
         ],
     )]
+    #[InternalErrorResponse]
     public function liveness(): JsonResponse
     {
         return ApiResponse::ok([
@@ -82,6 +84,7 @@ final class HealthController extends AbstractController
             ),
         ],
     )]
+    #[InternalErrorResponse]
     public function index(): JsonResponse
     {
         $isDatabaseReachable = $this->systemHealthChecker->isDatabaseReachable();

@@ -26,7 +26,7 @@ final class ApiExceptionListener
             errors: [
                 [
                     'code' => ApiErrorCode::InternalError->value,
-                    'message' => 'Um erro interno ocorreu. Por favor, aguarde e tente novamente.',
+                    'message' => ApiErrorCode::InternalError->message(),
                 ],
             ],
         );

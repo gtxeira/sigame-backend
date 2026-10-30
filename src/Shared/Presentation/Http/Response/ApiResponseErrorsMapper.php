@@ -30,7 +30,7 @@ final class ApiResponseErrorsMapper
         return [
             [
                 'code' => ApiErrorCode::ValidationError->value,
-                'message' => 'Um ou mais erros de validação foram encontrados.',
+                'message' => ApiErrorCode::ValidationError->message(),
                 'details' => $details,
             ],
         ];

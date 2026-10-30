@@ -8,8 +8,11 @@ use App\Identity\Application\UseCase\RegisterUser\RegisterUserCommand;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserHandler;
 use App\Identity\Presentation\Http\Request\RegisterUserRequest;
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
-use App\Shared\Presentation\Http\OpenApi\DomainErrorResponse;
+use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
+use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
+use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
+use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
 use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use OpenApi\Attributes as OA;
@@ -41,7 +44,10 @@ final class RegistrationController extends AbstractController
         description: 'Usuário cadastrado com sucesso.',
     )]
     #[ValidationErrorResponse]
-    #[DomainErrorResponse]
+    #[ResourceConflictResponse]
+    #[BadRequestResponse]
+    #[UnsupportedMediaTypeResponse]
+    #[InternalErrorResponse]
     public function register(
         #[MapRequestPayload]
         RegisterUserRequest $request,
