@@ -13,14 +13,24 @@ use App\Shared\Domain\ValueObject\Modality;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 
+function makeUserWith(string $cpf, string $email, string $plainPassword, string $name): User
+{
+    return User::register(
+        cpf: Cpf::fromString($cpf)->value(),
+        email: Email::fromString($email)->value(),
+        password: HashedPassword::fromHash($plainPassword),
+        name: $name,
+    );
+}
+
 it('persists and reloads profile data and modalities', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);
 
-    $user = User::register(
-        cpf: Cpf::fromString('52998224725')->value(),
-        email: Email::fromString('persist@example.com')->value(),
-        password: HashedPassword::fromHash('hashed_password_123'),
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'persist@example.com',
+        plainPassword: 'hashed_password_123',
         name: 'Maria Silva',
     );
 
@@ -61,10 +71,10 @@ it('reloads a user without onboarding data', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);
 
-    $user = User::register(
-        cpf: Cpf::fromString('52998224725')->value(),
-        email: Email::fromString('pending@example.com')->value(),
-        password: HashedPassword::fromHash('hashed_password_123'),
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'pending@example.com',
+        plainPassword: 'hashed_password_123',
         name: 'João Silva',
     );
 
@@ -86,10 +96,10 @@ it('allows only one primary modality per user', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);
 
-    $user = User::register(
-        cpf: Cpf::fromString('52998224725')->value(),
-        email: Email::fromString('primary@example.com')->value(),
-        password: HashedPassword::fromHash('hashed_password_123'),
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'primary@example.com',
+        plainPassword: 'hashed_password_123',
         name: 'Ana Silva',
     );
 
@@ -113,10 +123,10 @@ it('finds a user by email through the embedded credentials', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);
 
-    $user = User::register(
-        cpf: Cpf::fromString('52998224725')->value(),
-        email: Email::fromString('lookup@example.com')->value(),
-        password: HashedPassword::fromHash('hashed_password_123'),
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'lookup@example.com',
+        plainPassword: 'hashed_password_123',
         name: 'Ana Silva',
     );
 

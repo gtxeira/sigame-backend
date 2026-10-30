@@ -106,7 +106,8 @@
         "phpstan/phpstan-mockery": "^2.0",
         "pestphp/pest-plugin-phpstan": "^5.2",
         "zenstruck/foundry": "^2.13",
-        "phpstan/phpstan-phpunit": "^2.0"
+        "phpstan/phpstan-phpunit": "^2.0",
+        "dama/doctrine-test-bundle": "^8.7"
     },
     "autoload-dev": {
         "psr-4": {

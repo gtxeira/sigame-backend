@@ -2,11 +2,6 @@
 
 declare(strict_types=1);
 
-use FilesystemIterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
-
 /**
  * Módulos encontrados em `src/` (tudo que não seja o Kernel).
  *

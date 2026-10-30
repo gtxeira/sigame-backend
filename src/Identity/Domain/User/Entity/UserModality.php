@@ -26,7 +26,7 @@ final class UserModality
     private function __construct(
         #[ORM\Id]
         #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'modalities')]
-        #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+        #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
         private readonly User $user,
 
         #[ORM\Id]

@@ -877,6 +877,21 @@ Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit'
 | Funcional  | Fronteira HTTP: rotas, status code, payload, serialização, autenticação         | PestPHP + WebTestCase + BrowserKit  |
 | Integração | Adaptadores reais: repositórios/banco, storage, JWT, hasher, eventos            | PestPHP + Doctrine (sem BrowserKit) |
 
+### Isolamento do banco
+
+Testes que tocam o banco (`integration` e `functional`) usam `Zenstruck\Foundry\Test\ResetDatabase`.
+Com o `dama/doctrine-test-bundle` habilitado no env `test`, **cada teste roda dentro de uma transação
+e sofre rollback ao final**, e o banco é criado/migrado **uma vez por execução**:
+
+- `zenstruck_foundry.orm.reset.mode: migrate` faz o schema vir das migrations, não do mapping —
+  migration quebrada ou dessincronizada aparece na suíte;
+- o reset por teste (`doctrine:schema:drop` + `doctrine:schema:update`) deixa de acontecer;
+- dados criados no teste desaparecem no rollback, então fixtures de banco vão em `beforeEach` ou no
+  corpo do teste — nunca em `beforeAll`/`setUpBeforeClass`.
+
+Como cada teste está dentro de uma transação, `CREATE DATABASE`, `TRUNCATE` e `commit()`/`rollBack()`
+explícitos dentro do teste quebram o isolamento.
+
 ### Como escrever testes
 
 1. **Mockery para as ports** — as dependências de um handler (repositórios, hashers, dispatchers)
