@@ -18,8 +18,8 @@ use OpenApi\Attributes as OA;
 class ApiErrorResponse extends OA\Response
 {
     /**
-     * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
-     * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
+     * @param array<string, ApiExample> $examples exemplos nomeados pelo código do erro
+     * @param array<string, string>     $fields   campos possíveis em `details[].field` => descrição
      */
     public function __construct(
         int $response,
@@ -31,7 +31,7 @@ class ApiErrorResponse extends OA\Response
             response: $response,
             description: $description,
             content: new OA\JsonContent(
-                examples: self::buildExamples($examples),
+                examples: ApiExamples::build($examples),
                 allOf: [
                     new OA\Schema(ref: '#/components/schemas/ApiResponseError'),
                     new OA\Schema(
@@ -80,27 +80,6 @@ class ApiErrorResponse extends OA\Response
                 ],
             ),
         );
-    }
-
-    /**
-     * @param array<string, ApiErrorExample> $examples
-     *
-     * @return list<OA\Examples>
-     */
-    private static function buildExamples(array $examples): array
-    {
-        $built = [];
-
-        foreach ($examples as $code => $example) {
-            $built[] = new OA\Examples(
-                example: $code,
-                summary: $example->summary,
-                description: $example->when,
-                value: $example->value,
-            );
-        }
-
-        return $built;
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Identity\Application\UseCase\RegisterUser\RegisterUserCommand;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserHandler;
 use App\Identity\Presentation\Http\Request\RegisterUserRequest;
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
+use App\Shared\Presentation\Http\OpenApi\ApiExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
 use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
@@ -42,9 +43,114 @@ final class RegistrationController extends AbstractController
         dataModel: RegisterUserResponse::class,
         response: Response::HTTP_CREATED,
         description: 'Usuário cadastrado com sucesso.',
+        examples: [
+            'USUARIO_CADASTRADO' => new ApiExample(
+                summary: 'Usuário cadastrado',
+                description: 'Cadastro concluído; os dados do usuário são retornados em `data`.',
+            ),
+        ],
     )]
-    #[ValidationErrorResponse]
-    #[ResourceConflictResponse]
+    #[ValidationErrorResponse(
+        examples: [
+            'VALIDATION_ERROR' => new ApiExample(
+                summary: 'Erros de Validação',
+                description: 'Um ou mais campos do payload contêm dados inválidos.',
+                value: [
+                    'errors' => [
+                        [
+                            'code' => 'VALIDATION_ERROR',
+                            'message' => 'Um ou mais erros de validação foram encontrados.',
+                            'details' => [
+                                [
+                                    'field' => 'email',
+                                    'message' => 'O email é obrigatório.',
+                                ],
+                            ],
+                        ],
+                    ],
+                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
+                ],
+            ),
+            'CPF_INVALID' => new ApiExample(
+                summary: 'CPF inválido',
+                description: 'O CPF não passou na validação de dígitos verificadores.',
+                value: [
+                    'errors' => [
+                        [
+                            'code' => 'CPF_INVALID',
+                            'message' => 'O CPF possui dígitos verificadores inválidos.',
+                            'details' => [
+                                ['field' => 'cpf'],
+                            ],
+                        ],
+                    ],
+                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
+                ],
+            ),
+            'EMAIL_INVALID' => new ApiExample(
+                summary: 'E-mail inválido',
+                description: 'O e-mail não passou na validação de formato.',
+                value: [
+                    'errors' => [
+                        [
+                            'code' => 'EMAIL_INVALID',
+                            'message' => 'O e-mail informado é inválido.',
+                            'details' => [
+                                ['field' => 'email'],
+                            ],
+                        ],
+                    ],
+                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
+                ],
+            ),
+        ],
+        fields: [
+            'cpf' => 'CPF do usuário.',
+            'email' => 'E-mail do usuário.',
+            'name' => 'Nome completo do usuário.',
+            'password' => 'Senha do usuário.',
+        ],
+    )]
+    #[ResourceConflictResponse(
+        examples: [
+            'USER_CPF_ALREADY_EXISTS' => new ApiExample(
+                summary: 'CPF já cadastrado',
+                description: 'Já existe um usuário com o CPF informado.',
+                value: [
+                    'errors' => [
+                        [
+                            'code' => 'USER_CPF_ALREADY_EXISTS',
+                            'message' => 'Já existe um usuário com este CPF.',
+                            'details' => [
+                                ['field' => 'cpf'],
+                            ],
+                        ],
+                    ],
+                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
+                ],
+            ),
+            'EMAIL_ALREADY_EXISTS' => new ApiExample(
+                summary: 'E-mail já cadastrado',
+                description: 'Já existe um usuário com o e-mail informado.',
+                value: [
+                    'errors' => [
+                        [
+                            'code' => 'EMAIL_ALREADY_EXISTS',
+                            'message' => 'Já existe um usuário com este e-mail.',
+                            'details' => [
+                                ['field' => 'email'],
+                            ],
+                        ],
+                    ],
+                    'meta' => ['timestamp' => '2026-09-21T10:00:00.000+00:00'],
+                ],
+            ),
+        ],
+        fields: [
+            'cpf' => 'CPF do usuário.',
+            'email' => 'E-mail do usuário.',
+        ],
+    )]
     #[BadRequestResponse]
     #[UnsupportedMediaTypeResponse]
     #[InternalErrorResponse]

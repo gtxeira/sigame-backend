@@ -19,9 +19,9 @@ final class UnsupportedMediaTypeResponse extends ApiErrorResponse
             response: Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
             description: '`Content-Type` ausente ou diferente de `application/json`.',
             examples: [
-                'UNSUPPORTED_MEDIA_TYPE' => new ApiErrorExample(
+                'UNSUPPORTED_MEDIA_TYPE' => new ApiExample(
                     summary: 'Formato não suportado',
-                    when: 'Requisição sem `Content-Type` ou com formato diferente de `application/json`.',
+                    description: 'Requisição sem `Content-Type` ou com formato diferente de `application/json`.',
                     value: [
                         'errors' => [
                             [

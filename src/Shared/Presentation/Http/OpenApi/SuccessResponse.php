@@ -13,9 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
 final class SuccessResponse extends OA\Response
 {
     /**
-     * @param class-string|null $dataModel
-     * @param list<string>      $dataRequired
-     * @param list<OA\Property> $dataProperties
+     * @param class-string|null         $dataModel
+     * @param list<string>              $dataRequired
+     * @param list<OA\Property>         $dataProperties
+     * @param array<string, ApiExample> $examples       exemplos nomeados exibidos na documentação
      */
     public function __construct(
         ?string $dataModel = null,
@@ -23,6 +24,7 @@ final class SuccessResponse extends OA\Response
         string $description = 'Operação realizada com sucesso.',
         array $dataRequired = [],
         array $dataProperties = [],
+        array $examples = [],
     ) {
         $dataProperty = match (true) {
             null !== $dataModel => new OA\Property(
@@ -43,19 +45,32 @@ final class SuccessResponse extends OA\Response
             ),
         };
 
+        $allOf = [
+            new OA\Schema(
+                ref: '#/components/schemas/ApiResponseSuccess',
+            ),
+            new OA\Schema(
+                properties: [$dataProperty],
+            ),
+        ];
+
+        $schema = new OA\Schema(allOf: $allOf);
+
+        $content = [] === $examples
+            ? new OA\MediaType(
+                mediaType: 'application/json',
+                schema: $schema,
+            )
+            : new OA\MediaType(
+                mediaType: 'application/json',
+                schema: $schema,
+                examples: ApiExamples::build($examples),
+            );
+
         parent::__construct(
             response: $response,
             description: $description,
-            content: new OA\JsonContent(
-                allOf: [
-                    new OA\Schema(
-                        ref: '#/components/schemas/ApiResponseSuccess',
-                    ),
-                    new OA\Schema(
-                        properties: [$dataProperty],
-                    ),
-                ],
-            ),
+            content: $content,
         );
     }
 }

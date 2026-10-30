@@ -52,6 +52,78 @@ it('documents every public api operation', function () {
         ]);
 });
 
+it('documents the register success with a named example', function () {
+    $doc = readApiDoc($this);
+
+    $example = apiDocValue(
+        $doc,
+        'paths', '/api/v1/auth/register', 'post', 'responses',
+        '201', 'content', 'application/json', 'examples', 'USUARIO_CADASTRADO',
+    );
+
+    expect($example['summary'])->toBe('Usuário cadastrado')
+        ->and($example['description'])->not->toBeEmpty()
+        ->and(array_keys($example['value']))->toBe(['data', 'meta'])
+        ->and($example['value']['data'])->toHaveKeys([
+            'id', 'cpf', 'email', 'name', 'level', 'status', 'createdAt',
+        ])
+        ->and($example['value']['meta'])->toHaveKey('timestamp');
+});
+
+it('derives the health example values from the response schema', function () {
+    $doc = readApiDoc($this);
+
+    $liveness = apiDocValue(
+        $doc,
+        'paths', '/api/health/liveness', 'get', 'responses',
+        '200', 'content', 'application/json', 'examples', 'APLICACAO_OPERANDO',
+    );
+
+    $healthy = apiDocValue(
+        $doc,
+        'paths', '/api/health/readiness', 'get', 'responses',
+        '200', 'content', 'application/json', 'examples', 'SERVICO_SAUDAVEL',
+    );
+
+    $degraded = apiDocValue(
+        $doc,
+        'paths', '/api/health/readiness', 'get', 'responses',
+        '503', 'content', 'application/json', 'examples', 'SERVICO_DEGRADADO',
+    );
+
+    expect($liveness['value']['data'])->toBe(['status' => 'UP'])
+        ->and(array_keys($liveness['value']))->toBe(['data', 'meta'])
+        ->and($liveness['value']['meta'])->toHaveKey('timestamp')
+        ->and($healthy['value']['data'])->toBe(['status' => 'HEALTHY', 'checks' => ['database' => 'UP']])
+        ->and(array_keys($healthy['value']))->toBe(['data', 'meta'])
+        ->and($healthy['value']['meta'])->toHaveKey('timestamp')
+        ->and($degraded['value']['data'])->toBe(['status' => 'UNHEALTHY', 'checks' => ['database' => 'DOWN']])
+        ->and(array_keys($degraded['value']))->toBe(['data', 'meta'])
+        ->and($degraded['value']['meta'])->toHaveKey('timestamp');
+});
+
+it('fills a value for every named example', function () {
+    $doc = readApiDoc($this);
+
+    $missing = [];
+
+    foreach (apiDocValue($doc, 'paths') as $path => $operations) {
+        foreach ($operations as $method => $operation) {
+            foreach ($operation['responses'] ?? [] as $status => $response) {
+                foreach ($response['content'] ?? [] as $mediaType => $content) {
+                    foreach ($content['examples'] ?? [] as $name => $example) {
+                        if (!isset($example['value'])) {
+                            $missing[] = sprintf('%s %s %s %s %s', strtoupper((string) $method), $path, $status, $mediaType, $name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    expect($missing)->toBe([]);
+});
+
 it('documents the register error codes with named examples', function () {
     $doc = readApiDoc($this);
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Monitoring\Presentation\Http\Controller;
 
 use App\Monitoring\Application\Service\SystemHealthCheckerInterface;
+use App\Shared\Presentation\Http\OpenApi\ApiExample;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
 use App\Shared\Presentation\Http\Response\ApiResponse;
@@ -35,6 +36,12 @@ final class HealthController extends AbstractController
         dataRequired: ['status'],
         dataProperties: [
             new OA\Property(property: 'status', type: 'string', example: 'UP', const: 'UP'),
+        ],
+        examples: [
+            'APLICACAO_OPERANDO' => new ApiExample(
+                summary: 'Aplicação operando',
+                description: 'Liveness probe respondendo normalmente.',
+            ),
         ],
     )]
     #[InternalErrorResponse]
@@ -67,6 +74,12 @@ final class HealthController extends AbstractController
                 type: 'object',
             ),
         ],
+        examples: [
+            'SERVICO_SAUDAVEL' => new ApiExample(
+                summary: 'Serviço saudável',
+                description: 'Aplicação e dependências operando normalmente.',
+            ),
+        ],
     )]
     #[SuccessResponse(
         response: Response::HTTP_SERVICE_UNAVAILABLE,
@@ -81,6 +94,12 @@ final class HealthController extends AbstractController
                     new OA\Property(property: 'database', type: 'string', example: 'DOWN', const: 'DOWN'),
                 ],
                 type: 'object',
+            ),
+        ],
+        examples: [
+            'SERVICO_DEGRADADO' => new ApiExample(
+                summary: 'Serviço degradado',
+                description: 'Aplicação sem conexão com dependências críticas.',
             ),
         ],
     )]
