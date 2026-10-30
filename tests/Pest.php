@@ -24,8 +24,6 @@ use Tests\FunctionalTestCase;
 use Tests\Helpers\ApiClient;
 use Tests\IntegrationTestCase;
 use Tests\TestCase;
-use Zenstruck\Foundry\Test\Factories;
-use Zenstruck\Foundry\Test\ResetDatabase;
 
 use function Zenstruck\Foundry\faker as foundryFaker;
 
@@ -36,14 +34,11 @@ pest()
 
 pest()
     ->extend(IntegrationTestCase::class)
-    ->use(ResetDatabase::class)
     ->group('integration')
     ->in('Integration');
 
 pest()
     ->extend(FunctionalTestCase::class)
-    ->use(ResetDatabase::class)
-    ->use(Factories::class)
     ->beforeEach(function () {
         $client = $this->createClient();
 

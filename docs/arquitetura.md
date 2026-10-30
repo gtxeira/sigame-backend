@@ -879,7 +879,9 @@ Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit'
 
 ### Isolamento do banco
 
-Testes que tocam o banco (`integration` e `functional`) usam `Zenstruck\Foundry\Test\ResetDatabase`.
+Testes que tocam o banco (`integration` e `functional`) são resetados pela extensão
+`Zenstruck\Foundry\PHPUnit\FoundryExtension` (registrada em `phpunit.xml.dist` com
+`enabled-auto-reset=true`), que age em todo teste que estende `KernelTestCase`.
 Com o `dama/doctrine-test-bundle` habilitado no env `test`, **cada teste roda dentro de uma transação
 e sofre rollback ao final**, e o banco é criado/migrado **uma vez por execução**:
 
