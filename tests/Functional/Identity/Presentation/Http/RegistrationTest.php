@@ -89,3 +89,24 @@ it('rejects invalid registration payload', function (array $overrides) {
     'invalid cpf' => [fn () => ['cpf' => faker()->numerify()]],
     'short password' => [fn () => ['password' => faker()->numerify()]],
 ]);
+
+it('translates Symfony Validator messages to pt-BR', function () {
+    $response = $this->api->post(
+        route: 'app_auth_register',
+        payload: [
+            'cpf' => faker()->cpf(),
+            'email' => faker()->email(),
+            'name' => ['invalid type'],
+            'password' => 'secret1234',
+        ],
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY);
+
+    /** @var array{errors: list<array{code: string, message: string, details: list<array{field: string, message: string}>}>} $body */
+    $body = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($body['errors'][0]['code'])->toBe('VALIDATION_ERROR')
+        ->and($body['errors'][0]['details'][0]['field'])->toBe('name')
+        ->and($body['errors'][0]['details'][0]['message'])->toBe('Este valor deve ser do tipo string.');
+});
