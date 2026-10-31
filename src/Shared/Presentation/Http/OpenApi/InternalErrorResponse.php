@@ -22,17 +22,10 @@ final class InternalErrorResponse extends ApiErrorResponse
             response: Response::HTTP_INTERNAL_SERVER_ERROR,
             description: 'Falha inesperada no servidor.',
             examples: [
-                'INTERNAL_ERROR' => new ApiExample(
+                'INTERNAL_ERROR' => new ApiErrorExample(
+                    message: 'Um erro interno ocorreu. Por favor, aguarde e tente novamente.',
                     summary: 'Erro interno',
                     description: 'Exceção não tratada durante o processamento da requisição.',
-                    value: [
-                        'errors' => [
-                            [
-                                'code' => 'INTERNAL_ERROR',
-                                'message' => 'Um erro interno ocorreu. Por favor, aguarde e tente novamente.',
-                            ],
-                        ],
-                    ],
                 ),
             ],
         );

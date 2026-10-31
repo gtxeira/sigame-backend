@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Presentation\Http\OpenApi;
 
 use Attribute;
+use InvalidArgumentException;
 use OpenApi\Attributes as OA;
 
 /**
@@ -18,8 +19,8 @@ use OpenApi\Attributes as OA;
 class ApiErrorResponse extends OA\Response
 {
     /**
-     * @param array<string, ApiExample> $examples exemplos nomeados pelo código do erro
-     * @param array<string, string>     $fields   campos possíveis em `details[].field` => descrição
+     * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
+     * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
      */
     public function __construct(
         int $response,
@@ -31,7 +32,7 @@ class ApiErrorResponse extends OA\Response
             response: $response,
             description: $description,
             content: new OA\JsonContent(
-                examples: ApiExamples::build($examples),
+                examples: self::buildExamples($examples, $fields),
                 allOf: [
                     new OA\Schema(ref: '#/components/schemas/ApiResponseError'),
                     new OA\Schema(
@@ -80,6 +81,53 @@ class ApiErrorResponse extends OA\Response
                 ],
             ),
         );
+    }
+
+    /**
+     * @param array<string, ApiErrorExample> $examples
+     * @param array<string, string>          $fields
+     *
+     * @return list<OA\Examples>
+     */
+    private static function buildExamples(array $examples, array $fields): array
+    {
+        self::assertDetailFieldsAreDocumented($examples, $fields);
+
+        $built = [];
+
+        foreach ($examples as $code => $example) {
+            $built[] = new OA\Examples(
+                example: $code,
+                summary: $example->summary ?? $code,
+                description: $example->description ?? $example->message,
+                value: ['errors' => [$example->toError($code)]],
+            );
+        }
+
+        return $built;
+    }
+
+    /**
+     * @param array<string, ApiErrorExample> $examples
+     * @param array<string, string>          $fields
+     */
+    private static function assertDetailFieldsAreDocumented(array $examples, array $fields): void
+    {
+        if ([] === $fields) {
+            return;
+        }
+
+        foreach ($examples as $code => $example) {
+            foreach ($example->detailFields() as $field) {
+                if (!array_key_exists($field, $fields)) {
+                    throw new InvalidArgumentException(sprintf(
+                        'O campo "%s" do exemplo "%s" não está declarado em $fields.',
+                        $field,
+                        $code,
+                    ));
+                }
+            }
+        }
     }
 
     /**

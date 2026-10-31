@@ -8,6 +8,7 @@ use App\Identity\Application\UseCase\RegisterUser\RegisterUserCommand;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserHandler;
 use App\Identity\Presentation\Http\Request\RegisterUserRequest;
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
+use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\ApiExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
@@ -52,53 +53,23 @@ final class RegistrationController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiExample(
+            'VALIDATION_ERROR' => new ApiErrorExample(
+                message: 'Um ou mais erros de validação foram encontrados.',
+                details: ['email' => 'O email é obrigatório.'],
                 summary: 'Erros de Validação',
                 description: 'Um ou mais campos do payload contêm dados inválidos.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'VALIDATION_ERROR',
-                            'message' => 'Um ou mais erros de validação foram encontrados.',
-                            'details' => [
-                                [
-                                    'field' => 'email',
-                                    'message' => 'O email é obrigatório.',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
             ),
-            'CPF_INVALID' => new ApiExample(
+            'CPF_INVALID' => new ApiErrorExample(
+                message: 'O CPF possui dígitos verificadores inválidos.',
+                details: ['cpf'],
                 summary: 'CPF inválido',
                 description: 'O CPF não passou na validação de dígitos verificadores.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'CPF_INVALID',
-                            'message' => 'O CPF possui dígitos verificadores inválidos.',
-                            'details' => [
-                                ['field' => 'cpf'],
-                            ],
-                        ],
-                    ],
-                ],
             ),
-            'EMAIL_INVALID' => new ApiExample(
+            'EMAIL_INVALID' => new ApiErrorExample(
+                message: 'O e-mail informado é inválido.',
+                details: ['email'],
                 summary: 'E-mail inválido',
                 description: 'O e-mail não passou na validação de formato.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'EMAIL_INVALID',
-                            'message' => 'O e-mail informado é inválido.',
-                            'details' => [
-                                ['field' => 'email'],
-                            ],
-                        ],
-                    ],
-                ],
             ),
         ],
         fields: [
@@ -110,35 +81,17 @@ final class RegistrationController extends AbstractController
     )]
     #[ResourceConflictResponse(
         examples: [
-            'USER_CPF_ALREADY_EXISTS' => new ApiExample(
+            'USER_CPF_ALREADY_EXISTS' => new ApiErrorExample(
+                message: 'Já existe um usuário com este CPF.',
+                details: ['cpf'],
                 summary: 'CPF já cadastrado',
                 description: 'Já existe um usuário com o CPF informado.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'USER_CPF_ALREADY_EXISTS',
-                            'message' => 'Já existe um usuário com este CPF.',
-                            'details' => [
-                                ['field' => 'cpf'],
-                            ],
-                        ],
-                    ],
-                ],
             ),
-            'EMAIL_ALREADY_EXISTS' => new ApiExample(
+            'EMAIL_ALREADY_EXISTS' => new ApiErrorExample(
+                message: 'Já existe um usuário com este e-mail.',
+                details: ['email'],
                 summary: 'E-mail já cadastrado',
                 description: 'Já existe um usuário com o e-mail informado.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'EMAIL_ALREADY_EXISTS',
-                            'message' => 'Já existe um usuário com este e-mail.',
-                            'details' => [
-                                ['field' => 'email'],
-                            ],
-                        ],
-                    ],
-                ],
             ),
         ],
         fields: [

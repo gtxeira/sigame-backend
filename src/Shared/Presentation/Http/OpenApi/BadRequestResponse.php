@@ -19,17 +19,10 @@ final class BadRequestResponse extends ApiErrorResponse
             response: Response::HTTP_BAD_REQUEST,
             description: 'Corpo ilegível: JSON malformado.',
             examples: [
-                'BAD_REQUEST' => new ApiExample(
+                'BAD_REQUEST' => new ApiErrorExample(
+                    message: 'A requisição contém dados inválidos.',
                     summary: 'Payload ilegível',
                     description: 'Corpo que não é um JSON válido.',
-                    value: [
-                        'errors' => [
-                            [
-                                'code' => 'BAD_REQUEST',
-                                'message' => 'A requisição contém dados inválidos.',
-                            ],
-                        ],
-                    ],
                 ),
             ],
         );

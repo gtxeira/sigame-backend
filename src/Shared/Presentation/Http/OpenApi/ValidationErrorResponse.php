@@ -18,8 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 final class ValidationErrorResponse extends ApiErrorResponse
 {
     /**
-     * @param array<string, ApiExample> $examples exemplos nomeados pelo código do erro
-     * @param array<string, string>     $fields   campos possíveis em `details[].field` => descrição
+     * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
+     * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
      */
     public function __construct(
         array $examples = [],
@@ -34,28 +34,16 @@ final class ValidationErrorResponse extends ApiErrorResponse
     }
 
     /**
-     * @return array<string, ApiExample>
+     * @return array<string, ApiErrorExample>
      */
     private static function defaultExamples(): array
     {
         return [
-            'VALIDATION_ERROR' => new ApiExample(
+            'VALIDATION_ERROR' => new ApiErrorExample(
+                message: 'Um ou mais erros de validação foram encontrados.',
+                details: ['email' => 'O email é obrigatório.'],
                 summary: 'Erros de Validação',
                 description: 'Um ou mais campos do payload contêm dados inválidos.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'VALIDATION_ERROR',
-                            'message' => 'Um ou mais erros de validação foram encontrados.',
-                            'details' => [
-                                [
-                                    'field' => 'email',
-                                    'message' => 'O email é obrigatório.',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
             ),
         ];
     }

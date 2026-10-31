@@ -18,8 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 final class ResourceConflictResponse extends ApiErrorResponse
 {
     /**
-     * @param array<string, ApiExample> $examples exemplos nomeados pelo código do erro
-     * @param array<string, string>     $fields   campos possíveis em `details[].field` => descrição
+     * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
+     * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
      */
     public function __construct(
         array $examples = [],
@@ -34,25 +34,15 @@ final class ResourceConflictResponse extends ApiErrorResponse
     }
 
     /**
-     * @return array<string, ApiExample>
+     * @return array<string, ApiErrorExample>
      */
     private static function defaultExamples(): array
     {
         return [
-            'RESOURCE_CONFLICT' => new ApiExample(
+            'RESOURCE_CONFLICT' => new ApiErrorExample(
+                message: 'A operação conflita com o estado atual do recurso.',
                 summary: 'Conflito de regra de negócio ou integridade',
                 description: 'A requisição entra em conflito com o estado do recurso.',
-                value: [
-                    'errors' => [
-                        [
-                            'code' => 'RESOURCE_CONFLICT',
-                            'message' => 'A operação conflita com o estado atual do recurso.',
-                            'details' => [
-                                ['field' => 'field'],
-                            ],
-                        ],
-                    ],
-                ],
             ),
         ];
     }

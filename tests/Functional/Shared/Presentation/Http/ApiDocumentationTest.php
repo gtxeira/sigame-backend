@@ -159,6 +159,83 @@ it('derives meta for every error example and keeps it last', function () {
         ->and($metaNotLast)->toBe([]);
 });
 
+it('keeps every error example in the api error shape', function () {
+    $doc = readApiDoc($this);
+
+    $problems = [];
+
+    foreach (apiDocValue($doc, 'paths') as $path => $operations) {
+        foreach ($operations as $method => $operation) {
+            foreach ($operation['responses'] ?? [] as $status => $response) {
+                $content = $response['content']['application/json'] ?? [];
+                $isErrorEnvelope = '#/components/schemas/ApiResponseError' === ($content['schema']['allOf'][0]['$ref'] ?? null);
+
+                if (!$isErrorEnvelope) {
+                    continue;
+                }
+
+                $fieldEnum = $content['schema']['allOf'][1]['properties']['errors']['items']['properties']['details']['items']['properties']['field']['enum'] ?? [];
+                $fieldEnum = is_array($fieldEnum) ? $fieldEnum : [];
+
+                foreach ($content['examples'] ?? [] as $name => $example) {
+                    $errors = $example['value']['errors'] ?? null;
+                    $label = sprintf('%s %s %s %s', strtoupper((string) $method), $path, $status, $name);
+
+                    if (!is_array($errors) || [] === $errors) {
+                        $problems[] = $label.': sem errors no value';
+
+                        continue;
+                    }
+
+                    foreach ($errors as $error) {
+                        if (!is_array($error)) {
+                            $problems[] = $label.': errors deve conter objetos';
+
+                            continue;
+                        }
+
+                        if (($error['code'] ?? null) !== $name) {
+                            $problems[] = $label.': code divergente da chave';
+                        }
+
+                        if (!isset($error['message']) || '' === $error['message']) {
+                            $problems[] = $label.': message ausente';
+                        }
+
+                        $extra = array_diff(array_keys($error), ['code', 'message', 'details']);
+
+                        if ([] !== $extra) {
+                            $problems[] = $label.': chaves inesperadas '.implode(', ', $extra);
+                        }
+
+                        $details = $error['details'] ?? [];
+
+                        if (!is_array($details)) {
+                            $problems[] = $label.': details deve ser lista';
+
+                            continue;
+                        }
+
+                        foreach ($details as $detail) {
+                            if (!is_array($detail) || !is_string($detail['field'] ?? null)) {
+                                $problems[] = $label.': detail sem field';
+
+                                continue;
+                            }
+
+                            if (!in_array($detail['field'], $fieldEnum, true)) {
+                                $problems[] = $label.': field '.$detail['field'].' fora do enum';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    expect($problems)->toBe([]);
+});
+
 it('documents the register error codes with named examples', function () {
     $doc = readApiDoc($this);
 
