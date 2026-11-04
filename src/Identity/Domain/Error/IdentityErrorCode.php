@@ -15,6 +15,7 @@ use App\Shared\Domain\Error\ErrorKind;
 enum IdentityErrorCode: string
 {
     case UserCpfAlreadyExists = 'USER_CPF_ALREADY_EXISTS';
+    case UserCpfAlreadySet = 'USER_CPF_ALREADY_SET';
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
     case InvalidHashedPassword = 'INVALID_HASHED_PASSWORD';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
@@ -26,21 +27,47 @@ enum IdentityErrorCode: string
     case UserAlreadyActive = 'USER_ALREADY_ACTIVE';
     case UserAlreadySuspended = 'USER_ALREADY_SUSPENDED';
 
+    case InvalidCredentials = 'INVALID_CREDENTIALS';
+    case AccountSuspended = 'ACCOUNT_SUSPENDED';
+    case RefreshTokenInvalid = 'REFRESH_TOKEN_INVALID';
+    case RefreshTokenExpired = 'REFRESH_TOKEN_EXPIRED';
+    case RefreshTokenReused = 'REFRESH_TOKEN_REUSED';
+    case RefreshTokenAlreadyRotated = 'REFRESH_TOKEN_ALREADY_ROTATED';
+    case RefreshInProgress = 'REFRESH_IN_PROGRESS';
+    case SocialProviderUnsupported = 'SOCIAL_PROVIDER_UNSUPPORTED';
+    case SocialAuthenticationFailed = 'SOCIAL_AUTHENTICATION_FAILED';
+    case SocialEmailNotVerified = 'SOCIAL_EMAIL_NOT_VERIFIED';
+    case SocialEmailMissing = 'SOCIAL_EMAIL_MISSING';
+
     public function kind(): ErrorKind
     {
         return match ($this) {
             self::UserCpfAlreadyExists,
+            self::UserCpfAlreadySet,
             self::EmailAlreadyExists,
             self::OnboardingAlreadyCompleted,
             self::UserAlreadyActive,
-            self::UserAlreadySuspended => ErrorKind::Conflict,
+            self::UserAlreadySuspended,
+            self::RefreshInProgress => ErrorKind::Conflict,
 
             self::UserLevelInvalid,
             self::UserHeightInvalid,
             self::UserWeightInvalid,
             self::InvalidHashedPassword,
             self::OnboardingInvalidPrimaryModality,
-            self::OnboardingNoModalitySelected => ErrorKind::Validation,
+            self::OnboardingNoModalitySelected,
+            self::SocialProviderUnsupported,
+            self::SocialEmailNotVerified,
+            self::SocialEmailMissing => ErrorKind::Validation,
+
+            self::InvalidCredentials,
+            self::RefreshTokenInvalid,
+            self::RefreshTokenExpired,
+            self::RefreshTokenReused,
+            self::RefreshTokenAlreadyRotated,
+            self::SocialAuthenticationFailed => ErrorKind::Authentication,
+
+            self::AccountSuspended => ErrorKind::Forbidden,
         };
     }
 }

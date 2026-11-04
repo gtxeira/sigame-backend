@@ -10,6 +10,7 @@ use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
 use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
 use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
+use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
@@ -46,9 +47,9 @@ it('creates a new user via register factory method', function () {
         name: 'João Silva',
     );
 
-    expect($user->cpf()->value())->toBe($cpf->value())
-        ->and($user->email()->value())->toBe($email->value())
-        ->and($user->password()->value())->toBe($password->value())
+    expect($user->cpf()?->value())->toBe($cpf->value())
+        ->and($user->email()?->value())->toBe($email->value())
+        ->and($user->password()?->value())->toBe($password->value())
         ->and($user->name())->toBe('João Silva')
         ->and($user->role())->toBe(UserRole::USER)
         ->and($user->level()->value())->toBe(UserLevel::initial()->value())
@@ -233,3 +234,39 @@ it('throws exception when reactivating already active user', function () {
 
     $user->reactivate();
 })->throws(UserAlreadyActiveException::class);
+
+it('registers a user without cpf', function () {
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('no-cpf@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'João Silva',
+    );
+
+    expect($user->cpf())->toBeNull()
+        ->and($user->email()?->value())->toBe('no-cpf@example.com');
+});
+
+it('assigns the cpf once', function () {
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('assign-cpf@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'João Silva',
+    );
+    $newCpf = Cpf::fromString('47705122014')->value();
+
+    $user->assignCpf($newCpf);
+
+    expect($user->cpf()?->value())->toBe('47705122014');
+
+    $user->assignCpf($newCpf);
+
+    expect($user->cpf()?->value())->toBe('47705122014');
+});
+
+it('rejects changing an already defined cpf', function () {
+    $user = makeUser();
+
+    $user->assignCpf(Cpf::fromString('47705122014')->value());
+})->throws(UserCpfAlreadySetException::class);

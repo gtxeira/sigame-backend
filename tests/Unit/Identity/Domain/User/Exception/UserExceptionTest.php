@@ -12,6 +12,7 @@ use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
 use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
 use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
+use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 
 it('exposes a cataloged code, kind and public message', function (
     string $exceptionClass,
@@ -33,4 +34,5 @@ it('exposes a cataloged code, kind and public message', function (
     [OnboardingNoModalitySelectedException::class, IdentityErrorCode::OnboardingNoModalitySelected],
     [UserAlreadyActiveException::class, IdentityErrorCode::UserAlreadyActive],
     [UserAlreadySuspendedException::class, IdentityErrorCode::UserAlreadySuspended],
+    [UserCpfAlreadySetException::class, IdentityErrorCode::UserCpfAlreadySet],
 ]);

@@ -26,10 +26,11 @@ final readonly class ApiClient
      *
      * @param array<string, mixed>|object $payload
      * @param array<string, mixed>        $routeParams
+     * @param array<string, mixed>        $server
      */
-    public function get(string $route, array|object $payload = [], array $routeParams = []): Response
+    public function get(string $route, array|object $payload = [], array $routeParams = [], array $server = []): Response
     {
-        return $this->sendRequest($route, $payload, 'GET', $routeParams);
+        return $this->sendRequest($route, $payload, 'GET', $routeParams, $server);
     }
 
     /**
@@ -37,10 +38,11 @@ final readonly class ApiClient
      *
      * @param array<string, mixed>|object $payload
      * @param array<string, mixed>        $routeParams
+     * @param array<string, mixed>        $server
      */
-    public function post(string $route, array|object $payload = [], array $routeParams = []): Response
+    public function post(string $route, array|object $payload = [], array $routeParams = [], array $server = []): Response
     {
-        return $this->sendRequest($route, $payload, 'POST', $routeParams);
+        return $this->sendRequest($route, $payload, 'POST', $routeParams, $server);
     }
 
     /**
@@ -48,10 +50,11 @@ final readonly class ApiClient
      *
      * @param array<string, mixed>|object $payload
      * @param array<string, mixed>        $routeParams
+     * @param array<string, mixed>        $server
      */
-    public function patch(string $route, array|object $payload = [], array $routeParams = []): Response
+    public function patch(string $route, array|object $payload = [], array $routeParams = [], array $server = []): Response
     {
-        return $this->sendRequest($route, $payload, 'PATCH', $routeParams);
+        return $this->sendRequest($route, $payload, 'PATCH', $routeParams, $server);
     }
 
     /**
@@ -59,10 +62,11 @@ final readonly class ApiClient
      *
      * @param array<string, mixed>|object $payload
      * @param array<string, mixed>        $routeParams
+     * @param array<string, mixed>        $server
      */
-    public function put(string $route, array|object $payload = [], array $routeParams = []): Response
+    public function put(string $route, array|object $payload = [], array $routeParams = [], array $server = []): Response
     {
-        return $this->sendRequest($route, $payload, 'PUT', $routeParams);
+        return $this->sendRequest($route, $payload, 'PUT', $routeParams, $server);
     }
 
     /**
@@ -70,10 +74,11 @@ final readonly class ApiClient
      *
      * @param array<string, mixed>|object $payload
      * @param array<string, mixed>        $routeParams
+     * @param array<string, mixed>        $server
      */
-    public function delete(string $route, array|object $payload = [], array $routeParams = []): Response
+    public function delete(string $route, array|object $payload = [], array $routeParams = [], array $server = []): Response
     {
-        return $this->sendRequest($route, $payload, 'DELETE', $routeParams);
+        return $this->sendRequest($route, $payload, 'DELETE', $routeParams, $server);
     }
 
     /**
@@ -153,16 +158,22 @@ final readonly class ApiClient
      * @param array<string, mixed>|object         $payload
      * @param 'GET'|'POST'|'PUT'|'PATCH'|'DELETE' $method
      * @param array<string, mixed>                $routeParams
+     * @param array<string, mixed>                $server
      */
-    private function sendRequest(string $route, array|object $payload, string $method, array $routeParams = []): Response
-    {
+    private function sendRequest(
+        string $route,
+        array|object $payload,
+        string $method,
+        array $routeParams = [],
+        array $server = [],
+    ): Response {
         $uri = $this->router->generate($route, $routeParams, UrlGeneratorInterface::ABSOLUTE_PATH);
         $parameters = $this->normalize($payload);
 
         if ('GET' === $method) {
-            $this->client->request($method, $uri, $parameters);
+            $this->client->request($method, $uri, $parameters, [], $server);
         } else {
-            $this->client->jsonRequest($method, $uri, $parameters);
+            $this->client->jsonRequest($method, $uri, $parameters, $server);
         }
 
         return $this->client->getResponse();

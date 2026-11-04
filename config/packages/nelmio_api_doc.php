@@ -163,6 +163,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                         ],
                     ],
                 ],
+                'securitySchemes' => [
+                    'bearerAuth' => [
+                        'type' => 'http',
+                        'scheme' => 'bearer',
+                        'bearerFormat' => 'JWT',
+                    ],
+                ],
             ],
         ],
         'areas' => [

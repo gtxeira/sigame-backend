@@ -50,7 +50,13 @@
         "league/flysystem": "^3.36",
         "league/flysystem-aws-s3-v3": "^3.35",
         "symfony/http-client": "^8.1",
-        "symfony/translation": "^8.1"
+        "symfony/translation": "^8.1",
+        "firebase/php-jwt": "^7.2",
+        "symfony/clock": "^8.1",
+        "symfony/lock": "^8.1",
+        "symfony/rate-limiter": "^8.1",
+        "nelmio/cors-bundle": "^2.6",
+        "symfony/monolog-bundle": "^4.1"
     },
     "config": {
         "allow-plugins": {

@@ -34,34 +34,41 @@ final readonly class RegisterUserHandler
      */
     public function __invoke(RegisterUserCommand $command): Result
     {
-        // Validação de entrada — acumula todos os erros
-        $cpfResult = Cpf::fromString($command->cpf());
         $emailResult = Email::fromString($command->email());
 
-        $validation = ValidationResult::combine($cpfResult, $emailResult);
+        $cpfResult = null;
+        $cpfInput = $command->cpf();
+
+        if (null !== $cpfInput && '' !== trim($cpfInput)) {
+            $cpfResult = Cpf::fromString($cpfInput);
+        }
+
+        $validation = null === $cpfResult
+            ? $emailResult
+            : ValidationResult::combine($cpfResult, $emailResult);
 
         if ($validation->isInvalid()) {
             return Result::failure($validation->errors());
         }
 
-        $cpf = $cpfResult->value();
         $email = $emailResult->value();
+        $cpf = $cpfResult?->value();
 
-        // RN01.1: CPF único
-        if (null !== $this->userRepository->findByCpf($cpf)) {
+        // RN01.1: CPF, quando informado, é único.
+        if (null !== $cpf && null !== $this->userRepository->findByCpf($cpf)) {
             return Result::failure([
                 IdentityErrors::cpfAlreadyExists(),
             ]);
         }
 
-        // RN01.2: Email único
+        // RN01.2: Email único.
         if (null !== $this->userRepository->findByEmail($email)) {
             return Result::failure([
                 IdentityErrors::emailAlreadyExists(),
             ]);
         }
 
-        // RN01.4: Senha nunca em texto puro
+        // RN01.4: Senha nunca em texto puro.
         $hashedPassword = $this->passwordHasher->hash($command->password());
 
         $user = User::register(
@@ -77,7 +84,7 @@ final readonly class RegisterUserHandler
         $this->eventDispatcher->dispatch(UserRegistered::now(
             userId: $user->id()->value(),
             email: $email->value(),
-            cpf: $cpf->value(),
+            cpf: $cpf?->value(),
         ));
 
         return Result::success($user);

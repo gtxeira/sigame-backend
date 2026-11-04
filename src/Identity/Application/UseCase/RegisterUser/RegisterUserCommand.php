@@ -10,14 +10,14 @@ namespace App\Identity\Application\UseCase\RegisterUser;
 final readonly class RegisterUserCommand
 {
     public function __construct(
-        private string $cpf,
+        private ?string $cpf,
         private string $email,
         private string $name,
         private string $password,
     ) {
     }
 
-    public function cpf(): string
+    public function cpf(): ?string
     {
         return $this->cpf;
     }

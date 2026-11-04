@@ -44,9 +44,13 @@ final class HttpExceptionListener
                 'code' => $code->value,
                 'message' => $code->message(),
             ],
-        ]);
+        ])->toJsonResponse($exception->getStatusCode());
 
-        $event->setResponse($response->toJsonResponse($exception->getStatusCode()));
+        foreach ($exception->getHeaders() as $name => $value) {
+            $response->headers->set($name, is_array($value) ? $value : (string) $value);
+        }
+
+        $event->setResponse($response);
     }
 
     private function resolveCode(int $statusCode): ApiErrorCode
@@ -59,6 +63,7 @@ final class HttpExceptionListener
             405 => ApiErrorCode::MethodNotAllowed,
             415 => ApiErrorCode::UnsupportedMediaType,
             422 => ApiErrorCode::ValidationError,
+            429 => ApiErrorCode::TooManyRequests,
             500 => ApiErrorCode::InternalError,
             default => ApiErrorCode::HttpError,
         };

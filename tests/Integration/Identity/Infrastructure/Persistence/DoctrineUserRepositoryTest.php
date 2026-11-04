@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
+use App\Identity\Domain\User\ValueObject\IdentityProvider;
+use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Shared\Domain\ValueObject\Cpf;
@@ -57,8 +59,8 @@ it('persists and reloads profile data and modalities', function () {
         ->and($weight?->kilograms())->toBe(62.5)
         ->and($found->photoUrl())->toBe('https://example.com/maria.jpg')
         ->and($found->name())->toBe('Maria Silva')
-        ->and($found->email()->value())->toBe('persist@example.com')
-        ->and($found->password()->value())->toBe('hashed_password_123')
+        ->and($found->email()?->value())->toBe('persist@example.com')
+        ->and($found->password()?->value())->toBe('hashed_password_123')
         ->and($found->role())->toBe(UserRole::USER)
         ->and($found->status())->toBe(UserStatus::ACTIVE)
         ->and($found->modalities())->toBe([Modality::WALKING, Modality::RUNNING])
@@ -119,7 +121,7 @@ it('allows only one primary modality per user', function () {
     );
 })->throws(UniqueConstraintViolationException::class);
 
-it('finds a user by email through the embedded credentials', function () {
+it('finds a user by email through the local identity', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);
 
@@ -134,6 +136,36 @@ it('finds a user by email through the embedded credentials', function () {
     $em->clear();
 
     $found = $repository->findByEmail(Email::fromString('lookup@example.com')->value());
+
+    assert($found instanceof User);
+
+    expect($found->id()->value())->toBe($user->id()->value());
+});
+
+it('finds a user by provider subject', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+    $em = $this->service(EntityManagerInterface::class);
+
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'provider@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Provider User',
+    );
+
+    $user->linkSocialIdentity(
+        provider: IdentityProvider::GOOGLE,
+        subject: ProviderSubject::fromString('google-subject'),
+        email: Email::fromString('provider@example.com')->value(),
+    );
+
+    $repository->save($user);
+    $em->clear();
+
+    $found = $repository->findByProviderSubject(
+        IdentityProvider::GOOGLE,
+        ProviderSubject::fromString('google-subject'),
+    );
 
     assert($found instanceof User);
 

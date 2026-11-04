@@ -217,6 +217,14 @@
       <path value="$PROJECT_DIR$/vendor/zenstruck/assert" />
       <path value="$PROJECT_DIR$/vendor/phpstan/phpstan-phpunit" />
       <path value="$PROJECT_DIR$/vendor/dama/doctrine-test-bundle" />
+      <path value="$PROJECT_DIR$/vendor/symfony/translation" />
+      <path value="$PROJECT_DIR$/vendor/nelmio/cors-bundle" />
+      <path value="$PROJECT_DIR$/vendor/symfony/lock" />
+      <path value="$PROJECT_DIR$/vendor/symfony/rate-limiter" />
+      <path value="$PROJECT_DIR$/vendor/firebase/php-jwt" />
+      <path value="$PROJECT_DIR$/vendor/symfony/monolog-bundle" />
+      <path value="$PROJECT_DIR$/vendor/symfony/monolog-bridge" />
+      <path value="$PROJECT_DIR$/vendor/monolog/monolog" />
     </include_path>
   </component>
   <component name="PhpInterpreters">
@@ -305,6 +313,11 @@
     <option name="level" value="6" />
     <option name="runMode" value="ON_SAVE" />
     <option name="transferred" value="true" />
+  </component>
+  <component name="PhpStepFilterConfiguration">
+    <skipped_files>
+      <skipped_file file="$PROJECT_DIR$/vendor" />
+    </skipped_files>
   </component>
   <component name="PhpUnit">
     <phpunit_settings>

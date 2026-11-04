@@ -21,7 +21,7 @@ exclusivamente via **Domain Events**, garantindo desacoplamento.
 | Web server                | FrankenPHP (Caddy)                              |
 | Banco de dados            | PostgreSQL 18                                   |
 | ORM                       | Doctrine ORM (via `doctrine/orm-pack`)          |
-| Autenticação              | JWT — `lcobucci/jwt` + autenticador customizado |
+| Autenticação              | Access token JWT + refresh token opaco — `lcobucci/jwt` + autenticador customizado |
 | Armazenamento de arquivos | S3 via Flysystem (Garage localmente)            |
 | Validação                 | Symfony Validator                               |
 | Serialização              | Symfony Serializer                              |
@@ -35,7 +35,8 @@ exclusivamente via **Domain Events**, garantindo desacoplamento.
 composer require symfony/security-bundle doctrine/orm-pack
 composer require symfony/serializer symfony/validator symfony/uid
 composer require league/flysystem flysystem/adapter-s3
-composer require lcobucci/jwt
+composer require lcobucci/jwt firebase/php-jwt
+composer require symfony/clock symfony/lock symfony/rate-limiter nelmio/cors-bundle
 composer require symfony/http-client
 ```
 
@@ -77,11 +78,13 @@ composer require symfony/http-client
   change de contrato com o cliente; renomear o caso não é.
 - **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código
   não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
-- **Todo `DomainError` carrega um `ErrorKind`** (`Validation` ou `Conflict`), derivado do catálogo de
-  códigos. O `kind` não é serializado: é insumo interno para a presentation.
+- **Todo `DomainError` carrega um `ErrorKind`** (`Authentication`, `Forbidden`, `Validation` ou
+  `Conflict`), derivado do catálogo de códigos. O `kind` não é serializado: é insumo interno para a
+  presentation.
 - **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia
-  `Validation` → 422 e `Conflict` → 409. Quando um `Result` acumula os dois tipos, **Validation vence**
-  (422), e o corpo continua trazendo todos os erros — inclusive os de conflito.
+  `Authentication` → 401, `Forbidden` → 403, `Validation` → 422 e `Conflict` → 409. A precedência
+  é `Authentication` > `Forbidden` > `Validation` > `Conflict`; o corpo continua trazendo todos os
+  erros.
 - **`DomainException` também declara `kind()`**, de modo que os dois caminhos (exceção e `Result`) usam a
   mesma regra de status.
 - Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`INTERNAL_ERROR`, `VALIDATION_ERROR`,
@@ -186,7 +189,10 @@ src/
 │   │   │   │   └── UserModality.php
 │   │   │   ├── ValueObject/
 │   │   │   │   ├── UserId.php
-│   │   │   │   ├── Credentials.php
+│   │   │   │   ├── UserIdentity.php
+│   │   │   │   ├── IdentityProvider.php
+│   │   │   │   ├── ProviderSubject.php
+│   │   │   │   ├── UserIdentityId.php
 │   │   │   │   ├── Profile.php
 │   │   │   │   ├── AccessState.php
 │   │   │   │   ├── UserRole.php
@@ -208,9 +214,13 @@ src/
 │   │   │       ├── OnboardingNoModalitySelectedException.php
 │   │   │       ├── UserAlreadyActiveException.php
 │   │   │       └── UserAlreadySuspendedException.php
-│   │   ├── RefreshToken/                # agregado futuro
+│   │   ├── RefreshToken/                # agregado de sessão
 │   │   │   ├── Entity/
 │   │   │   │   └── RefreshToken.php
+│   │   │   ├── ValueObject/
+│   │   │   │   ├── RefreshTokenId.php
+│   │   │   │   ├── TokenFamilyId.php
+│   │   │   │   └── TokenHash.php
 │   │   │   └── Repository/
 │   │   │       └── RefreshTokenRepositoryInterface.php
 │   │   ├── Error/                       # catálogo do módulo
@@ -238,8 +248,12 @@ src/
 │   │   │       └── CompleteOnboardingHandler.php
 │   │   └── Service/
 │   │       ├── PasswordHasherInterface.php
-│   │       ├── JwtTokenGeneratorInterface.php
-│   │       └── RefreshTokenService.php
+│   │       ├── AccessTokenGeneratorInterface.php
+│   │       ├── RefreshTokenGeneratorInterface.php
+│   │       ├── TokenPairIssuerInterface.php
+│   │       ├── TokenPairIssuer.php
+│   │       ├── SocialIdentityProviderInterface.php
+│   │       └── SocialIdentityProviderRegistry.php
 │   │
 │   ├── Infrastructure/
 │   │   ├── Persistence/
@@ -253,10 +267,26 @@ src/
 │   │   │       └── Type/               # Tipos específicos do módulo Identity
 │   │   │           ├── UserIdType.php
 │   │   │           ├── UserLevelType.php
-│   │   │           └── HashedPasswordType.php
+│   │   │           ├── HashedPasswordType.php
+│   │   │           ├── UserIdentityIdType.php
+│   │   │           ├── ProviderSubjectType.php
+│   │   │           ├── RefreshTokenIdType.php
+│   │   │           ├── TokenFamilyIdType.php
+│   │   │           └── TokenHashType.php
 │   │   ├── Security/
 │   │   │   ├── SymfonyPasswordHasher.php
-│   │   │   └── LcobucciJwtTokenGenerator.php
+│   │   │   ├── LcobucciAccessTokenGenerator.php
+│   │   │   ├── OpaqueRefreshTokenGenerator.php
+│   │   │   ├── SecurityUser.php
+│   │   │   ├── SecurityUserProvider.php
+│   │   │   ├── ActiveUserChecker.php
+│   │   │   ├── AccessTokenAuthenticator.php
+│   │   │   └── AccessTokenEntryPoint.php
+│   │   ├── Social/
+│   │   │   ├── GoogleIdentityProvider.php
+│   │   │   ├── JwksProvider.php
+│   │   │   ├── IdTokenVerifier.php
+│   │   │   └── IdTokenVerifierInterface.php
 │   │   └── Event/
 │   │       └── UserRegisteredListener.php
 │   │
@@ -269,10 +299,13 @@ src/
 │           ├── Request/
 │           │   ├── RegisterUserRequest.php
 │           │   ├── LoginRequest.php
-│           │   ├── RefreshTokenRequest.php
+│           │   ├── SocialLoginRequest.php
+│           │   ├── AssignCpfRequest.php
 │           │   └── CompleteOnboardingRequest.php
 │           └── Response/
-│               └── TokenResponse.php
+│               ├── TokenResponse.php
+│               ├── CurrentUserResponse.php
+│               └── RefreshTokenCookieFactory.php
 │
 ├── Groups/                              # Grupos, Membros, Supervisores
 │   ├── Domain/
@@ -421,89 +454,108 @@ src/
 
 ---
 
-## 4. Estratégia JWT — Access Token + Refresh Token com rotação
+## 4. Estratégia de tokens — access JWT + refresh opaco com rotação
+
+> **Terminologia:** o SIGAME **não utiliza “JWT duplo”**. Apenas o access token é JWT.
+> O refresh token é uma credencial opaca de alta entropia, persistida apenas por hash.
 
 ### 4.1 Ciclo de vida dos tokens
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Fluxo de Autenticação                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  POST /api/v1/auth/login                                     │
-│  ├─ Valida credenciais (email + senha)                       │
-│  ├─ Verifica status da conta (ativa, não suspensa)           │
-│  ├─ Gera access_token (15 min, stateless)                    │
-│  ├─ Gera refresh_token (7 dias, persistido no DB)            │
-│  ├─ Salva refresh_token (hash SHA-256) no banco              │
-│  └─ Retorna: { access_token } + Set-Cookie: refresh_token    │
-│                                                               │
-│  GET /api/v1/* (com Authorization: Bearer <access_token>)    │
-│  ├─ Validar assinatura + expiração do JWT                    │
-│  ├─ Extrair user_id do payload                               │
-│  └─ Autenticar e autorizar a request                         │
-│                                                               │
-│  POST /api/v1/auth/refresh                                   │
-│  ├─ Ler refresh_token do cookie HttpOnly                     │
-│  ├─ Buscar token no banco (via SHA-256 hash)                 │
-│  ├─ Verificar: não expirado + não revogado                   │
-│  ├─ REVOGAR o refresh_token antigo                           │
-│  ├─ Gerar NOVO par (access_token + refresh_token)            │
-│  ├─ Salvar novo refresh_token no banco (mesma família)       │
-│  └─ Retorna: { access_token } + Set-Cookie: novo refresh     │
-│                                                               │
-│  POST /api/v1/auth/logout                                    │
-│  ├─ Revoga TODOS os refresh_tokens do usuário                │
-│  └─ Access_token expira naturalmente (15 min)                │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                       Fluxo de Autenticação                        │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  POST /api/v1/auth/login  |  POST /api/v1/auth/social/{provider}   │
+│  ├─ Valida credenciais locais ou troca o authorization code        │
+│  ├─ Verifica status da conta (ativa, não suspensa)                 │
+│  ├─ Gera access_token JWT (15 min, stateless)                      │
+│  ├─ Gera refresh_token opaco (rt_ + 64 hex, 7 dias)                 │
+│  ├─ Salva somente o SHA-256 do refresh token + family_id            │
+│  └─ Retorna: { accessToken } + Set-Cookie: refresh_token            │
+│                                                                    │
+│  GET /api/v1/* (Authorization: Bearer <access_token>)              │
+│  ├─ Valida assinatura HS256, iss, aud, typ=access, exp e nbf       │
+│  ├─ Extrai o sub (UUID do usuário)                                  │
+│  ├─ Recarrega o usuário no banco (suspensão vale imediatamente)     │
+│  └─ Autentica e autoriza a request                                  │
+│                                                                    │
+│  POST /api/v1/auth/refresh                                         │
+│  ├─ Lê o refresh_token do cookie HttpOnly                          │
+│  ├─ Calcula SHA-256 e busca o token no banco                       │
+│  ├─ Verifica expiração e revogação                                  │
+│  ├─ Revoga o token atual (replaced_by = novo id)                   │
+│  ├─ Gera novo refresh na MESMA família                              │
+│  ├─ Gera novo access token                                          │
+│  └─ Retorna: { accessToken } + Set-Cookie: novo refresh_token       │
+│                                                                    │
+│  POST /api/v1/auth/logout        → revoga a família do cookie      │
+│  POST /api/v1/auth/logout/all    → revoga todas as famílias         │
+│  GET  /api/v1/auth/me            → dados públicos do usuário        │
+│  PATCH /api/v1/auth/me/cpf       → define o CPF (write-once)        │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Rotação de Refresh Token com detecção de roubo
+### 4.2 Rotação do refresh token com detecção de roubo
 
 Cada refresh token pertence a uma **família** (`family_id`). Quando um token é usado:
 
-1. O token atual é revogado
-2. Um novo token é gerado na mesma família
-3. Se alguém tentar reutilizar o token revogado → **toda a família é revogada**
-   (indica que o token foi comprometido e pode haver um ataque de replay)
+1. O token atual é revogado e aponta para o substituto (`replaced_by_id`);
+2. Um novo token é gerado na mesma família;
+3. Se um token revogado for reapresentado fora da janela de graça, **toda a família é revogada**
+   (indica comprometimento e tentativa de replay).
 
-Isso garante que, se um refresh token for roubado e usado pelo atacante, o uso legítimo do
-dono detectará a revogação e forçará reautenticação.
+A rotação é serializada por um lock (`symfony/lock`) com chave derivada do hash do token.
+A janela de graça (*reuse grace*) evita que duas requisições concorrentes legítimas disparem
+falso positivo: dentro dela o endpoint retorna `REFRESH_TOKEN_ALREADY_ROTATED` sem revogar a
+família; fora dela retorna `REFRESH_TOKEN_REUSED` e revoga a família.
 
-### 4.3 Armazenamento do Refresh Token
+### 4.3 Armazenamento do refresh token
 
-| Aspecto                | Decisão                                                             |
-|------------------------|---------------------------------------------------------------------|
-| Formato do token bruto | Opaque string aleatória (`rt_` + 64 caracteres hexadecimais)        |
-| No banco de dados      | SHA-256 do token (nunca o valor bruto)                              |
-| No client              | Cookie `HttpOnly`, `Secure`, `SameSite=Strict`, path `/api/v1/auth` |
-| Expiração              | 7 dias                                                              |
-| Limite por usuário     | Máximo 5 famílias ativas (device slots)                             |
-| Rotação                | Cada uso gera novo token + revoga o antigo                          |
+| Aspecto                | Decisão                                                                 |
+|------------------------|-------------------------------------------------------------------------|
+| Formato do token bruto | String opaca `rt_` + 64 caracteres hexadecimais (256 bits de entropia)  |
+| Geração                | `bin2hex(random_bytes(32))`                                              |
+| No banco de dados      | SHA-256 do token bruto (nunca o valor bruto)                            |
+| No client              | Cookie `HttpOnly`, `Secure`, `SameSite` configurável, path `/api/v1/auth` |
+| Expiração              | 7 dias, renovada a cada rotação                                         |
+| Limite por usuário     | Máximo 5 famílias ativas (device slots)                                 |
+| Rotação                | Cada uso gera novo token + revoga o anterior                            |
+| Revogação              | Por família (logout) ou todas as famílias (logout/all)                  |
 
-### 4.4 Conteúdo do Access Token (JWT)
+### 4.4 Conteúdo do access token (JWT)
 
 ```json
 {
+    "iss": "sigame",
+    "aud": "sigame-api",
     "sub": "uuid-do-usuario",
-    "iat": 1695302400,
-    "exp": 1695303300,
-    "type": "access"
+    "typ": "access",
+    "jti": "uuid-do-token",
+    "iat": 1760000000,
+    "nbf": 1760000000,
+    "exp": 1760000900
 }
 ```
 
 | Campo  | Descrição                                      |
 |--------|------------------------------------------------|
+| `iss`  | Emissor (`ACCESS_TOKEN_ISSUER`)                |
+| `aud`  | Audiência (`ACCESS_TOKEN_AUDIENCE`)            |
 | `sub`  | UUID do usuário (`UserId`)                     |
+| `typ`  | Tipo do token (`access`)                       |
+| `jti`  | Identificador único do token                   |
 | `iat`  | Timestamp de emissão (issued at)               |
+| `nbf`  | Não válido antes de                           |
 | `exp`  | Timestamp de expiração (15 minutos após `iat`) |
-| `type` | Tipo do token (`access`)                       |
 
-- **Assinatura:** HMAC-SHA256 (chave via variável de ambiente `JWT_SECRET_KEY`)
-- **Duração:** 15 minutos
-- **Persistência:** Stateless (não persistido no banco)
-- **Revogação:** Não suportada diretamente (expira naturalmente) — aceitável para V1
+- **Assinatura:** HMAC-SHA256 com `ACCESS_TOKEN_SECRET` (>= 32 caracteres).
+- **Duração:** 15 minutos.
+- **Persistência:** stateless (não persistido no banco).
+- **Revogação:** não há lista de access tokens revogados; a suspensão da conta é verificada
+  no banco a cada requisição. Trocar a senha não invalida access tokens já emitidos, que
+  expiram em até 15 minutos; os refresh tokens são revogados separadamente.
 
 ### 4.5 Mapper: token bruto → banco
 
@@ -514,7 +566,11 @@ RefreshTokenId (interno): UUID                  (gerado na criação)
 ```
 
 O client armazena e envia o valor bruto. O banco armazena apenas o hash.
-O `RefreshTokenId` é o identificador interno da entidade.
+O `RefreshTokenId` é o identificador interno da entidade; não há `jti` no refresh opaco.
+
+O `SameSite` do cookie é configurável. Em desenvolvimento, com o front em `http://localhost:3000`
+e a API em outro host, use `none` + `Secure`. Em produção same-site (por exemplo,
+`app.exemplo.com` e `api.exemplo.com`), prefira `strict`.
 
 ### 4.6 Entidade RefreshToken
 
@@ -524,30 +580,52 @@ O `RefreshTokenId` é o identificador interno da entidade.
 final class RefreshToken
 {
     private function __construct(
-        private readonly RefreshTokenId $id,
-        private readonly UserId $userId,
-        private readonly string $tokenHash,
-        private readonly string $familyId,
-        private readonly \DateTimeImmutable $expiresAt,
-        private bool $revoked = false,
-        private readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+        private RefreshTokenId $id,
+        private User $user,
+        private TokenHash $tokenHash,
+        private TokenFamilyId $familyId,
+        private Instant $expiresAt,
+        private ?Instant $revokedAt,
+        private ?RefreshToken $replacedBy,
+        private Instant $createdAt,
     ) {}
 
     public static function create(
-        UserId $userId,
-        string $tokenHash,
-        string $familyId,
-        \DateTimeImmutable $expiresAt,
+        User $user,
+        TokenHash $tokenHash,
+        TokenFamilyId $familyId,
+        Instant $expiresAt,
     ): self;
 
-    public function isExpired(): bool;
+    public function isExpiredAt(Instant $now): bool;
     public function isRevoked(): bool;
-    public function revoke(): void;
-
-    // Revoga toda a família (detecção de uso indevido)
-    public function familyId(): string;
+    public function revoke(?self $replacement = null): void;
+    public function wasRevokedWithin(Instant $now, int $seconds): bool;
+    public function belongsToFamily(TokenFamilyId $familyId): bool;
 }
 ```
+
+### 4.7 Evolução para app nativo — `id_token`
+
+O fluxo implementado nesta entrega é **authorization code** (o backend troca o código
+diretamente com o Google). Para o app nativo futuro, o SDK poderá enviar um `id_token`; o
+backend já possui validação OIDC por JWKS e o mesmo `SocialIdentityProviderInterface`, então a
+evolução consiste em aceitar `id_token` além de `code` no request e adicionar o adapter do novo
+provedor. Apple **não** está implementada nesta entrega; o enum `IdentityProvider` e o registry
+deixam a extensão pronta sem alterar o handler, o banco ou o controller.
+
+### 4.8 Rate limiting
+
+| Limiter        | Política       | Limite  | Chave             |
+|----------------|----------------|---------|-------------------|
+| `auth_login`   | sliding window | 5/min   | e-mail + IP       |
+| `auth_social`  | sliding window | 10/min  | provider + IP     |
+| `auth_refresh` | sliding window | 30/min  | IP                |
+| `auth_cpf`     | sliding window | 10/min  | user_id           |
+
+O excesso retorna `429 TOO_MANY_REQUESTS` com `Retry-After` e `X-RateLimit-*`.
+Em produção com mais de uma instância da API, o pool `cache.rate_limiter` deve apontar para um
+armazenamento compartilhado (Redis ou banco), para o limite valer entre os processos.
 
 ---
 
@@ -563,28 +641,47 @@ final class User
     /** @var Collection<int, UserModality> */
     private Collection $modalities;
 
+    /** @var Collection<int, UserIdentity> */
+    private Collection $identities;
+
     private function __construct(
-        private readonly UserId $id,
-        private readonly Cpf $cpf,
-        #[ORM\Embedded(class: Credentials::class, columnPrefix: false)]
-        private Credentials $credentials,   // email + senha hasheada
+        private UserId $id,
+        private ?Cpf $cpf,                 // opcional; write-once
         #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
-        private Profile $profile,           // nome, altura, peso, foto
+        private Profile $profile,          // nome, altura, peso, foto
         #[ORM\Embedded(class: AccessState::class, columnPrefix: false)]
-        private AccessState $access,        // role + status
+        private AccessState $access,       // role + status
         private UserLevel $level,
         private OnboardingStatus $onboardingStatus,
-        private readonly Instant $createdAt,
+        private Instant $createdAt,
         private ?Instant $updatedAt = null,
     ) {}
 
-    // Factory method — único ponto de criação de um novo usuário
+    // Cadastro local (CPF opcional)
     public static function register(
-        Cpf $cpf,
+        ?Cpf $cpf,
         Email $email,
         HashedPassword $password,
         string $name,
     ): self;
+
+    // Cadastro social (sem senha e sem CPF)
+    public static function registerWithProvider(
+        IdentityProvider $provider,
+        ProviderSubject $subject,
+        Email $email,
+        ?string $name = null,
+        ?Instant $emailVerifiedAt = null,
+    ): self;
+
+    public function linkSocialIdentity(
+        IdentityProvider $provider,
+        ProviderSubject $subject,
+        Email $email,
+        ?Instant $emailVerifiedAt = null,
+    ): void;
+
+    public function assignCpf(Cpf $cpf): void; // write-once
 
     // Comportamento de negócio
     public function completeOnboarding(
@@ -598,46 +695,54 @@ final class User
     public function suspend(string $reason): void;  // RN18
     public function reactivate(): void;
 
-    // Queries de domínio (usadas por services de autorização)
+    // Queries de domínio
     public function canCreateGroup(): bool;   // nível >= 2
     public function isActive(): bool;
     public function isSuspended(): bool;
+    public function email(): ?Email;
+    public function password(): ?HashedPassword;
 }
 ```
 
 #### 5.1.1 Separação de responsabilidades
 
-O agregado mantém **uma única tabela** (`users`), com as responsabilidades agrupadas em
-Value Objects mapeados como embeddables, sem prefixo de coluna:
+O agregado mantém a tabela `users` com perfil, acesso e nível; as credenciais de login ficam
+em `user_identities` (1:N):
 
-| VO | Responsabilidade | Colunas |
+| Componente | Responsabilidade | Colunas |
 |---|---|---|
-| `Credentials` | Identificador de login e segredo | `email`, `password` |
 | `Profile` | Dados de perfil e biometria | `name`, `height_cm`, `weight_kg`, `photo_url` |
 | `AccessState` | Autenticação/autorização (RN18) | `role`, `status` |
+| `UserIdentity` | Login local ou social | `provider`, `provider_subject`, `email`, `password`, `email_verified_at` |
 
-Os acessores planos (`email()`, `name()`, `status()`, ...) são delegadores e mantêm o contrato
-público da entidade; os VOs ficam disponíveis por `credentials()`, `profile()` e `access()` para
-adapters de infraestrutura (ex.: `SecurityUser`).
+`user_identities` é a fonte de verdade para autenticação:
 
-**Auth não vira entidade 1:1.** Quando houver login por redes sociais, a forma correta é o
-relacionamento `users` 1—N `user_identities` (`provider`, `provider_subject`, `email`,
-`password` nullable), com migração de backfill `provider='local'` para os usuários existentes.
-O VO `Credentials` já delimita exatamente o que será movido, então a extração não exige mexer
-em `Profile`, `AccessState` nem nos casos de uso.
+- `provider = local`: `provider_subject` é o e-mail normalizado e `password` é obrigatória;
+- `provider = google`: `provider_subject` é o `sub` do provedor e `password` é `null`;
+- o par `(provider, provider_subject)` é único;
+- o vínculo automático por e-mail só ocorre quando o provedor afirma `email_verified=true`;
+- `email()` e `password()` na raiz delegam para a identidade local (ou para o primeiro e-mail
+  social, quando não existe identidade local).
+
+**CPF opcional e write-once.** O CPF é opcional no cadastro local e social. Quando informado,
+é único (índice parcial `WHERE cpf IS NOT NULL`). Depois de definido, o próprio usuário não
+pode alterá-lo; correções exigem fluxo administrativo futuro. O CPF é exigido apenas para
+resgatar recompensas/vouchers externos à plataforma, como comprovação de identidade real.
 
 `level` e `onboardingStatus` permanecem na raiz por enquanto; o destino de `level` é
 `Gamification/UserProgress`.
 
 ### 5.2 Comandos e Handlers
 
-| Use Case          | Command                     | Handler                     | Responsabilidade                                                                     |
-|-------------------|-----------------------------|-----------------------------|--------------------------------------------------------------------------------------|
-| Cadastrar usuário | `RegisterUserCommand`       | `RegisterUserHandler`       | Valida unicidade CPF/email → hash senha → persiste → publica `UserRegistered`        |
-| Autenticar        | `AuthenticateUserCommand`   | `AuthenticateUserHandler`   | Busca user → verifica senha → verifica status → gera access + refresh tokens         |
-| Refresh token     | `RefreshTokenCommand`       | `RefreshTokenHandler`       | Valida refresh → revoga antigo → gera novo → retorna access + refresh                |
-| Logout            | `LogoutCommand`             | `LogoutHandler`             | Revoga todos os refresh_tokens do usuário                                            |
-| Onboarding        | `CompleteOnboardingCommand` | `CompleteOnboardingHandler` | Valida dados → completa onboarding → concede nível 2 → publica `OnboardingCompleted` |
+| Use Case          | Command                                | Handler                                | Responsabilidade                                                                 |
+|-------------------|----------------------------------------|----------------------------------------|----------------------------------------------------------------------------------|
+| Cadastrar usuário | `RegisterUserCommand`                  | `RegisterUserHandler`                  | Valida unicidade CPF/e-mail → hash senha → persiste → publica `UserRegistered`     |
+| Autenticar        | `AuthenticateUserCommand`              | `AuthenticateUserHandler`              | Busca user → verifica senha → verifica status → emite access + refresh            |
+| Login social      | `AuthenticateWithSocialProviderCommand`| `AuthenticateWithSocialProviderHandler`| Troca code → valida id_token → cria/vincula identidade → emite tokens             |
+| Refresh token     | `RefreshTokenCommand`                  | `RefreshTokenHandler`                  | Valida refresh opaco → detecta reuso → rotaciona o par                             |
+| Logout            | `LogoutCommand`                        | `LogoutHandler`                        | Revoga a família do cookie ou todas as famílias                                   |
+| Definir CPF       | `AssignCpfCommand`                     | `AssignCpfHandler`                     | Valida CPF → verifica unicidade → define (write-once)                             |
+| Onboarding        | `CompleteOnboardingCommand`            | `CompleteOnboardingHandler`            | Valida dados → completa onboarding → concede nível 2 → publica `OnboardingCompleted`|
 
 ### 5.3 Eventos publicados
 
@@ -695,7 +800,9 @@ em `Profile`, `AccessState` nem nos casos de uso.
 | `UserRepositoryInterface`         | `DoctrineUserRepository`         | `doctrine/orm-pack`        |
 | `RefreshTokenRepositoryInterface` | `DoctrineRefreshTokenRepository` | `doctrine/orm-pack`        |
 | `PasswordHasherInterface`         | `SymfonyPasswordHasher`          | `symfony/security-bundle`  |
-| `JwtTokenGeneratorInterface`      | `LcobucciJwtTokenGenerator`      | `lcobucci/jwt`             |
+| `AccessTokenGeneratorInterface`   | `LcobucciAccessTokenGenerator`   | `lcobucci/jwt`             |
+| `RefreshTokenGeneratorInterface`  | `OpaqueRefreshTokenGenerator`    | `random_bytes` + SHA-256   |
+| `SocialIdentityProviderInterface` | `GoogleIdentityProvider`         | `symfony/http-client` + JWKS |
 | `SystemHealthCheckerInterface`    | `SystemHealthChecker`            | `doctrine/dbal`            |
 | `EventDispatcherInterface`        | `SymfonyEventDispatcherAdapter`  | `symfony/event-dispatcher` |
 | `FileStorageInterface` (futuro)   | `FlysystemS3Adapter`             | `league/flysystem`         |
@@ -708,7 +815,7 @@ em `Profile`, `AccessState` nem nos casos de uso.
 
 | Serviço    | Imagem                 | Portas                       | Variáveis de ambiente                               |
 |------------|------------------------|------------------------------|-----------------------------------------------------|
-| `php`      | FrankenPHP (já existe) | 80, 443                      | `DATABASE_URL`, `JWT_SECRET_KEY`, `S3_*`            |
+| `php`      | FrankenPHP (já existe) | 80, 443                      | `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, `GOOGLE_*`, `S3_*` |
 | `database` | `postgres:18`          | 5432                         | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` |
 | `s3`       | `garagehq/garage`      | 3900 (S3 API), 3901 (Web UI) | Configuração do Garage                              |
 
@@ -717,9 +824,24 @@ em `Profile`, `AccessState` nem nos casos de uso.
 ```env
 # .env (adicionar)
 DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=18&charset=utf8"
-JWT_SECRET_KEY="%kernel.project_dir%/config/jwt/private.pem"
-JWT_PUBLIC_KEY="%kernel.project_dir%/config/jwt/public.pem"
-JWT_PASSPHRASE="trocar-em-producao"
+ACCESS_TOKEN_SECRET="trocar-por-um-segredo-de-32-caracteres-ou-mais"
+ACCESS_TOKEN_ISSUER=sigame
+ACCESS_TOKEN_AUDIENCE=sigame-api
+ACCESS_TOKEN_TTL=900
+REFRESH_TOKEN_TTL=604800
+REFRESH_TOKEN_REUSE_GRACE_SECONDS=30
+REFRESH_TOKEN_MAX_FAMILIES=5
+REFRESH_COOKIE_NAME=refresh_token
+REFRESH_COOKIE_PATH=/api/v1/auth
+REFRESH_COOKIE_SECURE=1
+# Dev com front em localhost:3000: none. Em produção same-site: strict.
+REFRESH_COOKIE_SAMESITE=none
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URIS=
+
+CORS_ALLOW_ORIGINS="^https?://(app\.sigame\.localhost|localhost:3000)$"
 
 S3_ENDPOINT="http://s3:3900"
 S3_ACCESS_KEY="garage"
@@ -743,8 +865,11 @@ Todas as rotas da API utilizam o prefixo `/api/v1`.
 | `POST` | `/api/v1/auth/register` | `RegistrationController::register` | Público              |
 | `POST` | `/api/v1/auth/login`    | `AuthController::login`            | Público              |
 | `POST` | `/api/v1/auth/refresh`  | `AuthController::refresh`          | Cookie refresh_token |
-| `POST` | `/api/v1/auth/logout`   | `AuthController::logout`           | Autenticado          |
+| `POST` | `/api/v1/auth/social/{provider}` | `AuthController::social`    | Público (Google)     |
+| `POST` | `/api/v1/auth/logout`   | `AuthController::logout`           | Cookie refresh_token |
+| `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll`      | Autenticado          |
 | `GET`  | `/api/v1/auth/me`       | `AuthController::me`               | Autenticado          |
+| `PATCH`| `/api/v1/auth/me/cpf`   | `AuthController::assignCpf`        | Autenticado          |
 | `PUT`  | `/api/v1/onboarding`    | `OnboardingController::complete`   | Autenticado          |
 
 ---
@@ -773,6 +898,11 @@ Types ficam no módulo dono do VO:
 ```php
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\ProviderSubjectType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\RefreshTokenIdType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\TokenFamilyIdType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\TokenHashType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdentityIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\WeightType;
@@ -798,6 +928,11 @@ use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
         'user_level' => UserLevelType::class,
         'height' => HeightType::class,
         'weight' => WeightType::class,
+        'user_identity_id' => UserIdentityIdType::class,
+        'provider_subject' => ProviderSubjectType::class,
+        'refresh_token_id' => RefreshTokenIdType::class,
+        'token_family_id' => TokenFamilyIdType::class,
+        'token_hash' => TokenHashType::class,
     ],
 ],
 ```
@@ -823,19 +958,28 @@ tests/
 │   ├── Identity/
 │   │   ├── Domain/
 │   │   │   ├── Error/IdentityErrorsTest.php
+│   │   │   ├── RefreshToken/Entity/RefreshTokenTest.php
 │   │   │   └── User/
 │   │   │       ├── Entity/UserTest.php
+│   │   │       ├── Entity/UserIdentityTest.php
 │   │   │       ├── Exception/UserExceptionTest.php
 │   │   │       └── ValueObject/
 │   │   │           ├── UserIdTest.php
-│   │   │           ├── CredentialsTest.php
 │   │   │           ├── ProfileTest.php
 │   │   │           ├── AccessStateTest.php
 │   │   │           ├── HashedPasswordTest.php
 │   │   │           ├── HeightTest.php
 │   │   │           └── WeightTest.php
-│   │   └── Application/
-│   │       └── UseCase/RegisterUser/RegisterUserHandlerTest.php
+│   │   ├── Application/
+│   │   │   ├── Service/TokenPairIssuerTest.php
+│   │   │   └── UseCase/
+│   │   │       ├── RegisterUser/RegisterUserHandlerTest.php
+│   │   │       └── AuthenticateWithSocialProvider/AuthenticateWithSocialProviderHandlerTest.php
+│   │   └── Infrastructure/
+│   │       ├── Security/
+│   │       │   ├── LcobucciAccessTokenGeneratorTest.php
+│   │       │   └── OpaqueRefreshTokenGeneratorTest.php
+│   │       └── Social/GoogleIdentityProviderTest.php
 │   ├── Gamification/
 │   │   └── Domain/Policy/DelevelingPolicyTest.php
 │   └── Shared/
@@ -851,6 +995,7 @@ tests/
 ├── Functional/                         # grupo "functional"
 │   ├── Identity/
 │   │   └── Presentation/Http/
+│   │       ├── AuthTest.php
 │   │       ├── RegistrationTest.php
 │   │       └── Request/RegisterUserRequestFactory.php
 │   └── Monitoring/
@@ -858,7 +1003,9 @@ tests/
 │
 ├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
 │   └── Identity/
-│       └── Infrastructure/Persistence/DoctrineUserRepositoryTest.php
+│       └── Infrastructure/Persistence/
+│           ├── DoctrineUserRepositoryTest.php
+│           └── DoctrineRefreshTokenRepositoryTest.php
 │
 └── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php
@@ -912,8 +1059,8 @@ explícitos dentro do teste quebram o isolamento.
 
    $user = $result->value();
 
-   expect($user->cpf()->value())->toBe($cpf)
-       ->and($user->email()->value())->toBe($email)
+   expect($user->cpf()?->value())->toBe($cpf)
+       ->and($user->email()?->value())->toBe($email)
        ->and($user->name())->toBe($name);
    ```
 
@@ -948,7 +1095,8 @@ explícitos dentro do teste quebram o isolamento.
 ### Fase 0 — Infraestrutura base
 
 - Instalar pacotes: `doctrine/orm-pack`, `symfony/security-bundle`, `symfony/serializer`,
-  `symfony/validator`, `symfony/uid`, `lcobucci/jwt`
+  `symfony/validator`, `symfony/uid`, `lcobucci/jwt`, `firebase/php-jwt`, `symfony/clock`,
+  `symfony/lock`, `symfony/rate-limiter`, `nelmio/cors-bundle`
 - Configurar Docker Compose com PostgreSQL 18 + Garage (S3)
 - Configurar Doctrine (conexão, migrations)
 - Estruturar `src/Shared/` com VOs base (`BaseId`, `Email`, `Cpf`, `Instant`)
@@ -961,18 +1109,22 @@ explícitos dentro do teste quebram o isolamento.
 - Migrations Doctrine
 - Testes: unidade (entidade User) + integração (repositório)
 
-### Fase 2 — Identity: autenticação JWT
+### Fase 2 — Identity: autenticação
 
-- Entidade `RefreshToken`
-- `LcobucciJwtTokenGenerator` (lcobucci/jwt)
-- `AuthController` (login, refresh, logout, me)
-- Adapter de segurança sobre o agregado: `Infrastructure/Security/SecurityUser`
+- `user_identities` 1:N (local + Google) e CPF opcional/write-once
+- Entidade `RefreshToken` opaco, com família, rotação e detecção de reuso
+- `LcobucciAccessTokenGenerator` (access JWT HS256) e `OpaqueRefreshTokenGenerator`
+- `TokenPairIssuer` (emissão, rotação, revogação, limite de famílias)
+- `AuthController` (login, social, refresh, logout, logout/all, me, cpf)
+- Adapter de segurança sobre o agregado: `SecurityUser`
   (`UserInterface` + `PasswordAuthenticatedUserInterface`), `UserProvider`
-  (`loadUserByIdentifier` via `findByEmail`) e `ActiveUserChecker`
+  (`loadUserByIdentifier` via `findById`) e `ActiveUserChecker`
   (`checkPreAuth` → `AccessState::canAuthenticate()`, RN18.3)
-- Autenticador Symfony customizado (valida access_token Bearer)
-- Refresh token rotation com detecção de roubo (family_id)
-- Testes: unidade (token service + adapter de segurança) + integração (HTTP: login → refresh → logout)
+- Autenticador Symfony customizado (valida access token Bearer)
+- Google via authorization code + JWKS; Apple fica como evolução
+- Rate limiting de login/social/refresh/CPF
+- Testes: unidade (tokens + handler social), integração (repositórios) e funcional
+  (HTTP: login → refresh → logout → me → cpf)
 
 ### Fase 3 — Identity: onboarding
 
@@ -1031,6 +1183,8 @@ explícitos dentro do teste quebram o isolamento.
 | `DEC10` | Janela operacional de check-in, início e finalização      | Atividades    | Pendente |
 | `DEC11` | Permissões exatas do supervisor                           | Autorização   | Pendente |
 | `DEC12` | Regra de atividade válida e mínimo de participantes       | Atividades/XP | Pendente |
+| `DEC13` | CPF opcional no cadastro e write-once; obrigatório em recompensa externa | Identidade/Vouchers | Decidido |
+| `DEC14` | Login social Google nesta entrega; Apple como evolução | Identidade | Decidido |
 
 ---
 
@@ -1038,8 +1192,8 @@ explícitos dentro do teste quebram o isolamento.
 
 | Decisão                  | Escolha                                              | Justificativa                          |
 |--------------------------|------------------------------------------------------|----------------------------------------|
-| Mecanismo de auth        | JWT (access + refresh rotativo)                      | SPA Nuxt consome API pura, stateless   |
-| Refresh token            | Opaque, SHA-256, HttpOnly cookie                     | Segurança contra XSS                   |
+| Mecanismo de auth        | Access JWT + refresh opaco rotativo                  | SPA Nuxt consome API pura, stateless   |
+| Refresh token            | Opaco `rt_` + 64 hex, SHA-256, HttpOnly cookie       | Segurança contra XSS                   |
 | Rotação de refresh       | Sim, com detecção de roubo por `family_id`           | Prevenção de replay attack             |
 | Access token             | Stateless, 15 min, não persistido                    | Performance, simplicidade              |
 | Persistência             | Doctrine ORM, PostgreSQL 18                          | Flexibilidade, migrations, constraints |
@@ -1047,5 +1201,7 @@ explícitos dentro do teste quebram o isolamento.
 | Comunicação cross-module | Domain Events (Symfony Dispatcher)                   | Desacoplamento total                   |
 | Estrutura de diretórios  | Namespace por módulo em `src/`                       | Modular monolith claro                 |
 | Camadas por módulo       | Domain → Application → Infrastructure → Presentation | Clean Architecture                     |
-| Responsabilidades do User | VOs embutidos (`Credentials`, `Profile`, `AccessState`) em uma tabela | Separa auth/perfil/acesso sem quebrar a transação; split em `LoginIdentity` 1:N só quando houver login social |
+| Responsabilidades do User | `Profile`/`AccessState` embutidos em `users` + `UserIdentity` 1:N | Separa auth/perfil/acesso e permite login local + social sem duplicar usuário |
+| CPF | Opcional no cadastro, único quando informado, write-once | Reduz atrito e ancora identidade real apenas em recompensas externas |
+| Login social | Google via authorization code; interface/registry extensíveis | Entrega o provedor atual sem acoplar a aplicação a ele |
 | Testes                   | PestPHP + Mockery                                    | Sintaxe expressiva, datasets, mocks de ports sem boilerplate |

@@ -72,9 +72,32 @@ it('registers a user successfully', function () {
 
     $user = $result->value();
 
-    expect($user->cpf()->value())->toBe($cpf)
-        ->and($user->email()->value())->toBe($email)
+    expect($user->cpf()?->value())->toBe($cpf)
+        ->and($user->email()?->value())->toBe($email)
         ->and($user->name())->toBe($name);
+});
+
+it('registers a user without cpf', function () {
+    $email = 'no-cpf@example.com';
+    $hashedPassword = HashedPassword::fromHash('hashed_secret123');
+
+    $this->userRepository->shouldReceive('findByCpf')->never();
+    $this->userRepository->shouldReceive('findByEmail')->once()->andReturn(null);
+    $this->passwordHasher->shouldReceive('hash')->once()->andReturn($hashedPassword);
+    $this->userRepository->shouldReceive('save')->once()->with(Mockery::on(
+        static fn (User $user): bool => null === $user->cpf(),
+    ));
+    $this->eventDispatcher->shouldReceive('dispatch')->once()->with(Mockery::type(UserRegistered::class));
+
+    $result = ($this->handler)(new RegisterUserCommand(
+        cpf: null,
+        email: $email,
+        name: 'João Silva',
+        password: 'secret123',
+    ));
+
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->value()->cpf())->toBeNull();
 });
 
 it('returns failure with expected validation errors', function (string $cpf, string $email, array $expectedCodes) {

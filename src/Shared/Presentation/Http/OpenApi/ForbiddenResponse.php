@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\Presentation\Http\OpenApi;
+
+use Attribute;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Documenta a resposta `403 Forbidden`.
+ */
+#[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
+final class ForbiddenResponse extends ApiErrorResponse
+{
+    /**
+     * @param array<string, ApiErrorExample> $examples
+     * @param array<string, string>          $fields
+     */
+    public function __construct(array $examples = [], array $fields = [])
+    {
+        parent::__construct(
+            response: Response::HTTP_FORBIDDEN,
+            description: 'A conta não pode executar a operação.',
+            examples: [] === $examples ? [
+                'FORBIDDEN' => new ApiErrorExample(
+                    message: 'Acesso negado.',
+                    summary: 'Acesso negado',
+                    description: 'A conta está suspensa ou não possui permissão.',
+                ),
+            ] : $examples,
+            fields: $fields,
+        );
+    }
+}

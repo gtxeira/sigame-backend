@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Identity\Infrastructure\Security\AccessTokenAuthenticator;
+use App\Identity\Infrastructure\Security\AccessTokenEntryPoint;
+use App\Identity\Infrastructure\Security\ActiveUserChecker;
+use App\Identity\Infrastructure\Security\SecurityUserProvider;
+use App\Shared\Presentation\Http\Security\ApiAccessDeniedHandler;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
@@ -11,8 +16,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             PasswordAuthenticatedUserInterface::class => 'auto',
         ],
         'providers' => [
-            'users_in_memory' => [
-                'memory' => null,
+            'app_user_provider' => [
+                'id' => SecurityUserProvider::class,
             ],
         ],
         'firewalls' => [
@@ -20,15 +25,28 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'pattern' => '^/(_profiler|_wdt|assets|build)/',
                 'security' => false,
             ],
-            'main' => [
-                'lazy' => true,
-                'provider' => 'users_in_memory',
+            'api' => [
+                'pattern' => '^/api',
+                'stateless' => true,
+                'provider' => 'app_user_provider',
+                'custom_authenticators' => [
+                    AccessTokenAuthenticator::class,
+                ],
+                'entry_point' => AccessTokenEntryPoint::class,
+                'access_denied_handler' => ApiAccessDeniedHandler::class,
+                'user_checker' => ActiveUserChecker::class,
             ],
         ],
-        'access_control' => null,
+        'access_control' => [
+            ['path' => '^/api/health', 'roles' => 'PUBLIC_ACCESS'],
+            ['path' => '^/api/v1/auth/(register|login|refresh|social)', 'roles' => 'PUBLIC_ACCESS'],
+            ['path' => '^/api/v1/auth/logout$', 'roles' => 'PUBLIC_ACCESS'],
+            ['path' => '^/doc', 'roles' => 'PUBLIC_ACCESS'],
+            ['path' => '^/api', 'roles' => 'ROLE_USER'],
+        ],
     ]);
 
-    if ($containerConfigurator->env() === 'test') {
+    if ('test' === $containerConfigurator->env()) {
         $containerConfigurator->extension('security', [
             'password_hashers' => [
                 PasswordAuthenticatedUserInterface::class => [

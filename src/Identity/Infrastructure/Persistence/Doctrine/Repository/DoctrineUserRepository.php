@@ -6,6 +6,8 @@ namespace App\Identity\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\ValueObject\IdentityProvider;
+use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserId;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
@@ -37,11 +39,32 @@ final class DoctrineUserRepository extends AbstractRepository implements UserRep
 
     public function findByEmail(Email $email): ?User
     {
-        return $this->findOneBy(['credentials.email' => $email->value()]);
+        return $this->createQueryBuilder('u')
+            ->innerJoin('u.identities', 'i')
+            ->where('i.email = :email')
+            ->setParameter('email', $email, 'email')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function findByCpf(Cpf $cpf): ?User
     {
         return $this->findOneBy(['cpf' => $cpf->value()]);
+    }
+
+    public function findByProviderSubject(
+        IdentityProvider $provider,
+        ProviderSubject $subject,
+    ): ?User {
+        return $this->createQueryBuilder('u')
+            ->innerJoin('u.identities', 'i')
+            ->where('i.provider = :provider')
+            ->andWhere('i.providerSubject = :subject')
+            ->setParameter('provider', $provider->value)
+            ->setParameter('subject', $subject, 'provider_subject')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }

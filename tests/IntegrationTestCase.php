@@ -18,7 +18,7 @@ abstract class IntegrationTestCase extends KernelTestCase
      *
      * @return T
      */
-    protected function service(string $id): object
+    public function service(string $id): object
     {
         return self::getContainer()->get($id);
     }

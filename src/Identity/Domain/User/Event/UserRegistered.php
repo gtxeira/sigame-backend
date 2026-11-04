@@ -15,13 +15,13 @@ final readonly class UserRegistered extends AbstractDomainEvent
     private function __construct(
         private string $userId,
         private string $email,
-        private string $cpf,
+        private ?string $cpf,
         Instant $occurredAt,
     ) {
         parent::__construct($occurredAt);
     }
 
-    public static function now(string $userId, string $email, string $cpf): self
+    public static function now(string $userId, string $email, ?string $cpf): self
     {
         return new self(
             userId: $userId,
@@ -46,7 +46,7 @@ final readonly class UserRegistered extends AbstractDomainEvent
         return $this->email;
     }
 
-    public function cpf(): string
+    public function cpf(): ?string
     {
         return $this->cpf;
     }

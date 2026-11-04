@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\ProviderSubjectType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\RefreshTokenIdType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\TokenFamilyIdType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\TokenHashType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdentityIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\WeightType;
@@ -32,6 +37,11 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'height' => HeightType::class,
                 'weight' => WeightType::class,
                 'instant' => InstantType::class,
+                'user_identity_id' => UserIdentityIdType::class,
+                'provider_subject' => ProviderSubjectType::class,
+                'refresh_token_id' => RefreshTokenIdType::class,
+                'token_family_id' => TokenFamilyIdType::class,
+                'token_hash' => TokenHashType::class,
             ],
         ],
         'orm' => [

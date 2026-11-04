@@ -126,11 +126,11 @@ administrativos globais.
 
 ### RF01 — Cadastrar usuário
 
-O sistema deve permitir o cadastro de usuário com CPF, e-mail, senha e dados cadastrais mínimos.
+O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastrais mínimos. O CPF é opcional no cadastro.
 
 #### Regras
 
-- `RN01.1` O CPF deve ser único na V1.
+- `RN01.1` O CPF é opcional no cadastro. Quando informado, deve ser único na V1.
 - `RN01.2` O e-mail deve ser único.
 - `RN01.3` A V1 não realiza validação governamental de identidade por CPF.
 - `RN01.4` A senha nunca deve ser armazenada em texto puro.
@@ -138,24 +138,37 @@ O sistema deve permitir o cadastro de usuário com CPF, e-mail, senha e dados ca
 - `RN01.6` Peso e altura são opcionais.
 - `RN01.7` Peso e altura não podem impedir o acesso às funcionalidades sociais.
 - `RN01.8` Todo usuário novo inicia no nível 1.
+- `RN01.9` O CPF pode ser definido depois do cadastro, por endpoint autenticado. Uma vez definido, é **write-once**: o próprio usuário não pode alterá-lo.
+- `RN01.10` O cadastro por provedor social cria a conta sem senha local e sem CPF, com onboarding pendente e nível 1.
+- `RN01.11` Quando o provedor confirma `email_verified=true` e o e-mail já pertence a uma conta, a identidade social é vinculada a essa conta em vez de criar uma duplicata.
+- `RN01.12` O CPF é exigido apenas para resgatar recompensas/vouchers externos à plataforma, como comprovação de identidade real e prevenção de ganhos indevidos.
 
 #### Critérios de aceitação
 
-- `CA01.1` Não é possível cadastrar dois usuários com o mesmo CPF.
+- `CA01.1` Não é possível cadastrar dois usuários com o mesmo CPF quando ele é informado.
 - `CA01.2` Não é possível cadastrar dois usuários com o mesmo e-mail.
 - `CA01.3` Um cadastro sem foto, peso ou altura pode ser concluído se os demais dados obrigatórios forem válidos.
 - `CA01.4` A senha persistida não é igual à senha informada.
 - `CA01.5` Um usuário recém-cadastrado possui nível 1.
+- `CA01.6` Um cadastro sem CPF é permitido.
+- `CA01.7` Um CPF já definido não pode ser alterado pelo próprio usuário.
+- `CA01.8` Um CPF informado por outro usuário não pode ser reutilizado.
 
 ### RF02 — Autenticar usuário
 
-O sistema deve autenticar o usuário e manter sua sessão conforme o perfil e o estado da conta.
+O sistema deve autenticar o usuário por e-mail/senha ou por provedor social (Google nesta entrega) e manter sua sessão conforme o perfil e o estado da conta.
 
 #### Regras
 
 - `RN02.1` Conta suspensa não pode iniciar uma nova sessão.
 - `RN02.2` A autenticação deve identificar o usuário responsável pela operação.
 - `RN02.3` Operações protegidas devem verificar a autorização no backend, mesmo que a interface oculte controles.
+- `RN02.4` A sessão usa um **access token JWT** de curta duração (15 minutos) e um **refresh token opaco** de alta entropia (7 dias), este último em cookie `HttpOnly`.
+- `RN02.5` A cada renovação, o refresh token é rotacionado dentro da mesma família; o token anterior é revogado.
+- `RN02.6` O reuso de um refresh token revogado fora da janela de graça revoga toda a família.
+- `RN02.7` O logout revoga a família do cookie; o logout de todos os dispositivos revoga todas as famílias.
+- `RN02.8` No login social, o e-mail deve estar verificado pelo provedor e o vínculo automático só ocorre nesse caso.
+- `RN02.9` O refresh token nunca é retornado no corpo da resposta; o access token nunca é armazenado em cookie.
 
 #### Critérios de aceitação
 
@@ -163,6 +176,11 @@ O sistema deve autenticar o usuário e manter sua sessão conforme o perfil e o 
 - `CA02.2` Credenciais inválidas não permitem autenticação.
 - `CA02.3` Conta suspensa não pode autenticar.
 - `CA02.4` Uma requisição protegida sem sessão válida é recusada.
+- `CA02.5` Uma renovação válida devolve novo access token e novo refresh token, invalidando o anterior.
+- `CA02.6` O reuso de um refresh token revogado é recusado e revoga a família.
+- `CA02.7` O logout invalida o refresh token utilizado.
+- `CA02.8` O login social cria ou vincula a conta e emite o mesmo par de tokens.
+- `CA02.9` O endpoint de CPF define o CPF uma única vez e rejeita alteração.
 
 ### RF03 — Concluir onboarding
 
@@ -620,6 +638,7 @@ O sistema deve gerar vouchers individuais e controlar seu resgate.
 - `RN20.3` Voucher não pode ser reutilizado.
 - `RN20.4` O sistema deve registrar estado do voucher.
 - `RN20.5` A operação de resgate deve ser protegida contra concorrência e duplicidade.
+- `RN20.6` O resgate de voucher/recompensa externo exige que o usuário tenha um CPF válido e previamente definido.
 
 #### Critérios de aceitação
 
@@ -628,6 +647,7 @@ O sistema deve gerar vouchers individuais e controlar seu resgate.
 - `CA21.3` Voucher já utilizado não pode ser resgatado novamente.
 - `CA21.4` Duas tentativas simultâneas não resultam em dois resgates válidos.
 - `CA21.5` O histórico registra usuário, voucher, data e benefício utilizado.
+- `CA21.6` O resgate externo é recusado quando o usuário não possui CPF definido.
 
 > `DEC07` — Definir quem pode resgatar o voucher, como os vouchers são distribuídos e se existe limite por usuário ou
 > período.
@@ -700,6 +720,9 @@ A estrutura deve permitir testes sem depender da interface web ou de banco real 
 
 - Senhas devem utilizar mecanismo seguro de hash.
 - Senhas nunca devem ser armazenadas ou retornadas em texto puro.
+- O access token deve ser um JWT assinado com HS256 e segredo de pelo menos 32 caracteres.
+- O refresh token deve ser uma string opaca de 256 bits, nunca persistida em texto puro (apenas SHA-256).
+- O refresh token deve trafegar em cookie `HttpOnly`, `Secure` e `SameSite` configurável (preferencialmente `strict` em produção same-site), com path `/api/v1/auth`.
 - Sessões, tokens e cookies devem ser protegidos conforme o mecanismo de autenticação escolhido.
 
 ---

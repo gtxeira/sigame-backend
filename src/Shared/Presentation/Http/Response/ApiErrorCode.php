@@ -19,6 +19,7 @@ enum ApiErrorCode: string
     case MethodNotAllowed = 'METHOD_NOT_ALLOWED';
     case UnsupportedMediaType = 'UNSUPPORTED_MEDIA_TYPE';
     case ValidationError = 'VALIDATION_ERROR';
+    case TooManyRequests = 'TOO_MANY_REQUESTS';
     case InternalError = 'INTERNAL_ERROR';
     case HttpError = 'HTTP_ERROR';
 
@@ -38,6 +39,7 @@ enum ApiErrorCode: string
             self::MethodNotAllowed => 'O método HTTP não é permitido para este recurso.',
             self::UnsupportedMediaType => 'O formato do conteúdo enviado não é suportado. Utilize application/json.',
             self::ValidationError => 'Um ou mais erros de validação foram encontrados.',
+            self::TooManyRequests => 'Muitas tentativas. Tente novamente em instantes.',
             self::InternalError => 'Um erro interno ocorreu. Por favor, aguarde e tente novamente.',
             self::HttpError => 'Não foi possível processar a requisição.',
         };

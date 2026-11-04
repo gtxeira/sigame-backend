@@ -14,8 +14,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 final readonly class RegisterUserRequest
 {
     public function __construct(
-        #[OA\Property(description: 'CPF do usuário, podendo ou não, ser formatado com pontuação.', example: '477.051.220-14')]
-        #[Assert\NotBlank(message: 'O CPF é obrigatório.')]
+        #[OA\Property(
+            description: 'CPF do usuário. Opcional no cadastro; quando informado, pode vir formatado.',
+            example: '477.051.220-14',
+            nullable: true,
+        )]
         #[Assert\Length(
             min: 11,
             max: 14,
@@ -26,7 +29,7 @@ final readonly class RegisterUserRequest
             pattern: '/^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/',
             message: 'O CPF deve conter apenas números ou estar no formato 000.000.000-00.',
         )]
-        public string $cpf,
+        public ?string $cpf,
 
         #[OA\Property(description: 'Endereço de e-mail para ser usado como login na plataforma.', example: 'user@example.com')]
         #[Assert\NotBlank(message: 'O email é obrigatório.')]

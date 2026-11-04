@@ -41,6 +41,7 @@ pest()
     ->extend(FunctionalTestCase::class)
     ->beforeEach(function () {
         $client = $this->createClient();
+        $client->disableReboot();
 
         $container = $client->getContainer();
 
@@ -48,6 +49,8 @@ pest()
         $serializer = $container->get(SerializerInterface::class);
 
         $router = $container->get('router');
+
+        $container->get('cache.rate_limiter')->clear();
 
         $this->api = new ApiClient(
             client: $client,

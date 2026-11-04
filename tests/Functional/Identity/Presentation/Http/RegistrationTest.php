@@ -32,6 +32,27 @@ it('returns 201 created with valid data', function () {
         ->and($user->status)->toBe(UserStatus::ACTIVE->value);
 });
 
+it('registers without cpf', function () {
+    $email = faker()->unique()->safeEmail();
+
+    $response = $this->api->post(
+        route: 'app_auth_register',
+        payload: [
+            'cpf' => null,
+            'email' => $email,
+            'name' => faker()->name(),
+            'password' => 'secret1234',
+        ],
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
+
+    $user = $this->api->deserializeResponse(RegisterUserResponse::class);
+
+    expect($user->cpf)->toBeNull()
+        ->and($user->email)->toBe($email);
+});
+
 it('rejects duplicate email', function () {
     $email = faker()->email();
 

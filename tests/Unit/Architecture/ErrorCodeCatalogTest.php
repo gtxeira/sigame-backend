@@ -60,6 +60,8 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode $code) 
     IdentityErrorCode::OnboardingAlreadyCompleted,
     IdentityErrorCode::UserAlreadyActive,
     IdentityErrorCode::UserAlreadySuspended,
+    IdentityErrorCode::UserCpfAlreadySet,
+    IdentityErrorCode::RefreshInProgress,
 ]);
 
 it('classifies input problems as validation', function (SharedErrorCode|IdentityErrorCode $code) {
@@ -75,4 +77,22 @@ it('classifies input problems as validation', function (SharedErrorCode|Identity
     IdentityErrorCode::UserWeightInvalid,
     IdentityErrorCode::OnboardingInvalidPrimaryModality,
     IdentityErrorCode::OnboardingNoModalitySelected,
+    IdentityErrorCode::SocialProviderUnsupported,
+    IdentityErrorCode::SocialEmailNotVerified,
+    IdentityErrorCode::SocialEmailMissing,
 ]);
+
+it('classifies authentication problems as authentication', function (IdentityErrorCode $code) {
+    expect($code->kind())->toBe(ErrorKind::Authentication);
+})->with([
+    IdentityErrorCode::InvalidCredentials,
+    IdentityErrorCode::RefreshTokenInvalid,
+    IdentityErrorCode::RefreshTokenExpired,
+    IdentityErrorCode::RefreshTokenReused,
+    IdentityErrorCode::RefreshTokenAlreadyRotated,
+    IdentityErrorCode::SocialAuthenticationFailed,
+]);
+
+it('classifies suspended accounts as forbidden', function () {
+    expect(IdentityErrorCode::AccountSuspended->kind())->toBe(ErrorKind::Forbidden);
+});

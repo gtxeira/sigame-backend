@@ -23,6 +23,15 @@ final class IdentityErrors
         );
     }
 
+    public static function cpfAlreadySet(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::UserCpfAlreadySet,
+            message: 'O CPF já foi definido e não pode ser alterado.',
+            field: 'cpf',
+        );
+    }
+
     public static function emailAlreadyExists(): DomainError
     {
         return self::error(
@@ -65,6 +74,99 @@ final class IdentityErrors
             code: IdentityErrorCode::UserWeightInvalid,
             message: sprintf('O peso deve estar entre %s e %s quilogramas.', $minimum, $maximum),
             field: 'weightKg',
+        );
+    }
+
+    public static function invalidCredentials(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::InvalidCredentials,
+            message: 'E-mail ou senha inválidos.',
+            field: 'credentials',
+        );
+    }
+
+    public static function accountSuspended(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::AccountSuspended,
+            message: 'Esta conta está suspensa e não pode autenticar.',
+            field: 'status',
+        );
+    }
+
+    public static function refreshTokenInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::RefreshTokenInvalid,
+            message: 'O token de renovação é inválido.',
+        );
+    }
+
+    public static function refreshTokenExpired(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::RefreshTokenExpired,
+            message: 'O token de renovação expirou. Autentique-se novamente.',
+        );
+    }
+
+    public static function refreshTokenReused(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::RefreshTokenReused,
+            message: 'O token de renovação já foi utilizado. Autentique-se novamente.',
+        );
+    }
+
+    public static function refreshTokenAlreadyRotated(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::RefreshTokenAlreadyRotated,
+            message: 'O token de renovação acabou de ser rotacionado.',
+        );
+    }
+
+    public static function refreshInProgress(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::RefreshInProgress,
+            message: 'Já existe uma renovação em andamento para esta sessão.',
+        );
+    }
+
+    public static function socialProviderUnsupported(string $provider): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialProviderUnsupported,
+            message: sprintf('O provedor de login "%s" não é suportado.', $provider),
+            field: 'provider',
+        );
+    }
+
+    public static function socialAuthenticationFailed(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialAuthenticationFailed,
+            message: 'Não foi possível autenticar com o provedor social.',
+        );
+    }
+
+    public static function socialEmailNotVerified(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialEmailNotVerified,
+            message: 'O provedor social não confirmou a verificação do e-mail.',
+            field: 'email',
+        );
+    }
+
+    public static function socialEmailMissing(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialEmailMissing,
+            message: 'O provedor social não retornou um e-mail.',
+            field: 'email',
         );
     }
 

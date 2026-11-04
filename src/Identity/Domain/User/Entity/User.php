@@ -9,12 +9,14 @@ use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
 use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
+use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\AccessState;
-use App\Identity\Domain\User\ValueObject\Credentials;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
+use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
 use App\Identity\Domain\User\ValueObject\Profile;
+use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserId;
 use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserRole;
@@ -34,16 +36,17 @@ use Doctrine\ORM\Mapping as ORM;
  * Representa um usuário do sistema com todas as regras de negócio
  * relacionadas a cadastro, onboarding e status da conta.
  *
- * As responsabilidades estão separadas em três VOs embutidos:
- * - {@see Credentials}: identificador de login e senha hasheada;
- * - {@see Profile}: dados de perfil;
- * - {@see AccessState}: papel e situação da conta.
- *
- * Cada um pode virar entidade/tabela própria sem alterar o comportamento
- * desta raiz.
+ * As credenciais de login vivem em {@see UserIdentity} (1:N), o que permite
+ * e-mail/senha e múltiplos provedores sociais sem duplicar o usuário. O perfil
+ * ({@see Profile}) e o estado de acesso ({@see AccessState}) seguem embutidos.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
+#[ORM\UniqueConstraint(
+    name: 'uniq_users_cpf',
+    fields: ['cpf'],
+    options: ['where' => '(cpf IS NOT NULL)'],
+)]
 #[ORM\HasLifecycleCallbacks]
 final class User
 {
@@ -56,16 +59,22 @@ final class User
     )]
     private Collection $modalities;
 
+    /** @var Collection<int, UserIdentity> */
+    #[ORM\OneToMany(
+        targetEntity: UserIdentity::class,
+        mappedBy: 'user',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true,
+    )]
+    private Collection $identities;
+
     private function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'user_id', unique: true)]
-        private readonly UserId $id,
+        private UserId $id,
 
-        #[ORM\Column(type: 'cpf', length: 11, unique: true)]
-        private readonly Cpf $cpf,
-
-        #[ORM\Embedded(class: Credentials::class, columnPrefix: false)]
-        private Credentials $credentials,
+        #[ORM\Column(type: 'cpf', length: 11, nullable: true)]
+        private ?Cpf $cpf,
 
         #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
         private Profile $profile,
@@ -80,35 +89,118 @@ final class User
         private OnboardingStatus $onboardingStatus,
 
         #[ORM\Column(type: 'instant')]
-        private readonly Instant $createdAt,
+        private Instant $createdAt,
 
         #[ORM\Column(type: 'instant', nullable: true)]
         private ?Instant $updatedAt = null,
     ) {
         $this->modalities = new ArrayCollection();
+        $this->identities = new ArrayCollection();
     }
 
     /**
-     * Factory method — único ponto de criação de um novo usuário.
+     * Factory method — cadastro local com e-mail e senha.
      *
-     * RN01.1: CPF único; RN01.2: Email único; RN01.8: Inicia no nível 1.
+     * RN01.1: CPF, quando informado, é único; é opcional no cadastro.
+     * RN01.2: E-mail único.
+     * RN01.8: Inicia no nível 1.
      */
     public static function register(
-        Cpf $cpf,
+        ?Cpf $cpf,
         Email $email,
         HashedPassword $password,
         string $name,
     ): self {
-        return new self(
+        $user = new self(
             id: UserId::generate(),
             cpf: $cpf,
-            credentials: Credentials::create($email, $password),
             profile: Profile::create($name),
             access: AccessState::initial(),
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
             createdAt: Instant::now(),
         );
+
+        $user->identities->add(UserIdentity::local($user, $email, $password));
+
+        return $user;
+    }
+
+    /**
+     * Factory method — cadastro via provedor social.
+     *
+     * Não cria senha local nem CPF. O usuário entra com onboarding pendente e
+     * nível 1, como qualquer conta nova.
+     */
+    public static function registerWithProvider(
+        IdentityProvider $provider,
+        ProviderSubject $subject,
+        Email $email,
+        ?string $name = null,
+        ?Instant $emailVerifiedAt = null,
+    ): self {
+        $user = new self(
+            id: UserId::generate(),
+            cpf: null,
+            profile: Profile::create($name ?? self::nameFromEmail($email)),
+            access: AccessState::initial(),
+            level: UserLevel::initial(),
+            onboardingStatus: OnboardingStatus::PENDING,
+            createdAt: Instant::now(),
+        );
+
+        $user->identities->add(UserIdentity::social(
+            user: $user,
+            provider: $provider,
+            subject: $subject,
+            email: $email,
+            emailVerifiedAt: $emailVerifiedAt ?? Instant::now(),
+        ));
+
+        return $user;
+    }
+
+    /**
+     * Vincula uma identidade social a uma conta existente.
+     */
+    public function linkSocialIdentity(
+        IdentityProvider $provider,
+        ProviderSubject $subject,
+        Email $email,
+        ?Instant $emailVerifiedAt = null,
+    ): void {
+        if ($this->hasIdentity($provider, $subject)) {
+            return;
+        }
+
+        $this->identities->add(UserIdentity::social(
+            user: $this,
+            provider: $provider,
+            subject: $subject,
+            email: $email,
+            emailVerifiedAt: $emailVerifiedAt ?? Instant::now(),
+        ));
+        $this->updatedAt = Instant::now();
+    }
+
+    /**
+     * Define o CPF do usuário.
+     *
+     * O CPF é write-once: depois de definido, só pode ser repetido (idempotência),
+     * nunca alterado pelo próprio usuário.
+     */
+    public function assignCpf(Cpf $cpf): void
+    {
+        if (null !== $this->cpf) {
+            if ($this->cpf->equals($cpf)) {
+                return;
+            }
+
+            throw new UserCpfAlreadySetException();
+        }
+
+        $this->cpf = $cpf;
+        $this->updatedAt = Instant::now();
     }
 
     /**
@@ -231,14 +323,39 @@ final class User
         return $this->id;
     }
 
-    public function cpf(): Cpf
+    public function cpf(): ?Cpf
     {
         return $this->cpf;
     }
 
-    public function credentials(): Credentials
+    /**
+     * @return list<UserIdentity>
+     */
+    public function identities(): array
     {
-        return $this->credentials;
+        return array_values($this->identities->toArray());
+    }
+
+    public function localIdentity(): ?UserIdentity
+    {
+        foreach ($this->identities as $identity) {
+            if ($identity->isLocal()) {
+                return $identity;
+            }
+        }
+
+        return null;
+    }
+
+    public function hasIdentity(IdentityProvider $provider, ProviderSubject $subject): bool
+    {
+        foreach ($this->identities as $identity) {
+            if ($identity->provider() === $provider && $identity->providerSubject()->equals($subject)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function profile(): Profile
@@ -251,14 +368,26 @@ final class User
         return $this->access;
     }
 
-    public function email(): Email
+    public function email(): ?Email
     {
-        return $this->credentials->email();
+        $local = $this->localIdentity();
+
+        if (null !== $local?->email()) {
+            return $local->email();
+        }
+
+        foreach ($this->identities as $identity) {
+            if (null !== $identity->email()) {
+                return $identity->email();
+            }
+        }
+
+        return null;
     }
 
-    public function password(): HashedPassword
+    public function password(): ?HashedPassword
     {
-        return $this->credentials->password();
+        return $this->localIdentity()?->password();
     }
 
     public function name(): string
@@ -340,6 +469,13 @@ final class User
     public function updatedAt(): ?Instant
     {
         return $this->updatedAt;
+    }
+
+    private static function nameFromEmail(Email $email): string
+    {
+        $localPart = strstr($email->value(), '@', true);
+
+        return false === $localPart || '' === $localPart ? 'Usuário' : $localPart;
     }
 
     /**
