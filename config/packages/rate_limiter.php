@@ -22,9 +22,9 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:AUTH_REFRESH_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
-            'auth_cpf' => [
+            'user_cpf' => [
                 'policy' => 'sliding_window',
-                'limit' => '%env(int:AUTH_CPF_RATE_LIMIT)%',
+                'limit' => '%env(int:USER_CPF_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
         ],

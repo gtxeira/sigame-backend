@@ -51,9 +51,9 @@ it('documents every public api operation', function () {
             '/api/v1/auth/refresh',
             '/api/v1/auth/logout',
             '/api/v1/auth/logout/all',
-            '/api/v1/auth/me',
-            '/api/v1/auth/me/cpf',
             '/api/v1/auth/social/{provider}',
+            '/api/v1/users/me',
+            '/api/v1/users/me/cpf',
             '/api/health/liveness',
             '/api/health/readiness',
         ]);

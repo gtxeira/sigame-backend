@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Identity\Presentation\Http\Controller;
 
 use App\Identity\Application\DTO\TokenPair;
-use App\Identity\Application\UseCase\AssignCpf\AssignCpfCommand;
-use App\Identity\Application\UseCase\AssignCpf\AssignCpfHandler;
 use App\Identity\Application\UseCase\AuthenticateUser\AuthenticateUserCommand;
 use App\Identity\Application\UseCase\AuthenticateUser\AuthenticateUserHandler;
 use App\Identity\Application\UseCase\AuthenticateWithSocialProvider\AuthenticateWithSocialProviderCommand;
@@ -16,12 +14,9 @@ use App\Identity\Application\UseCase\Logout\LogoutHandler;
 use App\Identity\Application\UseCase\RefreshToken\RefreshTokenCommand;
 use App\Identity\Application\UseCase\RefreshToken\RefreshTokenHandler;
 use App\Identity\Domain\Error\IdentityErrors;
-use App\Identity\Domain\User\Entity\User;
 use App\Identity\Infrastructure\Security\SecurityUser;
-use App\Identity\Presentation\Http\Request\AssignCpfRequest;
 use App\Identity\Presentation\Http\Request\LoginRequest;
 use App\Identity\Presentation\Http\Request\SocialLoginRequest;
-use App\Identity\Presentation\Http\Response\CurrentUserResponse;
 use App\Identity\Presentation\Http\Response\RefreshTokenCookieFactory;
 use App\Identity\Presentation\Http\Response\TokenResponse;
 use App\Shared\Domain\Functional\Result;
@@ -35,7 +30,7 @@ use App\Shared\Presentation\Http\OpenApi\TooManyRequestsResponse;
 use App\Shared\Presentation\Http\OpenApi\UnauthorizedResponse;
 use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
 use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
-use App\Shared\Presentation\Http\Response\ApiResponse;
+use App\Shared\Presentation\Http\RateLimit\RateLimitGuard;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -44,13 +39,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Endpoints de autenticação: login local, login social, refresh, logout, me e CPF.
+ * Endpoints de autenticação: login local, login social, refresh e logout.
  */
 #[OA\Tag(name: 'Auth', description: 'Operações relacionadas à autenticação de usuários')]
 final class AuthController extends AbstractController
@@ -60,17 +54,15 @@ final class AuthController extends AbstractController
         private readonly AuthenticateWithSocialProviderHandler $socialHandler,
         private readonly RefreshTokenHandler $refreshTokenHandler,
         private readonly LogoutHandler $logoutHandler,
-        private readonly AssignCpfHandler $assignCpfHandler,
         private readonly ResultResponder $resultResponder,
         private readonly RefreshTokenCookieFactory $cookieFactory,
+        private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.auth_login')]
         private readonly RateLimiterFactoryInterface $loginLimiter,
         #[Autowire(service: 'limiter.auth_social')]
         private readonly RateLimiterFactoryInterface $socialLimiter,
         #[Autowire(service: 'limiter.auth_refresh')]
         private readonly RateLimiterFactoryInterface $refreshLimiter,
-        #[Autowire(service: 'limiter.auth_cpf')]
-        private readonly RateLimiterFactoryInterface $cpfLimiter,
     ) {
     }
 
@@ -114,7 +106,7 @@ final class AuthController extends AbstractController
         #[MapRequestPayload] LoginRequest $request,
         Request $httpRequest,
     ): JsonResponse {
-        $this->assertWithinLimit(
+        $this->rateLimitGuard->assertWithin(
             $this->loginLimiter,
             mb_strtolower(trim($request->email)).'|'.($httpRequest->getClientIp() ?? 'unknown'),
         );
@@ -191,7 +183,7 @@ final class AuthController extends AbstractController
         #[MapRequestPayload] SocialLoginRequest $request,
         Request $httpRequest,
     ): JsonResponse {
-        $this->assertWithinLimit(
+        $this->rateLimitGuard->assertWithin(
             $this->socialLimiter,
             mb_strtolower($provider).'|'.($httpRequest->getClientIp() ?? 'unknown'),
         );
@@ -262,7 +254,7 @@ final class AuthController extends AbstractController
     #[InternalErrorResponse]
     public function refresh(Request $httpRequest): JsonResponse
     {
-        $this->assertWithinLimit($this->refreshLimiter, $httpRequest->getClientIp() ?? 'unknown');
+        $this->rateLimitGuard->assertWithin($this->refreshLimiter, $httpRequest->getClientIp() ?? 'unknown');
 
         $rawToken = $httpRequest->cookies->get($this->cookieFactory->name());
 
@@ -309,7 +301,7 @@ final class AuthController extends AbstractController
     public function logoutAll(): Response
     {
         $securityUser = $this->getUser();
-        \assert($securityUser instanceof SecurityUser);
+        assert($securityUser instanceof SecurityUser);
 
         ($this->logoutHandler)(new LogoutCommand(
             allDevices: true,
@@ -320,94 +312,6 @@ final class AuthController extends AbstractController
         $response->headers->setCookie($this->cookieFactory->clear());
 
         return $response;
-    }
-
-    /**
-     * Dados públicos do usuário autenticado.
-     */
-    #[Route('/api/v1/auth/me', name: 'app_auth_me', methods: ['GET'])]
-    #[IsGranted('ROLE_USER')]
-    #[SuccessResponse(dataModel: CurrentUserResponse::class, description: 'Dados do usuário autenticado.')]
-    #[UnauthorizedResponse]
-    #[ForbiddenResponse]
-    #[InternalErrorResponse]
-    public function me(): JsonResponse
-    {
-        $securityUser = $this->getUser();
-        \assert($securityUser instanceof SecurityUser);
-
-        return ApiResponse::ok(
-            CurrentUserResponse::fromEntity($securityUser->user()),
-        )->toJsonResponse();
-    }
-
-    /**
-     * Define o CPF do usuário autenticado (write-once).
-     */
-    #[Route('/api/v1/auth/me/cpf', name: 'app_auth_me_cpf', methods: ['PATCH'])]
-    #[IsGranted('ROLE_USER')]
-    #[SuccessResponse(dataModel: CurrentUserResponse::class, description: 'CPF definido com sucesso.')]
-    #[UnauthorizedResponse]
-    #[ForbiddenResponse]
-    #[ResourceConflictResponse(
-        examples: [
-            'USER_CPF_ALREADY_SET' => new ApiErrorExample(
-                message: 'O CPF já foi definido e não pode ser alterado.',
-                details: ['cpf'],
-                summary: 'CPF já definido',
-                description: 'O CPF é write-once: uma vez definido, o próprio usuário não pode alterá-lo.',
-            ),
-            'USER_CPF_ALREADY_EXISTS' => new ApiErrorExample(
-                message: 'Já existe um usuário com este CPF.',
-                details: ['cpf'],
-                summary: 'CPF em uso',
-                description: 'O CPF informado pertence a outro usuário.',
-            ),
-        ],
-        fields: ['cpf' => 'CPF do usuário.'],
-    )]
-    #[ValidationErrorResponse(
-        examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['cpf' => 'O CPF é obrigatório.'],
-                summary: 'Erros de Validação',
-                description: 'O CPF não foi informado ou está em formato inválido.',
-            ),
-            'CPF_INVALID' => new ApiErrorExample(
-                message: 'O CPF possui dígitos verificadores inválidos.',
-                details: ['cpf'],
-                summary: 'CPF inválido',
-                description: 'O CPF não passou na validação de dígitos verificadores.',
-            ),
-        ],
-        fields: ['cpf' => 'CPF do usuário.'],
-    )]
-    #[TooManyRequestsResponse]
-    #[BadRequestResponse]
-    #[UnsupportedMediaTypeResponse]
-    #[InternalErrorResponse]
-    public function assignCpf(
-        #[MapRequestPayload] AssignCpfRequest $request,
-    ): JsonResponse {
-        $securityUser = $this->getUser();
-        \assert($securityUser instanceof SecurityUser);
-
-        $user = $securityUser->user();
-        $this->assertWithinLimit($this->cpfLimiter, $user->id()->value());
-
-        $result = ($this->assignCpfHandler)(new AssignCpfCommand(
-            userId: $user->id(),
-            cpf: $request->cpf,
-        ));
-
-        if ($result->isFailure()) {
-            return $this->resultResponder->failure($result);
-        }
-
-        return $this->resultResponder->success(
-            $result->map(static fn (User $updated): CurrentUserResponse => CurrentUserResponse::fromEntity($updated)),
-        );
     }
 
     /**
@@ -430,22 +334,5 @@ final class AuthController extends AbstractController
         ));
 
         return $response;
-    }
-
-    private function assertWithinLimit(RateLimiterFactoryInterface $limiter, string $key): void
-    {
-        $limit = $limiter->create($key)->consume(1);
-
-        if ($limit->isAccepted()) {
-            return;
-        }
-
-        throw new TooManyRequestsHttpException(
-            retryAfter: max(1, $limit->getRetryAfter()->getTimestamp() - time()),
-            headers: [
-                'X-RateLimit-Remaining' => (string) $limit->getRemainingTokens(),
-                'X-RateLimit-Limit' => (string) $limit->getLimit(),
-            ],
-        );
     }
 }

@@ -491,8 +491,8 @@ src/
 │                                                                    │
 │  POST /api/v1/auth/logout        → revoga a família do cookie      │
 │  POST /api/v1/auth/logout/all    → revoga todas as famílias         │
-│  GET  /api/v1/auth/me            → dados públicos do usuário        │
-│  PATCH /api/v1/auth/me/cpf       → define o CPF (write-once)        │
+│  GET  /api/v1/users/me           → dados públicos do usuário        │
+│  PATCH /api/v1/users/me/cpf      → define o CPF (write-once)        │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
@@ -621,7 +621,7 @@ deixam a extensão pronta sem alterar o handler, o banco ou o controller.
 | `auth_login`   | sliding window | 5/min   | e-mail + IP       |
 | `auth_social`  | sliding window | 10/min  | provider + IP     |
 | `auth_refresh` | sliding window | 30/min  | IP                |
-| `auth_cpf`     | sliding window | 10/min  | user_id           |
+| `user_cpf`     | sliding window | 10/min  | user_id           |
 
 O excesso retorna `429 TOO_MANY_REQUESTS` com `Retry-After` e `X-RateLimit-*`.
 Em produção com mais de uma instância da API, o pool `cache.rate_limiter` deve apontar para um
@@ -868,8 +868,8 @@ Todas as rotas da API utilizam o prefixo `/api/v1`.
 | `POST` | `/api/v1/auth/social/{provider}` | `AuthController::social`    | Público (Google)     |
 | `POST` | `/api/v1/auth/logout`   | `AuthController::logout`           | Cookie refresh_token |
 | `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll`      | Autenticado          |
-| `GET`  | `/api/v1/auth/me`       | `AuthController::me`               | Autenticado          |
-| `PATCH`| `/api/v1/auth/me/cpf`   | `AuthController::assignCpf`        | Autenticado          |
+| `GET`  | `/api/v1/users/me`      | `MeController::me`                 | Autenticado          |
+| `PATCH`| `/api/v1/users/me/cpf`  | `MeController::assignCpf`          | Autenticado          |
 | `PUT`  | `/api/v1/onboarding`    | `OnboardingController::complete`   | Autenticado          |
 
 ---
