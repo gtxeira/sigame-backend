@@ -67,7 +67,7 @@ final class AuthController extends AbstractController
     }
 
     /**
-     * RF02 — autenticar com e-mail e senha.
+     * Autenticar com e-mail e senha.
      */
     #[Route('/api/v1/auth/login', name: 'app_auth_login', methods: ['POST'])]
     #[SuccessResponse(

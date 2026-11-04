@@ -37,7 +37,7 @@ final class RegistrationController extends AbstractController
     }
 
     /**
-     * RF01 — Cadastrar usuário.
+     * Cadastrar usuário.
      */
     #[Route('/api/v1/auth/register', name: 'app_auth_register', methods: ['POST'])]
     #[SuccessResponse(
