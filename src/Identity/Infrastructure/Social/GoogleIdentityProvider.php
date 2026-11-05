@@ -113,7 +113,9 @@ final readonly class GoogleIdentityProvider implements SocialIdentityProviderInt
 
     private function assertRedirectUriIsAllowed(string $redirectUri): void
     {
-        $allowed = array_filter(array_map('trim', explode(',', $this->redirectUris)));
+        $allowed = explode(',', $this->redirectUris)
+                |> (static fn (array $x) => array_map('trim', $x))
+                |> (static fn (array $x) => array_filter($x));
 
         if (!in_array($redirectUri, $allowed, true)) {
             throw SocialAuthenticationException::providerRejected('google');

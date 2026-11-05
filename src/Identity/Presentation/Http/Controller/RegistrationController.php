@@ -44,7 +44,7 @@ final class RegistrationController extends AbstractController
      * informado, pode vir formatado. A operação não autentica o usuário; o
      * login deve ser feito em seguida pelo endpoint de autenticação.
      */
-    #[Route('/auth/register', name: 'app_auth_register', methods: ['POST'])]
+    #[Route('/auth/register', name: 'app_auth_register', methods: ['POST'], priority: 10)]
     #[SuccessResponse(
         dataModel: RegisterUserResponse::class,
         response: Response::HTTP_CREATED,

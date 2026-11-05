@@ -52,15 +52,16 @@ final readonly class LcobucciAccessTokenGenerator implements AccessTokenGenerato
     {
         $issuedAt = $this->clock->now();
         $expiresAt = $issuedAt->modify(sprintf('+%d seconds', $this->ttlSeconds));
+        $tokenId = bin2hex(random_bytes(16));
 
-        $token = (new JwtFacade(clock: $this->clock))->issue(
+        $token = new JwtFacade(clock: $this->clock)->issue(
             $this->signer,
             $this->key,
             fn (Builder $builder, DateTimeImmutable $now): Builder => $builder
                 ->issuedBy($this->issuer)
                 ->permittedFor($this->audience)
                 ->relatedTo($userId->value())
-                ->identifiedBy(bin2hex(random_bytes(16)))
+                ->identifiedBy($tokenId)
                 ->withClaim('typ', 'access')
                 ->issuedAt($issuedAt)
                 ->canOnlyBeUsedAfter($issuedAt)
@@ -76,7 +77,7 @@ final readonly class LcobucciAccessTokenGenerator implements AccessTokenGenerato
     public function parse(string $rawToken): AccessTokenClaims
     {
         try {
-            $token = (new JwtFacade(clock: $this->clock))->parse(
+            $token = new JwtFacade(clock: $this->clock)->parse(
                 $rawToken,
                 new Constraint\SignedWith($this->signer, $this->key),
                 new Constraint\StrictValidAt($this->clock),

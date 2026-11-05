@@ -135,9 +135,9 @@ final class AuthController extends AbstractController
     #[Route('/auth/social/{provider}', name: 'app_auth_social', methods: ['POST'])]
     #[OA\Parameter(
         name: 'provider',
+        description: 'Provedor social. Apenas `google` está habilitado nesta versão.',
         in: 'path',
         required: true,
-        description: 'Provedor social. Apenas `google` está habilitado nesta versão.',
         schema: new OA\Schema(type: 'string', enum: ['google']),
     )]
     #[SuccessResponse(
