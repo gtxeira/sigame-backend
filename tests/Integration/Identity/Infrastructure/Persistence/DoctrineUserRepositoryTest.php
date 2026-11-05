@@ -121,6 +121,47 @@ it('allows only one primary modality per user', function () {
     );
 })->throws(UniqueConstraintViolationException::class);
 
+it('persists updatedAt equal to createdAt and advances it after changes', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+    $em = $this->service(EntityManagerInterface::class);
+
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'updated-at@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Maria Silva',
+    );
+    $createdAt = $user->createdAt();
+
+    $repository->save($user);
+    $em->clear();
+
+    $found = $repository->findById($user->id());
+
+    assert($found instanceof User);
+
+    expect($found->createdAt()->equals($createdAt))->toBeTrue()
+        ->and($found->updatedAt()->equals($found->createdAt()))->toBeTrue();
+
+    $found->completeOnboarding(
+        heightCm: null,
+        weightKg: null,
+        photoUrl: null,
+        modalities: [Modality::WALKING],
+        primaryModality: null,
+    );
+
+    $repository->save($found);
+    $em->clear();
+
+    $reloaded = $repository->findById($user->id());
+
+    assert($reloaded instanceof User);
+
+    expect($reloaded->updatedAt()->equals($reloaded->createdAt()))->toBeFalse()
+        ->and($reloaded->updatedAt()->isBefore($reloaded->createdAt()))->toBeFalse();
+});
+
 it('finds a user by email through the local identity', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);

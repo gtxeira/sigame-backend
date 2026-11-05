@@ -13,7 +13,9 @@ use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
 use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
+use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
+use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
@@ -62,6 +64,37 @@ it('creates a new user via register factory method', function () {
         ->and($user->primaryModality())->toBeNull()
         ->and($user->isActive())->toBeTrue()
         ->and($user->isSuspended())->toBeFalse();
+});
+
+it('initializes updatedAt with the same instant as createdAt', function () {
+    $user = makeUser();
+
+    expect($user->updatedAt()->equals($user->createdAt()))->toBeTrue();
+});
+
+it('initializes updatedAt with the same instant as createdAt for provider registrations', function () {
+    $user = User::registerWithProvider(
+        provider: IdentityProvider::GOOGLE,
+        subject: ProviderSubject::fromString('google-subject'),
+        email: Email::fromString('provider@example.com')->value(),
+    );
+
+    expect($user->updatedAt()->equals($user->createdAt()))->toBeTrue();
+});
+
+it('advances updatedAt on mutations', function () {
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('updated-at@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'João Silva',
+    );
+    $createdUpdatedAt = $user->updatedAt();
+
+    $user->assignCpf(Cpf::fromString('47705122014')->value());
+
+    expect($user->updatedAt()->equals($createdUpdatedAt))->toBeFalse()
+        ->and($user->updatedAt()->isBefore($user->createdAt()))->toBeFalse();
 });
 
 it('completes onboarding and advances to level 2', function () {

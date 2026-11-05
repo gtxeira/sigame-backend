@@ -47,7 +47,6 @@ use Doctrine\ORM\Mapping as ORM;
     fields: ['cpf'],
     options: ['where' => '(cpf IS NOT NULL)'],
 )]
-#[ORM\HasLifecycleCallbacks]
 final class User
 {
     /** @var Collection<int, UserModality> */
@@ -91,8 +90,8 @@ final class User
         #[ORM\Column(type: 'instant')]
         private Instant $createdAt,
 
-        #[ORM\Column(type: 'instant', nullable: true)]
-        private ?Instant $updatedAt = null,
+        #[ORM\Column(type: 'instant')]
+        private Instant $updatedAt,
     ) {
         $this->modalities = new ArrayCollection();
         $this->identities = new ArrayCollection();
@@ -111,6 +110,8 @@ final class User
         HashedPassword $password,
         string $name,
     ): self {
+        $now = Instant::now();
+
         $user = new self(
             id: UserId::generate(),
             cpf: $cpf,
@@ -118,7 +119,8 @@ final class User
             access: AccessState::initial(),
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
-            createdAt: Instant::now(),
+            createdAt: $now,
+            updatedAt: $now,
         );
 
         $user->identities->add(UserIdentity::local($user, $email, $password));
@@ -139,6 +141,8 @@ final class User
         ?string $name = null,
         ?Instant $emailVerifiedAt = null,
     ): self {
+        $now = Instant::now();
+
         $user = new self(
             id: UserId::generate(),
             cpf: null,
@@ -146,7 +150,8 @@ final class User
             access: AccessState::initial(),
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
-            createdAt: Instant::now(),
+            createdAt: $now,
+            updatedAt: $now,
         );
 
         $user->identities->add(UserIdentity::social(
@@ -180,7 +185,7 @@ final class User
             email: $email,
             emailVerifiedAt: $emailVerifiedAt ?? Instant::now(),
         ));
-        $this->updatedAt = Instant::now();
+        $this->touch();
     }
 
     /**
@@ -200,7 +205,7 @@ final class User
         }
 
         $this->cpf = $cpf;
-        $this->updatedAt = Instant::now();
+        $this->touch();
     }
 
     /**
@@ -271,7 +276,7 @@ final class User
         $this->profile = $this->profile->withPhysicalData($height, $weight, $photoUrl);
         $this->onboardingStatus = OnboardingStatus::COMPLETED;
         $this->level = $this->level->next();
-        $this->updatedAt = Instant::now();
+        $this->touch();
     }
 
     /**
@@ -286,7 +291,7 @@ final class User
     public function suspend(string $reason): void
     {
         $this->access = $this->access->suspend();
-        $this->updatedAt = Instant::now();
+        $this->touch();
     }
 
     /**
@@ -295,7 +300,7 @@ final class User
     public function reactivate(): void
     {
         $this->access = $this->access->reactivate();
-        $this->updatedAt = Instant::now();
+        $this->touch();
     }
 
     /**
@@ -466,9 +471,20 @@ final class User
         return $this->createdAt;
     }
 
-    public function updatedAt(): ?Instant
+    public function updatedAt(): Instant
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * Registra a última alteração do agregado.
+     *
+     * O horário é mantido pelo domínio (e não por lifecycle callbacks do
+     * Doctrine) para que o valor exista mesmo antes do flush.
+     */
+    private function touch(): void
+    {
+        $this->updatedAt = Instant::now();
     }
 
     private static function nameFromEmail(Email $email): string
