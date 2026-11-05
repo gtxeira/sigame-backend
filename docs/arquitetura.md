@@ -1,117 +1,84 @@
 # SIGAME — Arquitetura do Sistema
 
-> **Status:** Proposta
-> **Versão:** 0.1
-> **Última atualização:** 2026-09-26
+> **Status:** implementado para o módulo Identity; módulos de negócio planejados
+>
+> **Versão:** 0.2
+>
+> **Última atualização:** 2026-11-05
+>
 > **Autor:** Gustavo Teixeira de Sousa
+
+Roadmap, decisões em aberto e dívidas técnicas ficam em [implementacao.md](implementacao.md). O porquê das decisões consolidadas fica em [decisoes.md](decisoes.md).
 
 ---
 
 ## 1. Visão geral
 
-O SIGAME é um **monolito modular** estruturado com **Clean Architecture**, onde cada módulo funcional possui
-suas próprias camadas (Domain → Application → Infrastructure → UI). A comunicação entre módulos ocorre
-exclusivamente via **Domain Events**, garantindo desacoplamento.
+O SIGAME é um **monolito modular** estruturado com **Clean Architecture**. Cada módulo funcional possui suas próprias camadas (`Domain → Application → Infrastructure → Presentation`). A comunicação entre módulos ocorre por **Domain Events**, sem importação direta de classes concretas.
+
+O módulo `Shared` funciona como kernel: concentra value objects, catálogo de erros, eventos, persistência base e a infraestrutura HTTP comum. Módulos funcionais importam apenas a si próprios e `Shared`.
+
+Hoje o único módulo de negócio implementado é **Identity**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
 
 ### 1.1 Stack tecnológica
 
-| Camada                    | Tecnologia                                      |
-|---------------------------|-------------------------------------------------|
-| Runtime                   | PHP 8.5, Symfony 8.1                            |
-| Web server                | FrankenPHP (Caddy)                              |
-| Banco de dados            | PostgreSQL 18                                   |
-| ORM                       | Doctrine ORM (via `doctrine/orm-pack`)          |
-| Autenticação              | Access token JWT + refresh token opaco — `lcobucci/jwt` + autenticador customizado |
-| Armazenamento de arquivos | S3 via Flysystem (Garage localmente)            |
-| Validação                 | Symfony Validator                               |
-| Serialização              | Symfony Serializer                              |
-| Testes                    | PestPHP (PHPUnit) + Mockery                         |
-| Code style                | `friendsofphp/php-cs-fixer` (regras `@Symfony`) |
-| Análise estática          | `phpstan/phpstan` + `phpstan-symfony`           |
+| Camada | Tecnologia |
+|---|---|
+| Runtime | PHP 8.5 |
+| Framework | Symfony 8.1 |
+| Web server | FrankenPHP + Caddy |
+| Banco de dados | PostgreSQL 18 |
+| ORM | Doctrine ORM 3 + Doctrine Migrations 4 |
+| Autenticação | Access token JWT (`lcobucci/jwt`) + refresh token opaco |
+| Armazenamento de arquivos | S3 via Flysystem (Garage localmente) |
+| Validação | Symfony Validator |
+| Serialização | Symfony Serializer |
+| Testes | PestPHP 5 + Mockery + Foundry + DAMA |
+| Code style | `friendsofphp/php-cs-fixer` (regras `@Symfony`) |
+| Análise estática | PHPStan 2 (nível 6) + `phpstan-symfony` |
 
-### 1.2 Pacotes a instalar
-
-```bash
-composer require symfony/security-bundle doctrine/orm-pack
-composer require symfony/serializer symfony/validator symfony/uid
-composer require league/flysystem flysystem/adapter-s3
-composer require lcobucci/jwt firebase/php-jwt
-composer require symfony/clock symfony/lock symfony/rate-limiter nelmio/cors-bundle
-composer require symfony/http-client
-```
+Os pacotes principais já estão instalados e declarados em `composer.json`. A lista de comandos e a configuração de ambiente estão em [desenvolvimento.md](desenvolvimento.md) e [infraestrutura.md](infraestrutura.md).
 
 ---
 
 ## 2. Princípios arquiteturais
 
-1. **Monolito modular** — cada módulo é um namespace independente com suas próprias camadas. Módulos não
-   importam classes concretas uns dos outros.
+1. **Monolito modular** — cada módulo é um namespace independente com suas próprias camadas. Módulos não importam classes concretas uns dos outros.
 
 2. **Clean Architecture** — em cada módulo: Domain → Application → Infrastructure → Presentation (HTTP/Cli).
 
-3. **Domain puro** — nenhuma dependência de framework nas entidades, Value Objects e regras de negócio. As
-   entidades vivem em `Domain/<Agregado>/Entity/`, os VOs em `Domain/<Agregado>/ValueObject/`, e as
-   políticas em `Domain/<Agregado>/Policy/`.
+3. **Domain puro** — nenhuma dependência de framework nas entidades, value objects e regras de negócio. As entidades vivem em `Domain/<Agregado>/Entity/`, os VOs em `Domain/<Agregado>/ValueObject/` e as políticas em `Domain/<Agregado>/Policy/`.
 
-4. **Comunicação cross-module via Domain Events** — um módulo publica eventos, outro escuta. Nunca
-   importação direta entre módulos. Eventos são disparados via `EventDispatcherInterface` (porta em
-   `Shared/Application/Event/`) implementado por `SymfonyEventDispatcherAdapter`.
+4. **Comunicação cross-module via Domain Events** — um módulo publica eventos, outro escuta. Eventos são disparados via `EventDispatcherInterface` (porta em `Shared/Application/Event/`) e implementados por `SymfonyEventDispatcherAdapter`.
 
-5. **Ports & Adapters** — repositórios e serviços externos são definidos como interfaces no Domain ou na
-   Application (quando a porta representa uma capacidade da aplicação, como hashing). A Infrastructure
-   fornece as implementações concretas (Doctrine, Lcobucci, Flysystem, etc.).
+5. **Ports & Adapters** — repositórios e serviços externos são definidos como interfaces no Domain ou na Application. A Infrastructure fornece as implementações concretas (Doctrine, Lcobucci, Flysystem, etc.).
 
-6. **Entidades ricas** — comportamento nas entidades, não em services anêmicas. A entidade `User` *sabe*
-   quando pode criar grupo, quando está suspensa, etc.
+6. **Entidades ricas** — comportamento nas entidades, não em services anêmicas. A entidade `User` sabe quando pode criar grupo, quando está suspensa, como concluir o onboarding, etc.
 
-7. **Value Objects imutáveis** — `Cpf`, `Email`, `BaseId`, `XpAmount`, `Level` validam e protegem invariantes
-   no construtor. São `readonly` e comparados por valor.
+7. **Value Objects imutáveis** — `Cpf`, `Email`, `BaseId`, `XpAmount`, `Level` e similares validam e protegem invariantes no construtor. São `readonly` e comparados por valor.
 
 ### 2.1 Política de erros
 
-- **Falha esperada e recuperável** (regra de negócio que o cliente deve tratar) → `Result` com
-  `list<DomainError>`. Não usar exceção.
-- **Invariante violada ou quebra de fluxo** (estado impossível, argumento inválido de VO) →
-  `DomainException`, com subclasse concreta por erro.
-- **Todo código de erro nasce em um catálogo** (`*ErrorCode`) do módulo:
-  `SharedErrorCode`, `IdentityErrorCode`, e assim por diante. Alterar o *valor* de um caso é breaking
-  change de contrato com o cliente; renomear o caso não é.
-- **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código
-  não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
-- **Todo `DomainError` carrega um `ErrorKind`** (`Authentication`, `Forbidden`, `Validation` ou
-  `Conflict`), derivado do catálogo de códigos. O `kind` não é serializado: é insumo interno para a
-  presentation.
-- **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia
-  `Authentication` → 401, `Forbidden` → 403, `Validation` → 422 e `Conflict` → 409. A precedência
-  é `Authentication` > `Forbidden` > `Validation` > `Conflict`; o corpo continua trazendo todos os
-  erros.
-- **`DomainException` também declara `kind()`**, de modo que os dois caminhos (exceção e `Result`) usam a
-  mesma regra de status.
-- Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`INTERNAL_ERROR`, `VALIDATION_ERROR`,
-  `NOT_FOUND`) e não são erros de domínio.
-- **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os
-  `message` de `errorDetails()` são exibidos ao cliente da API.
+- **Falha esperada e recuperável** (regra de negócio que o cliente deve tratar) → `Result` com `list<DomainError>`. Não usar exceção.
+- **Invariante violada ou quebra de fluxo** (estado impossível, argumento inválido de VO) → `DomainException`, com subclasse concreta por erro.
+- **Todo código de erro nasce em um catálogo** (`*ErrorCode`) do módulo: `SharedErrorCode`, `IdentityErrorCode`, e assim por diante. Alterar o *valor* de um caso é breaking change de contrato com o cliente; renomear o caso não é.
+- **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
+- **Todo `DomainError` carrega um `ErrorKind`** (`Authentication`, `Forbidden`, `Validation` ou `Conflict`), derivado do catálogo de códigos. O `kind` não é serializado: é insumo interno para a presentation.
+- **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia `Authentication` → 401, `Forbidden` → 403, `Validation` → 422 e `Conflict` → 409. A precedência é `Authentication` > `Forbidden` > `Validation` > `Conflict`; o corpo continua trazendo todos os erros.
+- **`DomainException` também declara `kind()`**, de modo que os dois caminhos (exceção e `Result`) usam a mesma regra de status.
+- Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `TOO_MANY_REQUESTS`, `INTERNAL_ERROR`, etc.) e não são erros de domínio.
+- **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os `message` de `errorDetails()` são exibidos ao cliente da API.
 
 ### 2.2 Regras de fronteira entre módulos
 
-Estas regras definem o que pertence a cada módulo e são verificadas automaticamente pelo teste
-`tests/Unit/Architecture/ModuleBoundariesTest.php`:
+Estas regras são verificadas automaticamente por `tests/Unit/Architecture/ModuleBoundariesTest.php`:
 
-1. **`Shared` é o kernel, não um depósito** — não pode importar nenhum módulo funcional (`Identity`,
-   `Monitoring`, futuros módulos). Tudo que é específico de um módulo fica dentro dele.
-2. **Módulo funcional importa apenas a si próprio e `Shared`** — um módulo não referencia classes
-   concretas de outro módulo. A comunicação é feita por Domain Events.
-3. **Adapters específicos ficam no módulo dono** — Doctrine Types, listeners, controllers, DTOs,
-   Policies e configurações de mapeamento de um módulo vivem sob o namespace desse módulo.
-4. **Cada camada tem um dono** — a Presentation só conhece Application; a Infrastructure implementa
-   portas de Domain/Application; o Domain não conhece Infrastructure nem Presentation.
-5. **Domain agrupado por agregado** — dentro de cada módulo,
-   `Domain/<Agregado>/{Entity,ValueObject,Repository,Event,Exception}`. Conceitos que pertencem ao
-   módulo inteiro, como o catálogo de erros e a exceção base, ficam em `Domain/Error` e
-   `Domain/Exception`, não dentro de um agregado.
-6. **Testes espelham a origem** — `tests/Unit/<Módulo>/<Camada>/...` acompanha
-   `src/<Módulo>/<Camada>/...`. Testes transversais (catálogos de erro e fronteiras) ficam em
-   `tests/Unit/Architecture/`.
+1. **`Shared` é o kernel, não um depósito** — não pode importar nenhum módulo funcional (`Identity`, `Monitoring`, futuros módulos). Tudo que é específico de um módulo fica dentro dele.
+2. **Módulo funcional importa apenas a si próprio e `Shared`** — um módulo não referencia classes concretas de outro módulo. A comunicação é feita por Domain Events.
+3. **Adapters específicos ficam no módulo dono** — Doctrine Types, listeners, controllers, DTOs, policies e configurações de mapeamento de um módulo vivem sob o namespace desse módulo.
+4. **Cada camada tem um dono** — a Presentation só conhece Application; a Infrastructure implementa portas de Domain/Application; o Domain não conhece Infrastructure nem Presentation.
+5. **Domain agrupado por agregado** — dentro de cada módulo, `Domain/<Agregado>/{Entity,ValueObject,Repository,Event,Exception}`. Conceitos do módulo inteiro, como catálogo de erros e exceção base, ficam em `Domain/Error` e `Domain/Exception`.
+6. **Testes espelham a origem** — `tests/Unit/<Módulo>/<Camada>/...` acompanha `src/<Módulo>/<Camada>/...`. Testes transversais ficam em `tests/Unit/Architecture/`.
 
 ### 2.3 Checklist para um novo módulo
 
@@ -119,772 +86,218 @@ Estas regras definem o que pertence a cada módulo e são verificadas automatica
 - Declarar portas em `Domain` (regras/repositórios) ou `Application` (capacidades da aplicação).
 - Agrupar o Domain por agregado: `Domain/<Agregado>/{Entity,ValueObject,Repository,Event,Exception}`.
 - Manter catálogo de erros e exceção base no nível do módulo (`Domain/Error` e `Domain/Exception`).
-- Registrar mapeamentos Doctrine no `config/packages/doctrine.php`, apontando para a raiz
-  `src/<Módulo>/Domain` do módulo.
+- Registrar mapeamentos Doctrine em `config/packages/doctrine.php`, apontando para a raiz `src/<Módulo>/Domain`.
 - Publicar/consumir Domain Events com `EventDispatcherInterface`; não importar o outro módulo.
 - Espelhar os testes em `tests/Unit/<Módulo>/...` e, se houver HTTP, `tests/Functional/<Módulo>/...`.
-- Rodar `composer quality` (cs, phpstan e Pest) — o teste de fronteiras impede regressões.
+- Rodar `composer quality` — o teste de fronteiras impede regressões.
 
 ---
 
 ## 3. Estrutura de diretórios
 
-Cada módulo declara apenas as camadas que fazem sentido para o seu domínio. Módulos de negócio
-(`Identity`, `Groups`, ...) usam Domain → Application → Infrastructure → Presentation; módulos
-técnicos (como `Monitoring`) podem omitir Domain, mantendo a porta na Application e o adapter na
-Infrastructure.
+Cada módulo declara apenas as camadas que fazem sentido para o seu domínio. Módulos técnicos, como `Monitoring`, podem omitir Domain, mantendo a porta na Application e o adapter na Infrastructure.
 
-```
+```text
 src/
-├── Shared/                              # Kernel compartilhado entre módulos
+├── Shared/                                  # kernel compartilhado
 │   ├── Domain/
-│   │   ├── ValueObject/
-│   │   │   ├── Email.php
-│   │   │   ├── Cpf.php
-│   │   │   ├── BaseId.php
-│   │   │   ├── Modality.php
-│   │   │   └── Instant.php
-│   │   ├── Error/
-│   │   │   ├── DomainError.php
-│   │   │   ├── ErrorKind.php
-│   │   │   ├── SharedErrorCode.php
-│   │   │   └── SharedErrors.php
-│   │   ├── Event/
-│   │   │   ├── DomainEventInterface.php
-│   │   │   └── AbstractDomainEvent.php
-│   │   └── Exception/
-│   │       ├── DomainException.php
-│   │       ├── InvalidArgumentException.php
-│   │       └── InvalidUuidException.php
+│   │   ├── ValueObject/                     # BaseId, Email, Cpf, Instant, Modality
+│   │   ├── Error/                           # DomainError, ErrorKind, SharedErrorCode, SharedErrors
+│   │   ├── Event/                           # DomainEventInterface, AbstractDomainEvent
+│   │   ├── Exception/                       # DomainException, InvalidArgumentException, InvalidUuidException
+│   │   └── Functional/                      # Result, ValidationResult
 │   ├── Application/
-│   │   └── Event/
-│   │       └── EventDispatcherInterface.php
-│   └── Infrastructure/
-│       ├── Persistence/
-│       │   ├── AbstractRepository.php
-│       │   └── ORM/Type/               # Tipos dos VOs realmente compartilhados
-│       │       ├── BaseIdType.php
-│       │       ├── CpfType.php
-│       │       ├── EmailType.php
-│       │       └── InstantType.php
-│       └── Event/
-│           └── SymfonyEventDispatcherAdapter.php
-│
-├── Monitoring/                          # Liveness, Readiness e saúde das dependências
-│   ├── Application/
-│   │   └── Service/
-│   │       └── SystemHealthCheckerInterface.php   # porta da aplicação
+│   │   └── Event/                           # EventDispatcherInterface
 │   ├── Infrastructure/
-│   │   └── Service/
-│   │       └── SystemHealthChecker.php            # adapter (Doctrine/DBAL)
-│   └── Presentation/
-│       └── Http/Controller/
-│           └── HealthController.php
-│
-├── Identity/                            # Cadastro, Autenticação, Onboarding
-│   ├── Domain/
-│   │   ├── User/                        # agregado User
-│   │   │   ├── Entity/
-│   │   │   │   ├── User.php
-│   │   │   │   └── UserModality.php
-│   │   │   ├── ValueObject/
-│   │   │   │   ├── UserId.php
-│   │   │   │   ├── UserIdentity.php
-│   │   │   │   ├── IdentityProvider.php
-│   │   │   │   ├── ProviderSubject.php
-│   │   │   │   ├── UserIdentityId.php
-│   │   │   │   ├── Profile.php
-│   │   │   │   ├── AccessState.php
-│   │   │   │   ├── UserRole.php
-│   │   │   │   ├── UserLevel.php
-│   │   │   │   ├── UserStatus.php
-│   │   │   │   ├── HashedPassword.php
-│   │   │   │   ├── Height.php
-│   │   │   │   ├── Weight.php
-│   │   │   │   └── OnboardingStatus.php
-│   │   │   ├── Repository/
-│   │   │   │   └── UserRepositoryInterface.php
-│   │   │   ├── Event/
-│   │   │   │   ├── UserRegistered.php
-│   │   │   │   └── OnboardingCompleted.php
-│   │   │   └── Exception/
-│   │   │       ├── InvalidHashedPasswordException.php
-│   │   │       ├── OnboardingAlreadyCompletedException.php
-│   │   │       ├── OnboardingInvalidPrimaryModalityException.php
-│   │   │       ├── OnboardingNoModalitySelectedException.php
-│   │   │       ├── UserAlreadyActiveException.php
-│   │   │       └── UserAlreadySuspendedException.php
-│   │   ├── RefreshToken/                # agregado de sessão
-│   │   │   ├── Entity/
-│   │   │   │   └── RefreshToken.php
-│   │   │   ├── ValueObject/
-│   │   │   │   ├── RefreshTokenId.php
-│   │   │   │   ├── TokenFamilyId.php
-│   │   │   │   └── TokenHash.php
-│   │   │   └── Repository/
-│   │   │       └── RefreshTokenRepositoryInterface.php
-│   │   ├── Error/                       # catálogo do módulo
-│   │   │   ├── IdentityErrorCode.php
-│   │   │   └── IdentityErrors.php
-│   │   └── Exception/                   # base do módulo
-│   │       └── IdentityException.php
-│   │
-│   ├── Application/
-│   │   ├── UseCase/
-│   │   │   ├── RegisterUser/
-│   │   │   │   ├── RegisterUserCommand.php
-│   │   │   │   └── RegisterUserHandler.php
-│   │   │   ├── AuthenticateUser/
-│   │   │   │   ├── AuthenticateUserCommand.php
-│   │   │   │   └── AuthenticateUserHandler.php
-│   │   │   ├── RefreshToken/
-│   │   │   │   ├── RefreshTokenCommand.php
-│   │   │   │   └── RefreshTokenHandler.php
-│   │   │   ├── Logout/
-│   │   │   │   ├── LogoutCommand.php
-│   │   │   │   └── LogoutHandler.php
-│   │   │   └── CompleteOnboarding/
-│   │   │       ├── CompleteOnboardingCommand.php
-│   │   │       └── CompleteOnboardingHandler.php
-│   │   └── Service/
-│   │       ├── PasswordHasherInterface.php
-│   │       ├── AccessTokenGeneratorInterface.php
-│   │       ├── RefreshTokenGeneratorInterface.php
-│   │       ├── TokenPairIssuerInterface.php
-│   │       ├── TokenPairIssuer.php
-│   │       ├── SocialIdentityProviderInterface.php
-│   │       └── SocialIdentityProviderRegistry.php
-│   │
-│   ├── Infrastructure/
-│   │   ├── Persistence/
-│   │   │   ├── Doctrine/
-│   │   │   │   ├── Repository/
-│   │   │   │   │   ├── DoctrineUserRepository.php
-│   │   │   │   │   └── DoctrineRefreshTokenRepository.php
-│   │   │   │   └── Migration/
-│   │   │   │       └── Version*.php
-│   │   │   └── ORM/
-│   │   │       └── Type/               # Tipos específicos do módulo Identity
-│   │   │           ├── UserIdType.php
-│   │   │           ├── UserLevelType.php
-│   │   │           ├── HashedPasswordType.php
-│   │   │           ├── UserIdentityIdType.php
-│   │   │           ├── ProviderSubjectType.php
-│   │   │           ├── RefreshTokenIdType.php
-│   │   │           ├── TokenFamilyIdType.php
-│   │   │           └── TokenHashType.php
-│   │   ├── Security/
-│   │   │   ├── SymfonyPasswordHasher.php
-│   │   │   ├── LcobucciAccessTokenGenerator.php
-│   │   │   ├── OpaqueRefreshTokenGenerator.php
-│   │   │   ├── SecurityUser.php
-│   │   │   ├── SecurityUserProvider.php
-│   │   │   ├── ActiveUserChecker.php
-│   │   │   ├── AccessTokenAuthenticator.php
-│   │   │   └── AccessTokenEntryPoint.php
-│   │   ├── Social/
-│   │   │   ├── GoogleIdentityProvider.php
-│   │   │   ├── JwksProvider.php
-│   │   │   ├── IdTokenVerifier.php
-│   │   │   └── IdTokenVerifierInterface.php
-│   │   └── Event/
-│   │       └── UserRegisteredListener.php
-│   │
-│   └── Presentation/
-│       └── Http/
-│           ├── Controller/
-│           │   ├── RegistrationController.php
-│           │   ├── AuthController.php
-│           │   └── OnboardingController.php
-│           ├── Request/
-│           │   ├── RegisterUserRequest.php
-│           │   ├── LoginRequest.php
-│           │   ├── SocialLoginRequest.php
-│           │   ├── AssignCpfRequest.php
-│           │   └── CompleteOnboardingRequest.php
-│           └── Response/
-│               ├── TokenResponse.php
-│               ├── CurrentUserResponse.php
-│               └── RefreshTokenCookieFactory.php
-│
-├── Groups/                              # Grupos, Membros, Supervisores
-│   ├── Domain/
-│   │   ├── Entity/
-│   │   │   ├── Group.php
-│   │   │   └── Membership.php
-│   │   ├── ValueObject/
-│   │   │   ├── GroupId.php
-│   │   │   ├── GroupStatus.php
-│   │   │   ├── MembershipStatus.php
-│   │   │   └── RemovalReason.php
-│   │   ├── Event/
-│   │   │   ├── GroupCreated.php
-│   │   │   └── MembershipApproved.php
-│   │   └── Repository/
-│   │       ├── GroupRepositoryInterface.php
-│   │       └── MembershipRepositoryInterface.php
-│   ├── Application/
-│   │   └── UseCase/
-│   │       ├── CreateGroup/
-│   │       ├── RequestMembership/
-│   │       ├── ApproveMembership/
-│   │       ├── RemoveMember/
-│   │       └── DesignateSupervisor/
-│   ├── Infrastructure/
-│   │   └── Persistence/Doctrine/
+│   │   ├── Persistence/AbstractRepository.php
+│   │   ├── Persistence/ORM/Type/            # BaseIdType, CpfType, EmailType, InstantType
+│   │   ├── Event/SymfonyEventDispatcherAdapter.php
+│   │   └── OpenApi/                         # ExampleValueResolver, FillNamedExampleValues
 │   └── Presentation/Http/
+│       ├── ExceptionListener/               # Api, Domain, Http e Validator
+│       ├── OpenApi/                         # respostas e exemplos reutilizáveis
+│       ├── RateLimit/RateLimitGuard.php
+│       ├── Response/                        # ApiResponse, ResultResponder, ErrorStatusResolver, etc.
+│       └── Security/ApiAccessDeniedHandler.php
 │
-├── Activities/                          # Atividades, Check-in, Presença
-│   ├── Domain/
-│   │   ├── Entity/
-│   │   │   ├── Activity.php
-│   │   │   └── Attendance.php
-│   │   ├── ValueObject/
-│   │   │   ├── ActivityId.php
-│   │   │   ├── ActivityStatus.php
-│   │   │   ├── ActivityPeriod.php
-│   │   │   └── GeoPoint.php
-│   │   ├── Policy/
-│   │   │   └── ScheduleConflictPolicy.php
-│   │   └── Repository/
-│   │       ├── ActivityRepositoryInterface.php
-│   │       └── AttendanceRepositoryInterface.php
-│   ├── Application/
-│   │   └── UseCase/
-│   │       ├── CreateActivity/
-│   │       ├── RescheduleActivity/
-│   │       ├── CancelActivity/
-│   │       ├── CheckIn/
-│   │       └── ValidateAttendance/
-│   ├── Infrastructure/
-│   │   └── Persistence/Doctrine/
-│   └── Presentation/Http/
+├── Monitoring/                              # liveness, readiness e saúde das dependências
+│   ├── Application/Service/SystemHealthCheckerInterface.php
+│   ├── Infrastructure/Service/SystemHealthChecker.php
+│   └── Presentation/Http/Controller/HealthController.php
 │
-├── Gamification/                        # XP, Níveis, Deleveling, Recompensas
-│   ├── Domain/
-│   │   ├── Entity/
-│   │   │   └── UserProgress.php
-│   │   ├── ValueObject/
-│   │   │   ├── XpAmount.php
-│   │   │   ├── Level.php
-│   │   │   └── ProgressPercentage.php
-│   │   ├── Policy/
-│   │   │   ├── XpCalculator.php
-│   │   │   ├── LevelProgression.php
-│   │   │   └── DelevelingPolicy.php
-│   │   └── Repository/
-│   │       └── UserProgressRepositoryInterface.php
-│   ├── Application/
-│   │   └── UseCase/
-│   │       ├── AwardXp/
-│   │       └── ApplyDeleveling/
-│   ├── Infrastructure/
-│   │   ├── Persistence/Doctrine/
-│   │   └── Console/
-│   │       └── DelevelingCommand.php
-│   └── Presentation/Http/
-│
-├── Moderation/                          # Denúncias, Bloqueio, Suspensão
-│   ├── Domain/
-│   │   ├── Entity/
-│   │   │   ├── Report.php
-│   │   │   └── UserBlock.php
-│   │   └── Repository/
-│   │       ├── ReportRepositoryInterface.php
-│   │       └── UserBlockRepositoryInterface.php
-│   ├── Application/
-│   │   └── UseCase/
-│   │       ├── ReportUser/
-│   │       ├── BlockUser/
-│   │       └── SuspendAccount/
-│   ├── Infrastructure/
-│   └── Presentation/Http/
-│
-├── Sponsorship/                         # Patrocínios, Benefícios, Vouchers
-│   ├── Domain/
-│   │   ├── Entity/
-│   │   │   ├── Sponsor.php
-│   │   │   ├── Benefit.php
-│   │   │   └── Voucher.php
-│   │   ├── ValueObject/
-│   │   │   ├── VoucherCode.php
-│   │   │   └── VoucherStatus.php
-│   │   └── Repository/
-│   ├── Application/
-│   │   └── UseCase/
-│   │       ├── CreateSponsor/
-│   │       ├── ApproveBenefit/
-│   │       ├── GenerateVoucher/
-│   │       └── RedeemVoucher/
-│   ├── Infrastructure/
-│   └── Presentation/Http/
-│
-├── Notifications/                       # Alertas internos
-│   ├── Domain/
-│   │   ├── Entity/
-│   │   │   └── Notification.php
-│   │   ├── ValueObject/
-│   │   │   ├── NotificationType.php
-│   │   │   └── NotificationStatus.php
-│   │   └── Repository/
-│   │       └── NotificationRepositoryInterface.php
-│   ├── Application/
-│   │   └── UseCase/
-│   │       ├── CreateNotification/
-│   │       ├── MarkAsRead/
-│   │       └── ListNotifications/
-│   ├── Infrastructure/
-│   └── Presentation/Http/
-│
-└── Reports/                             # Indicadores mensais
+└── Identity/                                # cadastro, autenticação, identidades e refresh tokens
     ├── Domain/
-    │   ├── Entity/
-    │   │   └── MonthlyReport.php
-    │   └── Repository/
-    │       └── MonthlyReportRepositoryInterface.php
+    │   ├── User/
+    │   │   ├── Entity/                      # User, UserIdentity, UserModality
+    │   │   ├── ValueObject/                 # UserId, Profile, AccessState, HashedPassword, etc.
+    │   │   ├── Repository/UserRepositoryInterface.php
+    │   │   ├── Event/                       # UserRegistered, OnboardingCompleted
+    │   │   └── Exception/                   # exceções de invariantes do agregado
+    │   ├── RefreshToken/
+    │   │   ├── Entity/RefreshToken.php
+    │   │   ├── ValueObject/                 # RefreshTokenId, TokenFamilyId, TokenHash
+    │   │   └── Repository/RefreshTokenRepositoryInterface.php
+    │   ├── Error/                           # IdentityErrorCode, IdentityErrors
+    │   └── Exception/IdentityException.php
     ├── Application/
-    │   └── UseCase/
-    │       └── CalculateMonthlyReport/
+    │   ├── DTO/                             # AccessTokenClaims, TokenPair, SocialIdentity, etc.
+    │   ├── Exception/                       # InvalidTokenException, SocialAuthenticationException
+    │   ├── Service/                         # portas e TokenPairIssuer, SocialIdentityProviderRegistry
+    │   └── UseCase/                         # RegisterUser, AuthenticateUser, RefreshToken, Logout,
+    │                                        # AuthenticateWithSocialProvider, AssignCpf
     ├── Infrastructure/
-    │   ├── Persistence/Doctrine/
-    │   └── Console/
-    │       └── CalculateReportCommand.php
+    │   ├── Persistence/Doctrine/Repository/ # DoctrineUserRepository, DoctrineRefreshTokenRepository
+    │   ├── Persistence/ORM/Type/            # tipos dos VOs de Identity
+    │   ├── Security/                        # hasher, geradores, authenticator, user provider, checker
+    │   └── Social/                          # GoogleIdentityProvider, JwksProvider, IdTokenVerifier
     └── Presentation/Http/
+        ├── Controller/                      # RegistrationController, AuthController, MeController
+        ├── Request/                         # RegisterUserRequest, LoginRequest, SocialLoginRequest, AssignCpfRequest
+        └── Response/                        # TokenResponse, CurrentUserResponse, RegisterUserResponse,
+                                             # RefreshTokenCookieFactory
 ```
+
+### 3.1 Módulos planejados
+
+Quando implementados, devem seguir o mesmo padrão:
+
+| Módulo | Responsabilidade |
+|---|---|
+| `Groups` | Grupos, membros, supervisores e comunicação externa |
+| `Activities` | Atividades, check-in, presença e conflito de horário |
+| `Gamification` | XP, níveis, deleveling e recompensas |
+| `Moderation` | Denúncias, bloqueios e suspensão global |
+| `Sponsorship` | Patrocinadores, benefícios e vouchers |
+| `Notifications` | Alertas internos |
+| `Reports` | Indicadores mensais dos grupos |
+
+O estado de cada módulo está em [implementacao.md](implementacao.md).
 
 ---
 
-## 4. Estratégia de tokens — access JWT + refresh opaco com rotação
+## 4. Modelo de domínio — Identity
 
-> **Terminologia:** o SIGAME **não utiliza “JWT duplo”**. Apenas o access token é JWT.
-> O refresh token é uma credencial opaca de alta entropia, persistida apenas por hash.
+### 4.1 Agregado `User`
 
-### 4.1 Ciclo de vida dos tokens
+A raiz do agregado mantém perfil, acesso e nível. Credenciais de login ficam em `user_identities` (1:N), e as modalidades em `user_modalities`.
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                       Fluxo de Autenticação                        │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  POST /api/v1/auth/login  |  POST /api/v1/auth/social/{provider}   │
-│  ├─ Valida credenciais locais ou troca o authorization code        │
-│  ├─ Verifica status da conta (ativa, não suspensa)                 │
-│  ├─ Gera access_token JWT (15 min, stateless)                      │
-│  ├─ Gera refresh_token opaco (rt_ + 64 hex, 7 dias)                 │
-│  ├─ Salva somente o SHA-256 do refresh token + family_id            │
-│  └─ Retorna: { accessToken } + Set-Cookie: refresh_token            │
-│                                                                    │
-│  GET /api/v1/* (Authorization: Bearer <access_token>)              │
-│  ├─ Valida assinatura HS256, iss, aud, typ=access, exp e nbf       │
-│  ├─ Extrai o sub (UUID do usuário)                                  │
-│  ├─ Recarrega o usuário no banco (suspensão vale imediatamente)     │
-│  └─ Autentica e autoriza a request                                  │
-│                                                                    │
-│  POST /api/v1/auth/refresh                                         │
-│  ├─ Lê o refresh_token do cookie HttpOnly                          │
-│  ├─ Calcula SHA-256 e busca o token no banco                       │
-│  ├─ Verifica expiração e revogação                                  │
-│  ├─ Revoga o token atual (replaced_by = novo id)                   │
-│  ├─ Gera novo refresh na MESMA família                              │
-│  ├─ Gera novo access token                                          │
-│  └─ Retorna: { accessToken } + Set-Cookie: novo refresh_token       │
-│                                                                    │
-│  POST /api/v1/auth/logout        → revoga a família do cookie      │
-│  POST /api/v1/auth/logout/all    → revoga todas as famílias         │
-│  GET  /api/v1/users/me           → dados públicos do usuário        │
-│  PATCH /api/v1/users/me/cpf      → define o CPF (write-once)        │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### 4.2 Rotação do refresh token com detecção de roubo
-
-Cada refresh token pertence a uma **família** (`family_id`). Quando um token é usado:
-
-1. O token atual é revogado e aponta para o substituto (`replaced_by_id`);
-2. Um novo token é gerado na mesma família;
-3. Se um token revogado for reapresentado fora da janela de graça, **toda a família é revogada**
-   (indica comprometimento e tentativa de replay).
-
-A rotação é serializada por um lock (`symfony/lock`) com chave derivada do hash do token.
-A janela de graça (*reuse grace*) evita que duas requisições concorrentes legítimas disparem
-falso positivo: dentro dela o endpoint retorna `REFRESH_TOKEN_ALREADY_ROTATED` sem revogar a
-família; fora dela retorna `REFRESH_TOKEN_REUSED` e revoga a família.
-
-### 4.3 Armazenamento do refresh token
-
-| Aspecto                | Decisão                                                                 |
-|------------------------|-------------------------------------------------------------------------|
-| Formato do token bruto | String opaca `rt_` + 64 caracteres hexadecimais (256 bits de entropia)  |
-| Geração                | `bin2hex(random_bytes(32))`                                              |
-| No banco de dados      | SHA-256 do token bruto (nunca o valor bruto)                            |
-| No client              | Cookie `HttpOnly`, `Secure`, `SameSite` configurável, path `/api/v1/auth` |
-| Expiração              | 7 dias, renovada a cada rotação                                         |
-| Limite por usuário     | Máximo 5 famílias ativas (device slots)                                 |
-| Rotação                | Cada uso gera novo token + revoga o anterior                            |
-| Revogação              | Por família (logout) ou todas as famílias (logout/all)                  |
-
-### 4.4 Conteúdo do access token (JWT)
-
-```json
-{
-    "iss": "sigame",
-    "aud": "sigame-api",
-    "sub": "uuid-do-usuario",
-    "typ": "access",
-    "jti": "uuid-do-token",
-    "iat": 1760000000,
-    "nbf": 1760000000,
-    "exp": 1760000900
-}
-```
-
-| Campo  | Descrição                                      |
-|--------|------------------------------------------------|
-| `iss`  | Emissor (`ACCESS_TOKEN_ISSUER`)                |
-| `aud`  | Audiência (`ACCESS_TOKEN_AUDIENCE`)            |
-| `sub`  | UUID do usuário (`UserId`)                     |
-| `typ`  | Tipo do token (`access`)                       |
-| `jti`  | Identificador único do token                   |
-| `iat`  | Timestamp de emissão (issued at)               |
-| `nbf`  | Não válido antes de                           |
-| `exp`  | Timestamp de expiração (15 minutos após `iat`) |
-
-- **Assinatura:** HMAC-SHA256 com `ACCESS_TOKEN_SECRET` (>= 32 caracteres).
-- **Duração:** 15 minutos.
-- **Persistência:** stateless (não persistido no banco).
-- **Revogação:** não há lista de access tokens revogados; a suspensão da conta é verificada
-  no banco a cada requisição. Trocar a senha não invalida access tokens já emitidos, que
-  expiram em até 15 minutos; os refresh tokens são revogados separadamente.
-
-### 4.5 Mapper: token bruto → banco
-
-```
-Valor bruto (client):     rt_a1b2c3d4e5f6...  (64 hex chars)
-SHA-256 hash (banco):     e3b0c44298fc...      (indexado, lookup)
-RefreshTokenId (interno): UUID                  (gerado na criação)
-```
-
-O client armazena e envia o valor bruto. O banco armazena apenas o hash.
-O `RefreshTokenId` é o identificador interno da entidade; não há `jti` no refresh opaco.
-
-O `SameSite` do cookie é configurável. Em desenvolvimento, com o front em `http://localhost:3000`
-e a API em outro host, use `none` + `Secure`. Em produção same-site (por exemplo,
-`app.exemplo.com` e `api.exemplo.com`), prefira `strict`.
-
-### 4.6 Entidade RefreshToken
-
-```php
-// src/Identity/Domain/RefreshToken/Entity/RefreshToken.php
-
-final class RefreshToken
-{
-    private function __construct(
-        private RefreshTokenId $id,
-        private User $user,
-        private TokenHash $tokenHash,
-        private TokenFamilyId $familyId,
-        private Instant $expiresAt,
-        private ?Instant $revokedAt,
-        private ?RefreshToken $replacedBy,
-        private Instant $createdAt,
-    ) {}
-
-    public static function create(
-        User $user,
-        TokenHash $tokenHash,
-        TokenFamilyId $familyId,
-        Instant $expiresAt,
-    ): self;
-
-    public function isExpiredAt(Instant $now): bool;
-    public function isRevoked(): bool;
-    public function revoke(?self $replacement = null): void;
-    public function wasRevokedWithin(Instant $now, int $seconds): bool;
-    public function belongsToFamily(TokenFamilyId $familyId): bool;
-}
-```
-
-### 4.7 Evolução para app nativo — `id_token`
-
-O fluxo implementado nesta entrega é **authorization code** (o backend troca o código
-diretamente com o Google). Para o app nativo futuro, o SDK poderá enviar um `id_token`; o
-backend já possui validação OIDC por JWKS e o mesmo `SocialIdentityProviderInterface`, então a
-evolução consiste em aceitar `id_token` além de `code` no request e adicionar o adapter do novo
-provedor. Apple **não** está implementada nesta entrega; o enum `IdentityProvider` e o registry
-deixam a extensão pronta sem alterar o handler, o banco ou o controller.
-
-### 4.8 Rate limiting
-
-| Limiter        | Política       | Limite  | Chave             |
-|----------------|----------------|---------|-------------------|
-| `auth_login`   | sliding window | 5/min   | e-mail + IP       |
-| `auth_social`  | sliding window | 10/min  | provider + IP     |
-| `auth_refresh` | sliding window | 30/min  | IP                |
-| `user_cpf`     | sliding window | 10/min  | user_id           |
-
-O excesso retorna `429 TOO_MANY_REQUESTS` com `Retry-After` e `X-RateLimit-*`.
-Em produção com mais de uma instância da API, o pool `cache.rate_limiter` deve apontar para um
-armazenamento compartilhado (Redis ou banco), para o limite valer entre os processos.
-
----
-
-## 5. Módulo Identity — detalhamento
-
-### 5.1 Entidade User (domínio rico)
-
-```php
-// src/Identity/Domain/User/Entity/User.php
-
-final class User
-{
-    /** @var Collection<int, UserModality> */
-    private Collection $modalities;
-
-    /** @var Collection<int, UserIdentity> */
-    private Collection $identities;
-
-    private function __construct(
-        private UserId $id,
-        private ?Cpf $cpf,                 // opcional; write-once
-        #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
-        private Profile $profile,          // nome, altura, peso, foto
-        #[ORM\Embedded(class: AccessState::class, columnPrefix: false)]
-        private AccessState $access,       // role + status
-        private UserLevel $level,
-        private OnboardingStatus $onboardingStatus,
-        private Instant $createdAt,
-        private ?Instant $updatedAt = null,
-    ) {}
-
-    // Cadastro local (CPF opcional)
-    public static function register(
-        ?Cpf $cpf,
-        Email $email,
-        HashedPassword $password,
-        string $name,
-    ): self;
-
-    // Cadastro social (sem senha e sem CPF)
-    public static function registerWithProvider(
-        IdentityProvider $provider,
-        ProviderSubject $subject,
-        Email $email,
-        ?string $name = null,
-        ?Instant $emailVerifiedAt = null,
-    ): self;
-
-    public function linkSocialIdentity(
-        IdentityProvider $provider,
-        ProviderSubject $subject,
-        Email $email,
-        ?Instant $emailVerifiedAt = null,
-    ): void;
-
-    public function assignCpf(Cpf $cpf): void; // write-once
-
-    // Comportamento de negócio
-    public function completeOnboarding(
-        ?int $heightCm,
-        ?float $weightKg,
-        ?string $photoUrl,
-        array $modalities,
-        ?Modality $primaryModality,
-    ): void;  // RN03: valida dados → concede nível 2
-
-    public function suspend(string $reason): void;  // RN18
-    public function reactivate(): void;
-
-    // Queries de domínio
-    public function canCreateGroup(): bool;   // nível >= 2
-    public function isActive(): bool;
-    public function isSuspended(): bool;
-    public function email(): ?Email;
-    public function password(): ?HashedPassword;
-}
-```
-
-#### 5.1.1 Separação de responsabilidades
-
-O agregado mantém a tabela `users` com perfil, acesso e nível; as credenciais de login ficam
-em `user_identities` (1:N):
-
-| Componente | Responsabilidade | Colunas |
+| Componente | Responsabilidade | Colunas / tabela |
 |---|---|---|
+| `User` | Raiz do agregado | `id`, `cpf`, `level`, `onboarding_status`, `created_at`, `updated_at` |
 | `Profile` | Dados de perfil e biometria | `name`, `height_cm`, `weight_kg`, `photo_url` |
 | `AccessState` | Autenticação/autorização (RN18) | `role`, `status` |
-| `UserIdentity` | Login local ou social | `provider`, `provider_subject`, `email`, `password`, `email_verified_at` |
+| `UserIdentity` | Login local ou social | tabela `user_identities` |
+| `UserModality` | Modalidades do usuário | tabela `user_modalities` |
 
-`user_identities` é a fonte de verdade para autenticação:
+Comportamentos principais de `User`:
+
+- `register()` — cadastro local com e-mail e senha; cria a identidade local.
+- `registerWithProvider()` — cadastro social, sem senha e sem CPF.
+- `linkSocialIdentity()` — vincula um provedor a uma conta existente.
+- `assignCpf()` — define o CPF uma única vez (write-once).
+- `completeOnboarding()` — valida dados, define modalidades e concede nível 2.
+- `suspend()` / `reactivate()` — alteram o estado de acesso.
+- `canCreateGroup()` — exige nível ≥ 2 e conta ativa.
+
+O horário de `updatedAt` é mantido pelo domínio (e não por lifecycle callback do Doctrine), para existir mesmo antes do flush.
+
+### 4.2 `UserIdentity`
+
+Fonte de verdade para autenticação:
 
 - `provider = local`: `provider_subject` é o e-mail normalizado e `password` é obrigatória;
 - `provider = google`: `provider_subject` é o `sub` do provedor e `password` é `null`;
 - o par `(provider, provider_subject)` é único;
 - o vínculo automático por e-mail só ocorre quando o provedor afirma `email_verified=true`;
-- `email()` e `password()` na raiz delegam para a identidade local (ou para o primeiro e-mail
-  social, quando não existe identidade local).
+- `User::email()` e `User::password()` delegam para a identidade local (ou para o primeiro e-mail social, quando não existe identidade local).
 
-**CPF opcional e write-once.** O CPF é opcional no cadastro local e social. Quando informado,
-é único (índice parcial `WHERE cpf IS NOT NULL`). Depois de definido, o próprio usuário não
-pode alterá-lo; correções exigem fluxo administrativo futuro. O CPF é exigido apenas para
-resgatar recompensas/vouchers externos à plataforma, como comprovação de identidade real.
+### 4.3 `UserModality`
 
-`level` e `onboardingStatus` permanecem na raiz por enquanto; o destino de `level` é
-`Gamification/UserProgress`.
+- Chave primária composta `(user_id, modality)`.
+- Índice único parcial garante no máximo uma modalidade principal por usuário.
+- `completeOnboarding()` deduplica as modalidades antes de persistir; a leitura ordena por valor.
 
-### 5.2 Comandos e Handlers
+### 4.4 `RefreshToken`
 
-| Use Case          | Command                                | Handler                                | Responsabilidade                                                                 |
-|-------------------|----------------------------------------|----------------------------------------|----------------------------------------------------------------------------------|
-| Cadastrar usuário | `RegisterUserCommand`                  | `RegisterUserHandler`                  | Valida unicidade CPF/e-mail → hash senha → persiste → publica `UserRegistered`     |
-| Autenticar        | `AuthenticateUserCommand`              | `AuthenticateUserHandler`              | Busca user → verifica senha → verifica status → emite access + refresh            |
-| Login social      | `AuthenticateWithSocialProviderCommand`| `AuthenticateWithSocialProviderHandler`| Troca code → valida id_token → cria/vincula identidade → emite tokens             |
-| Refresh token     | `RefreshTokenCommand`                  | `RefreshTokenHandler`                  | Valida refresh opaco → detecta reuso → rotaciona o par                             |
-| Logout            | `LogoutCommand`                        | `LogoutHandler`                        | Revoga a família do cookie ou todas as famílias                                   |
-| Definir CPF       | `AssignCpfCommand`                     | `AssignCpfHandler`                     | Valida CPF → verifica unicidade → define (write-once)                             |
-| Onboarding        | `CompleteOnboardingCommand`            | `CompleteOnboardingHandler`            | Valida dados → completa onboarding → concede nível 2 → publica `OnboardingCompleted`|
+- Só guarda o hash SHA-256 do token bruto.
+- Pertence a uma família (`family_id`) e aponta para o substituto (`replaced_by_id`).
+- `revoke()`, `isExpiredAt()`, `wasRevokedWithin()` e `belongsToFamily()` concentram o comportamento.
+- O ciclo de vida e as regras de rotação estão em [autenticacao.md](autenticacao.md).
 
-### 5.3 Eventos publicados
+### 4.5 CPF opcional e write-once
 
-| Evento                | Disparado quando       | Módulos que escutam                        |
-|-----------------------|------------------------|--------------------------------------------|
-| `UserRegistered`      | Após cadastro válido   | Gamification (cria `UserProgress` nível 1) |
-| `OnboardingCompleted` | Após onboarding válido | Gamification (concede nível 2)             |
+O CPF é opcional no cadastro local e social. Quando informado, é único (índice parcial `WHERE cpf IS NOT NULL`). Depois de definido, o próprio usuário não pode alterá-lo; correções exigem fluxo administrativo futuro. O CPF é exigido apenas para resgatar recompensas/vouchers externos.
+
+A decisão completa está em [decisoes.md](decisoes.md#adr-005--cpf-opcional-e-write-once).
 
 ---
 
-## 6. Comunicação entre módulos — Domain Events
+## 5. Casos de uso e eventos
 
-### 6.1 Fluxo de eventos
+### 5.1 Casos de uso implementados
 
-```
-┌──────────┐  UserRegistered    ┌───────────────┐
-│ Identity │ ──────────────────→│ Gamification  │  (cria UserProgress, nível 1)
-└──────────┘                    └───────────────┘
+| Use case | Command | Handler | Responsabilidade |
+|---|---|---|---|
+| Cadastrar usuário | `RegisterUserCommand` | `RegisterUserHandler` | Valida unicidade CPF/e-mail → hash senha → persiste → publica `UserRegistered` |
+| Autenticar | `AuthenticateUserCommand` | `AuthenticateUserHandler` | Busca identidade local → verifica senha e status → emite tokens |
+| Login social | `AuthenticateWithSocialProviderCommand` | `AuthenticateWithSocialProviderHandler` | Troca code → valida id_token → cria/vincula identidade → emite tokens |
+| Refresh token | `RefreshTokenCommand` | `RefreshTokenHandler` | Valida refresh opaco → detecta reuso → rotaciona o par |
+| Logout | `LogoutCommand` | `LogoutHandler` | Revoga a família do cookie ou todas as famílias |
+| Definir CPF | `AssignCpfCommand` | `AssignCpfHandler` | Valida CPF → verifica unicidade → define (write-once) |
 
-┌──────────┐  OnboardingCompleted  ┌───────────────┐
-│ Identity │ ─────────────────────→│ Gamification  │  (concede nível 2)
-└──────────┘                      └───────────────┘
+O onboarding ainda não tem handler nem controller HTTP; as regras existem no agregado `User`. O estado está em [implementacao.md](implementacao.md).
 
-┌────────────┐  AttendanceValidated  ┌───────────────┐
-│ Activities │ ─────────────────────→│ Gamification  │  (awards XP)
-└────────────┘                      └───────────────┘
+### 5.2 Eventos
 
-┌────────────┐  ActivityCreated  ┌─────────────────┐
-│ Activities │ ────────────────→│ Notifications   │  (alerta participantes)
-└────────────┘                  └─────────────────┘
+| Evento | Disparado quando | Consumidores |
+|---|---|---|
+| `UserRegistered` | Após cadastro local ou social | Nenhum implementado; previsto para Gamification |
+| `OnboardingCompleted` | Após onboarding válido (previsto; ainda não disparado) | Nenhum implementado; previsto para Gamification |
 
-┌────────┐  GroupCreated     ┌─────────────────┐
-│ Groups │ ─────────────────→│ Notifications   │
-└────────┘                   └─────────────────┘
+### 5.3 Fluxos planejados
 
-┌──────────────┐  LevelReached ┌──────────────┐
-│ Gamification │ ─────────────→│ Sponsorship  │  (elegibilidade vouchers)
-└──────────────┘               └──────────────┘
+```text
+Identity  --UserRegistered--------> Gamification   (cria UserProgress, nível 1)
+Identity  --OnboardingCompleted---> Gamification   (concede nível 2)
+Activities --AttendanceValidated--> Gamification   (awards XP)
+Activities --ActivityCreated------> Notifications  (alerta participantes)
+Groups    --GroupCreated----------> Notifications
+Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 ```
 
-### 6.2 Implementação
+### 5.4 Implementação
 
-- `DomainEventInterface` — interface base com `eventName(): string` e `occurredAt(): DateTimeImmutable`
-- Cada módulo define seus eventos como classes `final` que implementam `DomainEventInterface`
-- `EventDispatcherInterface` — porta definida no `Shared/Application/Event/` (usada pelos handlers)
-- `SymfonyEventDispatcherAdapter` — adapta para o EventDispatcher nativo do Symfony
-- Listeners registrados como serviços com `#[AsEventListener]`
-
----
-
-## 7. Camada Infrastructure — Ports & Adapters
-
-| Porta (interface no Domain)       | Adapter (Infrastructure)         | Pacote                     |
-|-----------------------------------|----------------------------------|----------------------------|
-| `UserRepositoryInterface`         | `DoctrineUserRepository`         | `doctrine/orm-pack`        |
-| `RefreshTokenRepositoryInterface` | `DoctrineRefreshTokenRepository` | `doctrine/orm-pack`        |
-| `PasswordHasherInterface`         | `SymfonyPasswordHasher`          | `symfony/security-bundle`  |
-| `AccessTokenGeneratorInterface`   | `LcobucciAccessTokenGenerator`   | `lcobucci/jwt`             |
-| `RefreshTokenGeneratorInterface`  | `OpaqueRefreshTokenGenerator`    | `random_bytes` + SHA-256   |
-| `SocialIdentityProviderInterface` | `GoogleIdentityProvider`         | `symfony/http-client` + JWKS |
-| `SystemHealthCheckerInterface`    | `SystemHealthChecker`            | `doctrine/dbal`            |
-| `EventDispatcherInterface`        | `SymfonyEventDispatcherAdapter`  | `symfony/event-dispatcher` |
-| `FileStorageInterface` (futuro)   | `FlysystemS3Adapter`             | `league/flysystem`         |
+- `DomainEventInterface` — interface base com `eventName(): string` e `occurredAt(): DateTimeImmutable`.
+- Cada módulo define seus eventos como classes `final` que implementam `DomainEventInterface`.
+- `EventDispatcherInterface` — porta em `Shared/Application/Event/`, usada pelos handlers.
+- `SymfonyEventDispatcherAdapter` — adapta para o EventDispatcher nativo do Symfony.
+- Listeners são registrados como serviços com `#[AsEventListener]`.
 
 ---
 
-## 8. Infraestrutura Docker
+## 6. Camada Infrastructure — Ports & Adapters
 
-### 8.1 Services necessários
+| Porta | Adapter | Pacote |
+|---|---|---|
+| `UserRepositoryInterface` | `DoctrineUserRepository` | `doctrine/orm` |
+| `RefreshTokenRepositoryInterface` | `DoctrineRefreshTokenRepository` | `doctrine/orm` |
+| `PasswordHasherInterface` | `SymfonyPasswordHasher` | `symfony/security-bundle` |
+| `AccessTokenGeneratorInterface` | `LcobucciAccessTokenGenerator` | `lcobucci/jwt` |
+| `RefreshTokenGeneratorInterface` | `OpaqueRefreshTokenGenerator` | `random_bytes` + SHA-256 |
+| `SocialIdentityProviderInterface` | `GoogleIdentityProvider` | `symfony/http-client` + JWKS |
+| `SystemHealthCheckerInterface` | `SystemHealthChecker` | `doctrine/dbal` |
+| `EventDispatcherInterface` | `SymfonyEventDispatcherAdapter` | `symfony/event-dispatcher` |
+| `FileStorageInterface` (planejado) | `FlysystemS3Adapter` (planejado) | `league/flysystem` |
 
-| Serviço    | Imagem                 | Portas                       | Variáveis de ambiente                               |
-|------------|------------------------|------------------------------|-----------------------------------------------------|
-| `php`      | FrankenPHP (já existe) | 80, 443                      | `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, `GOOGLE_*`, `S3_*` |
-| `database` | `postgres:18`          | 5432                         | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` |
-| `s3`       | `garagehq/garage`      | 3900 (S3 API), 3901 (Web UI) | Configuração do Garage                              |
-
-### 8.2 Variáveis de ambiente
-
-```env
-# .env (adicionar)
-DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=18&charset=utf8"
-ACCESS_TOKEN_SECRET="trocar-por-um-segredo-de-32-caracteres-ou-mais"
-ACCESS_TOKEN_ISSUER=sigame
-ACCESS_TOKEN_AUDIENCE=sigame-api
-ACCESS_TOKEN_TTL=900
-REFRESH_TOKEN_TTL=604800
-REFRESH_TOKEN_REUSE_GRACE_SECONDS=30
-REFRESH_TOKEN_MAX_FAMILIES=5
-REFRESH_COOKIE_NAME=refresh_token
-REFRESH_COOKIE_PATH=/api/v1/auth
-REFRESH_COOKIE_SECURE=1
-# Dev com front em localhost:3000: none. Em produção same-site: strict.
-REFRESH_COOKIE_SAMESITE=none
-
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URIS=
-
-CORS_ALLOW_ORIGINS="^https?://(app\.sigame\.localhost|localhost:3000)$"
-
-S3_ENDPOINT="http://s3:3900"
-S3_ACCESS_KEY="garage"
-S3_SECRET_KEY="trocar-em-producao"
-S3_BUCKET="sigame"
-S3_REGION="us-east-1"
-```
+O adapter de storage ainda não foi implementado. A decisão está em [decisoes.md](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
 
 ---
 
-## 9. Configuração de rotas
+## 7. Configuração e rotas
 
-### 9.1 Prefixo de API
+### 7.1 Serviços
 
-As rotas de negócio utilizam o prefixo `/api/v1`. Os probes operacionais ficam em
-`/api/health`, sem versionamento, e a documentação em `/doc` e `/doc.json`.
-
-### 9.2 Rotas do módulo Identity
-
-| Método | Rota                    | Controller                         | Autenticação         |
-|--------|-------------------------|------------------------------------|----------------------|
-| `POST` | `/api/v1/auth/register` | `RegistrationController::register` | Público              |
-| `POST` | `/api/v1/auth/login`    | `AuthController::login`            | Público              |
-| `POST` | `/api/v1/auth/refresh`  | `AuthController::refresh`          | Cookie refresh_token |
-| `POST` | `/api/v1/auth/social/{provider}` | `AuthController::social`    | Público (Google)     |
-| `POST` | `/api/v1/auth/logout`   | `AuthController::logout`           | Cookie refresh_token |
-| `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll`      | Autenticado          |
-| `GET`  | `/api/v1/users/me`      | `MeController::me`                 | Autenticado          |
-| `PATCH`| `/api/v1/users/me/cpf`  | `MeController::assignCpf`          | Autenticado          |
-| `PUT`  | `/api/v1/onboarding`    | `OnboardingController::complete`   | Autenticado          |
-
-### 9.3 Organização da documentação (tags e grupos)
-
-A divisão das tags, os grupos do Scalar (`x-tagGroups`), a decisão que mantém
-`/users` e `/users/{id}` na tag `Usuários` e a convenção de segurança da documentação
-estão registradas em [api-documentation.md](api-documentation.md).
-
----
-
-## 10. Configuração de serviços
-
-A configuração é PHP puro. O carregamento é global (`App\` → `src/`) e cada classe é registrada
-automaticamente por autowiring/autoconfiguração; não há service definition por módulo.
+A configuração é PHP puro. O carregamento é global (`App\` → `src/`) e cada classe é registrada automaticamente por autowiring/autoconfiguração; não há service definition por módulo.
 
 ```php
 // config/services.php
@@ -899,69 +312,43 @@ return static function (ContainerConfigurator $containerConfigurator): void {
 };
 ```
 
-O registro de mapeamentos e DBAL Types é centralizado em `config/packages/doctrine.php`, mas os
-Types ficam no módulo dono do VO:
+O registro de mapeamentos e DBAL Types é centralizado em `config/packages/doctrine.php`, mas os Types ficam no módulo dono do VO. O `mapping_types` mapeia `timestamptz` para o tipo `instant`, permitindo que o Doctrine compare corretamente a precisão de microssegundos.
 
-```php
-use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\ProviderSubjectType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\RefreshTokenIdType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\TokenFamilyIdType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\TokenHashType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdentityIdType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
-use App\Identity\Infrastructure\Persistence\ORM\Type\WeightType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
-use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
+A decisão sobre configuração em PHP está em [decisoes.md](decisoes.md#adr-008--configuração-em-php-com-autowiring).
 
-'dbal' => [
-    // Necessário para o schema manager reconhecer o tipo customizado `instant`
-    'mapping_types' => [
-        'timestamptz' => 'instant',
-    ],
-    'types' => [
-        // Shared
-        'base_id' => BaseIdType::class,
-        'email' => EmailType::class,
-        'cpf' => CpfType::class,
-        'instant' => InstantType::class,
-        // Identity
-        'user_id' => UserIdType::class,
-        'hashed_password' => HashedPasswordType::class,
-        'user_level' => UserLevelType::class,
-        'height' => HeightType::class,
-        'weight' => WeightType::class,
-        'user_identity_id' => UserIdentityIdType::class,
-        'provider_subject' => ProviderSubjectType::class,
-        'refresh_token_id' => RefreshTokenIdType::class,
-        'token_family_id' => TokenFamilyIdType::class,
-        'token_hash' => TokenHashType::class,
-    ],
-],
-```
+### 7.2 Rotas
 
-O `mapping_types` mapeia `timestamptz` para o tipo `instant`, permitindo que o Doctrine compare
-corretamente a precisão de microssegundos das colunas de timestamp com o tipo customizado.
+As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller. Os probes operacionais ficam em `/api/health`, sem versionamento, e a documentação em `/doc` e `/doc.json`.
+
+| Método | Rota | Controller | Autenticação |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | `RegistrationController::register` | Pública |
+| `POST` | `/api/v1/auth/login` | `AuthController::login` | Pública |
+| `POST` | `/api/v1/auth/social/{provider}` | `AuthController::social` | Pública |
+| `POST` | `/api/v1/auth/refresh` | `AuthController::refresh` | Cookie `refresh_token` |
+| `POST` | `/api/v1/auth/logout` | `AuthController::logout` | Cookie `refresh_token` |
+| `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll` | Bearer JWT |
+| `GET` | `/api/v1/users/me` | `MeController::me` | Bearer JWT |
+| `PATCH` | `/api/v1/users/me/cpf` | `MeController::assignCpf` | Bearer JWT |
+| `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |
+| `GET` | `/api/health/readiness` | `HealthController::index` | Pública |
+
+A rota `/users/me` precisa ser declarada antes de `/users/{id}` ou o parâmetro `{id}` precisa de um requirement que não aceite o literal `me`.
+
+A organização das tags e grupos do Scalar, a convenção de summaries e o versionamento estão em [api-documentation.md](api-documentation.md).
 
 ---
 
-## 11. Estrutura de testes
+## 8. Estrutura de testes
 
-Os testes são divididos por **tipo** — **unidade**, **funcional** e **integração** — e cada grupo
-espelha a modularização do sistema: `tests/<Tipo>/<Módulo>/<Camada>/...` segue o caminho de
-`src/<Módulo>/<Camada>/...`. Testes que atravessam módulos (catálogos de erro, fronteiras) ficam em
-`tests/Unit/Architecture/`.
+Os testes são divididos por **tipo** — unidade, funcional e integração — e cada grupo espelha a modularização do sistema: `tests/<Tipo>/<Módulo>/<Camada>/...` segue o caminho de `src/<Módulo>/<Camada>/...`. Testes que atravessam módulos ficam em `tests/Unit/Architecture/`.
 
-```
+```text
 tests/
 ├── Unit/                               # grupo "unit"
 │   ├── Architecture/
-│   │   ├── ErrorCodeCatalogTest.php       # unicidade/classificação entre catálogos
-│   │   └── ModuleBoundariesTest.php       # Shared × módulos e imports cruzados
+│   │   ├── ErrorCodeCatalogTest.php
+│   │   └── ModuleBoundariesTest.php
 │   ├── Identity/
 │   │   ├── Domain/
 │   │   │   ├── Error/IdentityErrorsTest.php
@@ -971,244 +358,73 @@ tests/
 │   │   │       ├── Entity/UserIdentityTest.php
 │   │   │       ├── Exception/UserExceptionTest.php
 │   │   │       └── ValueObject/
-│   │   │           ├── UserIdTest.php
-│   │   │           ├── ProfileTest.php
-│   │   │           ├── AccessStateTest.php
-│   │   │           ├── HashedPasswordTest.php
-│   │   │           ├── HeightTest.php
-│   │   │           └── WeightTest.php
 │   │   ├── Application/
 │   │   │   ├── Service/TokenPairIssuerTest.php
 │   │   │   └── UseCase/
 │   │   │       ├── RegisterUser/RegisterUserHandlerTest.php
 │   │   │       └── AuthenticateWithSocialProvider/AuthenticateWithSocialProviderHandlerTest.php
 │   │   └── Infrastructure/
+│   │       ├── Persistence/ORM/Type/
 │   │       ├── Security/
-│   │       │   ├── LcobucciAccessTokenGeneratorTest.php
-│   │       │   └── OpaqueRefreshTokenGeneratorTest.php
 │   │       └── Social/GoogleIdentityProviderTest.php
-│   ├── Gamification/
-│   │   └── Domain/Policy/DelevelingPolicyTest.php
 │   └── Shared/
-│       ├── Domain/
-│       │   ├── Error/
-│       │   ├── Exception/
-│       │   ├── Functional/
-│       │   └── ValueObject/
-│       │       ├── CpfTest.php
-│       │       └── ModalityTest.php
-│       └── Presentation/Http/Response/
+│       ├── Domain/{Error,Exception,Functional,ValueObject}
+│       ├── Infrastructure/{OpenApi,Persistence/ORM/Type}
+│       └── Presentation/Http/{OpenApi,Response}
 │
 ├── Functional/                         # grupo "functional"
-│   ├── Identity/
-│   │   └── Presentation/Http/
-│   │       ├── AuthTest.php
-│   │       ├── RegistrationTest.php
-│   │       └── Request/RegisterUserRequestFactory.php
-│   └── Monitoring/
-│       └── Presentation/Http/HealthTest.php
+│   ├── Identity/Presentation/Http/
+│   │   ├── AuthTest.php
+│   │   ├── MeTest.php
+│   │   └── RegistrationTest.php
+│   ├── Monitoring/Presentation/Http/HealthTest.php
+│   └── Shared/Presentation/Http/
+│       ├── ApiDocumentationTest.php
+│       └── HttpErrorHandlingTest.php
 │
 ├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
-│   └── Identity/
-│       └── Infrastructure/Persistence/
-│           ├── DoctrineUserRepositoryTest.php
-│           └── DoctrineRefreshTokenRepositoryTest.php
+│   └── Identity/Infrastructure/Persistence/
+│       ├── DoctrineUserRepositoryTest.php
+│       └── DoctrineRefreshTokenRepositoryTest.php
 │
 └── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php
     └── Factories/HasBrFakerTrait.php
 ```
 
-Os grupos são declarados em `tests/Pest.php` (`pest()->group('unit')->in('Unit')`) e rodados com
-`composer test:unit` / `composer test:functional` / `composer test:integration` (ou
-`just test-unit` / `just test-functional` / `just test-integration`).
+Os grupos são declarados em `tests/Pest.php` e rodados com `composer test:unit` / `composer test:functional` / `composer test:integration` (ou `just test-unit` / `just test-functional` / `just test-integration`).
 
-### Tipos de teste
+### 8.1 Tipos de teste
 
-| Tipo       | O que cobre                                                                    | Ferramenta                          |
-|------------|--------------------------------------------------------------------------------|-------------------------------------|
-| Unidade    | Entidades, VOs, policies **e casos de uso (handlers) com ports mockadas**       | PestPHP + Mockery                   |
-| Funcional  | Fronteira HTTP: rotas, status code, payload, serialização, autenticação         | PestPHP + WebTestCase + BrowserKit  |
-| Integração | Adaptadores reais: repositórios/banco, storage, JWT, hasher, eventos            | PestPHP + Doctrine (sem BrowserKit) |
+| Tipo | O que cobre | Ferramenta |
+|---|---|---|
+| Unidade | Entidades, VOs, policies e casos de uso (handlers) com ports mockadas | PestPHP + Mockery |
+| Funcional | Fronteira HTTP: rotas, status code, payload, serialização, autenticação | PestPHP + WebTestCase + BrowserKit |
+| Integração | Adaptadores reais: repositórios/banco, storage, JWT, hasher, eventos | PestPHP + Doctrine (sem BrowserKit) |
 
-### Isolamento do banco
+### 8.2 Isolamento do banco
 
-Testes que tocam o banco (`integration` e `functional`) são resetados pela extensão
-`Zenstruck\Foundry\PHPUnit\FoundryExtension` (registrada em `phpunit.xml.dist` com
-`enabled-auto-reset=true`), que age em todo teste que estende `KernelTestCase`.
-Com o `dama/doctrine-test-bundle` habilitado no env `test`, **cada teste roda dentro de uma transação
-e sofre rollback ao final**, e o banco é criado/migrado **uma vez por execução**:
+Testes que tocam o banco (`integration` e `functional`) usam a extensão `Zenstruck\Foundry\PHPUnit\FoundryExtension` (registrada em `phpunit.xml.dist` com `enabled-auto-reset=true`). Com o `dama/doctrine-test-bundle` habilitado no env `test`, cada teste roda dentro de uma transação e sofre rollback ao final, e o banco é criado/migrado uma vez por execução:
 
-- `zenstruck_foundry.orm.reset.mode: migrate` faz o schema vir das migrations, não do mapping —
-  migration quebrada ou dessincronizada aparece na suíte;
-- o reset por teste (`doctrine:schema:drop` + `doctrine:schema:update`) deixa de acontecer;
-- dados criados no teste desaparecem no rollback, então fixtures de banco vão em `beforeEach` ou no
-  corpo do teste — nunca em `beforeAll`/`setUpBeforeClass`.
+- `zenstruck_foundry.orm.reset.mode: migrate` faz o schema vir das migrations, não do mapping;
+- o reset por teste deixa de acontecer;
+- dados criados no teste desaparecem no rollback, então fixtures de banco vão em `beforeEach` ou no corpo do teste — nunca em `beforeAll`/`setUpBeforeClass`.
 
-Como cada teste está dentro de uma transação, `CREATE DATABASE`, `TRUNCATE` e `commit()`/`rollBack()`
-explícitos dentro do teste quebram o isolamento.
+Como cada teste está dentro de uma transação, `CREATE DATABASE`, `TRUNCATE` e `commit()`/`rollBack()` explícitos quebram o isolamento.
 
-### Como escrever testes
+### 8.3 Como escrever testes
 
-1. **Mockery para as ports** — as dependências de um handler (repositórios, hashers, dispatchers)
-   sempre são simuladas com `Mockery::mock(Interface::class)` em `beforeEach`, e as expectativas
-   declaradas no teste: `shouldReceive(...)->once()->with(...)`, `Mockery::on(...)` para predicados
-   e `shouldNotReceive(...)` para garantir que algo *não* aconteceu. Nunca `createMock()` do PHPUnit.
-   O Pest fecha e verifica o Mockery automaticamente ao fim de cada teste.
+1. **Mockery para as ports** — dependências de um handler são simuladas com `Mockery::mock(Interface::class)` em `beforeEach`, com `shouldReceive(...)->once()->with(...)`, `Mockery::on(...)` e `shouldNotReceive(...)`. Nunca `createMock()` do PHPUnit.
+2. **Sem repetir `->value()`** — extraia o resultado para uma variável antes das asserções.
+3. **Datasets do Pest quando reduzem repetição real** — casos parametrizados vão em `->with(...)`, com chaves string para nomear os casos.
+4. **Setup repetido vira helper** — quando a repetição é de construção, extraia uma função no próprio arquivo de teste (`makeUser()`).
 
-2. **Sem repetir `->value()`** — quando várias asserções leem o mesmo resultado, extrair para uma
-   variável local antes do `expect()`:
-
-   ```php
-   $result = ($this->handler)($command);
-
-   expect($result->isSuccess())->toBeTrue();
-
-   $user = $result->value();
-
-   expect($user->cpf()?->value())->toBe($cpf)
-       ->and($user->email()?->value())->toBe($email)
-       ->and($user->name())->toBe($name);
-   ```
-
-3. **Datasets do Pest quando reduzem repetição real** — casos parametrizados (entradas inválidas,
-   normalizações, payloads de rejeição) vão direto no `->with(...)`, com o dado colado ao teste:
-
-   ```php
-   it('rejects invalid cpf', function (string $input) {
-       expect(Cpf::fromString($input)->isInvalid())->toBeTrue();
-   })->with([
-       'wrong length' => '1234567890',
-       'all same digits' => '11111111111',
-       'empty string' => '',
-   ]);
-   ```
-
-   Manter sempre **chaves string** para nomear os casos (com chaves numéricas a saída do Pest vira
-   `with dataset "0"`, `"1"`, ...). Declarar um `dataset('nome', [...])` nomeado em vez do array
-   inline só quando o mesmo dataset for reutilizado por mais de um teste. Só usar dataset quando o
-   cenário varia em **dados**; testos com comportamentos distintos ou setup próprio ficam literais.
-   Atenção: entradas de dataset com chaves string são espalhadas como *named arguments* — para
-   passar um array associativo como argumento único, aninhe-o (`'caso' => [['cpf' => '123']]`).
-
-4. **Setup repetido vira helper** — quando a repetição é de construção (factory de entidade), não
-   de dados, extrair uma função auxiliar no próprio arquivo de teste (`makeUser()`) em vez de
-   dataset.
+O fluxo completo de comandos e a configuração do banco de teste estão em [desenvolvimento.md](desenvolvimento.md#5-testes).
 
 ---
 
-## 12. Ordem de implementação
+## 9. Decisões e acompanhamento
 
-### Fase 0 — Infraestrutura base
-
-- Instalar pacotes: `doctrine/orm-pack`, `symfony/security-bundle`, `symfony/serializer`,
-  `symfony/validator`, `symfony/uid`, `lcobucci/jwt`, `firebase/php-jwt`, `symfony/clock`,
-  `symfony/lock`, `symfony/rate-limiter`, `nelmio/cors-bundle`
-- Configurar Docker Compose com PostgreSQL 18 + Garage (S3)
-- Configurar Doctrine (conexão, migrations)
-- Estruturar `src/Shared/` com VOs base (`BaseId`, `Email`, `Cpf`, `Instant`)
-
-### Fase 1 — Identity: cadastro
-
-- Entidade `User` com domínio rico
-- `RegisterUserCommand` + `RegisterUserHandler`
-- `RegistrationController`
-- Migrations Doctrine
-- Testes: unidade (entidade User) + integração (repositório)
-
-### Fase 2 — Identity: autenticação
-
-- `user_identities` 1:N (local + Google) e CPF opcional/write-once
-- Entidade `RefreshToken` opaco, com família, rotação e detecção de reuso
-- `LcobucciAccessTokenGenerator` (access JWT HS256) e `OpaqueRefreshTokenGenerator`
-- `TokenPairIssuer` (emissão, rotação, revogação, limite de famílias)
-- `AuthController` (login, social, refresh, logout, logout/all, me, cpf)
-- Adapter de segurança sobre o agregado: `SecurityUser`
-  (`UserInterface` + `PasswordAuthenticatedUserInterface`), `UserProvider`
-  (`loadUserByIdentifier` via `findById`) e `ActiveUserChecker`
-  (`checkPreAuth` → `AccessState::canAuthenticate()`, RN18.3)
-- Autenticador Symfony customizado (valida access token Bearer)
-- Google via authorization code + JWKS; Apple fica como evolução
-- Rate limiting de login/social/refresh/CPF
-- Testes: unidade (tokens + handler social), integração (repositórios) e funcional
-  (HTTP: login → refresh → logout → me → cpf)
-
-### Fase 3 — Identity: onboarding
-
-- `CompleteOnboardingCommand` + `CompleteOnboardingHandler`
-- `OnboardingController`
-- Integração com Gamification via eventos
-- Testes: fluxo completo registro → onboarding → nível 2
-
-### Fase 4 — Groups
-
-- Entidades `Group`, `Membership`
-- Use cases: `CreateGroup`, `RequestMembership`, `ApproveMembership`,
-  `RemoveMember`, `DesignateSupervisor`
-- Controllers e testes de limites, estados, permissões
-
-### Fase 5 — Activities
-
-- Entidades `Activity`, `Attendance`
-- Ciclo de vida da atividade (Agendada → Iniciada → Finalizada)
-- Check-in + validação de presença
-- Conflito de horário
-- Testes: fluxo completo, conflitos, idempotência
-
-### Fase 6 — Gamification
-
-- `UserProgress`, `XpCalculator`, `DelevelingPolicy`
-- Listeners: `AttendanceValidated → AwardXp`, `OnboardingCompleted → ConcedeNivel2`
-- Command de deleveling (cron/scheduler)
-- Testes: progressão, deleveling, idempotência
-
-### Fase 7 — Notifications + Moderation
-
-- Notificações internas (alertas de atividades, mudanças de grupo)
-- Denúncias, bloqueio entre usuários, suspensão global
-
-### Fase 8 — Sponsorship + Reports
-
-- Patrocínios, benefícios, vouchers
-- Indicadores mensais de desempenho dos grupos
-
----
-
-## 13. Decisões pendentes (ver levantamento de requisitos)
-
-| ID      | Questão                                                   | Impacto       | Status   |
-|---------|-----------------------------------------------------------|---------------|----------|
-| `DEC01` | Margem de conflito de horários e possibilidade de exceção | Atividades    | Pendente |
-| `DEC02` | Tabela de XP por nível e evento                           | Gamificação   | Pendente |
-| `DEC03` | Fórmula exata do deleveling                               | Gamificação   | Pendente |
-| `DEC04` | Comportamento das notificações lidas/arquivadas           | Notificações  | Pendente |
-| `DEC05` | Efeitos do bloqueio entre usuários                        | Moderação     | Pendente |
-| `DEC06` | Matriz final de visibilidade de dados                     | Privacidade   | Pendente |
-| `DEC07` | Público, distribuição e limites de vouchers               | Vouchers      | Pendente |
-| `DEC08` | Fórmula e periodicidade do indicador mensal               | Indicadores   | Pendente |
-| `DEC09` | Backend API (decidido: Symfony)                           | Arquitetura   | Decidido |
-| `DEC10` | Janela operacional de check-in, início e finalização      | Atividades    | Pendente |
-| `DEC11` | Permissões exatas do supervisor                           | Autorização   | Pendente |
-| `DEC12` | Regra de atividade válida e mínimo de participantes       | Atividades/XP | Pendente |
-| `DEC13` | CPF opcional no cadastro e write-once; obrigatório em recompensa externa | Identidade/Vouchers | Decidido |
-| `DEC14` | Login social Google nesta entrega; Apple como evolução | Identidade | Decidido |
-
----
-
-## 14. Resumo das decisões arquiteturais
-
-| Decisão                  | Escolha                                              | Justificativa                          |
-|--------------------------|------------------------------------------------------|----------------------------------------|
-| Mecanismo de auth        | Access JWT + refresh opaco rotativo                  | SPA Nuxt consome API pura, stateless   |
-| Refresh token            | Opaco `rt_` + 64 hex, SHA-256, HttpOnly cookie       | Segurança contra XSS                   |
-| Rotação de refresh       | Sim, com detecção de roubo por `family_id`           | Prevenção de replay attack             |
-| Access token             | Stateless, 15 min, não persistido                    | Performance, simplicidade              |
-| Persistência             | Doctrine ORM, PostgreSQL 18                          | Flexibilidade, migrations, constraints |
-| Arquivos (fotos)         | S3 via Flysystem (Garage local)                      | Portabilidade, mesmo SDK em prod       |
-| Comunicação cross-module | Domain Events (Symfony Dispatcher)                   | Desacoplamento total                   |
-| Estrutura de diretórios  | Namespace por módulo em `src/`                       | Modular monolith claro                 |
-| Camadas por módulo       | Domain → Application → Infrastructure → Presentation | Clean Architecture                     |
-| Responsabilidades do User | `Profile`/`AccessState` embutidos em `users` + `UserIdentity` 1:N | Separa auth/perfil/acesso e permite login local + social sem duplicar usuário |
-| CPF | Opcional no cadastro, único quando informado, write-once | Reduz atrito e ancora identidade real apenas em recompensas externas |
-| Login social | Google via authorization code; interface/registry extensíveis | Entrega o provedor atual sem acoplar a aplicação a ele |
-| Testes                   | PestPHP + Mockery                                    | Sintaxe expressiva, datasets, mocks de ports sem boilerplate |
+- **Decisões consolidadas e o porquê:** [decisoes.md](decisoes.md)
+- **Estado da implementação, roadmap, decisões abertas e migrations:** [implementacao.md](implementacao.md)
+- **Requisitos funcionais e critérios de aceitação:** [requisitos/levantamento-de-requisitos.md](requisitos/levantamento-de-requisitos.md)

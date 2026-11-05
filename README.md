@@ -1,257 +1,243 @@
-# Symfony Docker
+# SIGAME
 
-A [Docker](https://www.docker.com/)-based installer and runtime for the [Symfony](https://symfony.com) web framework,
-with [FrankenPHP](https://frankenphp.dev) and [Caddy](https://caddyserver.com/) inside!
+Plataforma web para incentivar a prática de atividades físicas em grupo: encontrar pessoas com interesses e disponibilidades compatíveis, formar pequenos grupos, organizar atividades, registrar presença e acompanhar a evolução de cada participante.
 
-Coding-agents ready: ships with a [Dev Container](https://containers.dev/) and a [one-page guide](docs/symfony-docker/agents.md)
-to run [OpenCode](https://opencode.ai), [Claude Code](https://claude.ai/claude-code), or any AI coding assistant,
-against a local or a remote model, with an optional network sandbox.
+> **Status:** V1 em desenvolvimento. O módulo de identidade (cadastro, autenticação e conta) está implementado; o onboarding tem domínio pronto e ainda falta a camada HTTP. Os demais módulos estão no roadmap. O acompanhamento detalhado fica em [docs/implementacao.md](docs/implementacao.md).
 
-![CI](https://github.com/dunglas/symfony-docker/workflows/CI/badge.svg)
+## Visão do projeto
 
-## Getting Started
+Praticar atividade física em grupo é mais do que organizar um horário: envolve encontrar pessoas compatíveis, sentir-se seguro para começar, manter constância e perceber progresso. Hoje essas necessidades estão espalhadas por redes sociais genéricas, grupos de mensagens e planilhas informais, que não foram desenhados para isso.
 
-1. If not already done, [install Docker Compose](https://docs.docker.com/compose/install/) (v2.10+)
-2. Run `docker compose build --pull --no-cache` to build fresh images
-3. Run `docker compose up --wait` to set up and start a fresh Symfony project
-4. Open `https://localhost` in your favorite web browser and [accept the auto-generated TLS certificate](https://stackoverflow.com/a/15076602/1352334)
-5. Run `docker compose down --remove-orphans` to stop the Docker containers.
+O SIGAME nasce para centralizar essa experiência. A proposta é oferecer um canal próprio para que pessoas encontrem grupos esportivos com interesses e disponibilidades parecidas, participem de atividades organizadas e acompanhem sua evolução com regras claras de presença, progresso e reconhecimento.
 
-## Features
+O produto prioriza **inclusão**: iniciantes, pessoas sedentárias, tímidas ou que nunca praticaram atividade em grupo devem se sentir acolhidas. Por isso, dados como peso e altura são opcionais e não impedem o acesso às funcionalidades sociais; não há exigência de GPS; e a comunicação do grupo pode acontecer por um link externo, sem expor telefone pessoal.
 
-- Production, development and CI ready
-- Just 1 service by default
-- Super-readable configuration
-- Blazing-fast performance thanks to [the worker mode of FrankenPHP](https://frankenphp.dev/docs/symfony-docker/worker/)
-- [Installation of extra Docker Compose services](docs/symfony-docker/extra-services.md) with Symfony Flex
-- Automatic HTTPS (in dev and prod)
-- HTTP/3 and [Early Hints](https://symfony.com/blog/new-in-symfony-6-3-early-hints) support
-- Real-time messaging thanks to a built-in [Mercure hub](https://symfony.com/doc/current/mercure.html)
-- [Vulcain](https://vulcain.rocks) support
-- Native [XDebug](docs/symfony-docker/xdebug.md) integration
-- [Hot Reloading](https://frankenphp.dev/docs/symfony-docker/hot-reload/)
-- [Dev Container](https://containers.dev/) support
-- [AI coding agents](docs/symfony-docker/agents.md) with an optional network sandbox
-- Rootless, slim production image
+A V1 também leva a sério **segurança e moderação**. Denúncias, bloqueio entre usuários e suspensão global de conta fazem parte do escopo, assim como a separação entre administração da plataforma, administradores de grupo e supervisores. Nenhuma operação financeira, Pix, comissão ou repasse faz parte da V1.
 
-**Enjoy!**
+As modalidades iniciais são **caminhada, corrida e ciclismo**. O usuário pode praticar mais de uma modalidade e definir uma delas como principal sem perder histórico ou XP.
 
-## Docs
+## Problema a resolver
 
-1. [Options available](docs/symfony-docker/options.md)
-2. [Using Symfony Docker with an existing project](docs/symfony-docker/existing-project.md)
-3. [Support for extra services](docs/symfony-docker/extra-services.md)
-4. [Deploying in production](docs/symfony-docker/production.md)
-5. [Debugging with Xdebug](docs/symfony-docker/xdebug.md)
-6. [TLS Certificates](docs/symfony-docker/tls.md)
-7. [Using MySQL instead of PostgreSQL](docs/symfony-docker/mysql.md)
-8. [Using Alpine Linux instead of Debian](docs/symfony-docker/alpine.md)
-9. [Using a justfile](docs/symfony-docker/justfile.md)
-10. [Updating the template](docs/symfony-docker/updating.md)
-11. [Troubleshooting](docs/symfony-docker/troubleshooting.md)
-12. [Using AI coding agents](docs/symfony-docker/agents.md)
+Redes sociais e aplicativos de mensagem não foram projetados para localizar grupos esportivos compatíveis. Eles ajudam a conversar, mas não ajudam a responder perguntas como:
 
-## Login com Google
+- quem pratica a mesma modalidade, no mesmo nível e nos mesmos horários?
+- como entrar em um grupo pequeno, com regras claras e moderação?
+- como saber se uma atividade realmente aconteceu e quem participou?
+- como acompanhar presença, progresso e reconhecimento ao longo do tempo?
+- como um iniciante pode começar sem se sentir exposto ou deslocado?
 
-O backend autentica por **authorization code**: o front-end obtém o `code` no Google e o envia
-para `POST /api/v1/auth/social/google`. O backend troca o código, valida o `id_token` pelo JWKS
-do Google e emite o access token JWT + o refresh token opaco no cookie `HttpOnly`.
+Grupos informais costumam depender de convites, mensagens soltas e memória. Não há histórico confiável de presença, critério de progressão, controle de vagas ou mecanismo de segurança. O SIGAME centraliza essas necessidades em uma plataforma específica para prática esportiva coletiva:
 
-### 1. Criar as credenciais no Google Cloud
+- descoberta e entrada em grupos pequenos;
+- organização de atividades com data, horário, ponto de encontro e trajeto;
+- check-in individual e validação de presença;
+- progressão por XP e níveis, com regras de deleveling por inatividade;
+- notificações internas de mudanças relevantes;
+- moderação, denúncias e bloqueios;
+- patrocínios e vouchers vinculados ao grupo, sem transação financeira.
 
-1. Acesse o [Google Cloud Console](https://console.cloud.google.com/) e selecione (ou crie) um projeto.
-2. Em **APIs & Services → OAuth consent screen**, configure a tela de consentimento.
-   - Em modo **Testing**, adicione em **Test users** todas as contas que farão login.
-3. Em **APIs & Services → Credentials → Create credentials → OAuth client ID**:
-   - Application type: **Web application**.
-   - Em **Authorized redirect URIs**, cadastre **exatamente** as URLs de callback usadas pelo
-     seu cliente (e, se for testar pelo Playground, também a URL dele):
-     ```
-     https://app.exemplo.com/auth/google/callback
-     https://developers.google.com/oauthplayground
-     ```
-4. Copie o **Client ID** e o **Client secret**.
+## Escopo da V1
 
-> O Google exige que o `redirect_uri` enviado na autorização e na troca do código seja idêntico
-> ao cadastrado. Diferença de barra final, `http`/`https` ou porta gera `redirect_uri_mismatch`.
+**Incluído:**
 
-### 2. Configurar o backend
+- cadastro local e login social com Google;
+- onboarding com modalidades e nível inicial;
+- grupos de até 5 membros aprovados, com administrador e supervisor;
+- atividades vinculadas a grupos ativos;
+- check-in e validação de presença;
+- gamificação com 10 níveis;
+- notificações internas;
+- denúncias, bloqueio e suspensão global;
+- patrocínios, benefícios e vouchers;
+- indicador mensal interno de desempenho dos grupos.
 
-Coloque as credenciais em `.env.local` (não versionado), nunca em `.env`:
+**Fora do escopo:**
 
-```env
-GOOGLE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=seu-client-secret
+- aplicativo mobile nativo;
+- chat interno próprio;
+- rastreamento GPS obrigatório;
+- recebimento de dinheiro, Pix, comissão ou repasse financeiro.
 
-# Lista separada por vírgula. É uma allowlist de comparação exata:
-# o redirectUri do request precisa estar aqui e ser o mesmo usado no Google.
-GOOGLE_REDIRECT_URIS=https://app.exemplo.com/auth/google/callback,https://developers.google.com/oauthplayground
-```
+## Stack
 
-Ajuste também, conforme o ambiente:
+| Camada | Tecnologia |
+|---|---|
+| Runtime | PHP 8.5 |
+| Framework | Symfony 8.1 |
+| Web server | FrankenPHP 1 + Caddy |
+| Banco | PostgreSQL 18 |
+| ORM | Doctrine ORM 3 + Doctrine Migrations 4 |
+| Autenticação | `lcobucci/jwt`, `firebase/php-jwt` e autenticador customizado |
+| Serialização / validação | Symfony Serializer e Validator |
+| Storage | Flysystem 3 + S3 (Garage local) — adapter pendente |
+| Testes | Pest 5 + Mockery + Foundry + DAMA |
+| Qualidade | PHPStan 6, php-cs-fixer (`@Symfony`) e CaptainHook |
+| Documentação da API | NelmioApiDocBundle + Scalar |
 
-```env
-# Origem do front-end que pode chamar a API com cookies (tratada como regex).
-CORS_ALLOW_ORIGINS='^https://app\.exemplo\.com$'
+## Arquitetura em resumo
 
-# Cookie do refresh token.
-# SameSite=lax/strict quando front e API são same-site.
-# SameSite=none (exige Secure) quando o front está em outro site, como em dev
-# com front em http://localhost:3000 e API em https://api.sigame.localhost.
-REFRESH_COOKIE_SECURE=1
-REFRESH_COOKIE_SAMESITE=lax
-```
+O backend é um **monolito modular** com Clean Architecture. Cada módulo funcional vive em `src/<Módulo>/` e organiza suas camadas como `Domain → Application → Infrastructure → Presentation`. Módulos não importam classes concretas uns dos outros; a comunicação acontece por Domain Events.
 
-Depois de alterar variáveis de ambiente, limpe o cache:
+O módulo `Shared` funciona como kernel compartilhado (VOs, erros, eventos, persistência base) e não pode importar módulos funcionais. As fronteiras são verificadas por teste automatizado.
+
+Detalhes de princípios, estrutura de diretórios, modelo de domínio e estratégia de testes estão em [docs/arquitetura.md](docs/arquitetura.md).
+
+## Pré-requisitos
+
+- Docker Engine com Docker Compose v2.10+
+- [just](https://just.systems/) (recomendado) ou `docker compose` diretamente
+- Opcional: [mise](https://mise.jdx.dev/) para instalar a versão fixada do `just`
+
+## Quick start
 
 ```bash
-docker compose exec php php bin/console cache:clear
+# 0. Crie o arquivo de overrides local (pode começar vazio)
+touch .env.local
+
+# 1. Construir as imagens
+just build
+
+# 2. Subir os containers
+just up
+
+# 3. Acompanhar os logs
+just logs
 ```
 
-### 3. Fluxo no front-end
+O `justfile` referencia `.env.local`; o arquivo é ignorado pelo Git e deve existir mesmo que vazio. Preencha os segredos nele quando necessário.
 
-1. Redirecione o usuário para o Google com `response_type=code` e os escopos
-   `openid email profile` (o `openid` é o que faz o Google devolver o `id_token`):
+Sem `just`:
 
-   ```
-   https://accounts.google.com/o/oauth2/v2/auth
-     ?client_id=SEU_CLIENT_ID
-     &redirect_uri=https%3A%2F%2Fapp.exemplo.com%2Fauth%2Fgoogle%2Fcallback
-     &response_type=code
-     &scope=openid%20email%20profile
-     &state=VALOR_ALEATORIO
-   ```
+```bash
+docker compose --env-file .env --env-file .env.dev --env-file .env.local up --detach
+```
 
-   Gere e valide o `state` no cliente (proteção contra CSRF). PKCE é opcional; se usar,
-   envie o `codeVerifier` no passo seguinte.
+Na primeira subida, o entrypoint instala as dependências, espera o PostgreSQL e aplica as migrations.
 
-2. No callback, envie o `code` para o backend:
+### URLs locais
 
-   ```bash
-   curl -i -X POST 'https://api.sigame.localhost:8443/api/v1/auth/social/google' \
-     -H 'Content-Type: application/json' \
-     --data '{
-       "code": "4/0Ab...",
-       "redirectUri": "https://app.exemplo.com/auth/google/callback"
-     }'
-   ```
+| Recurso | URL |
+|---|---|
+| API | <https://api.sigame.localhost:8443> |
+| Documentação interativa | <https://api.sigame.localhost:8443/doc> |
+| OpenAPI JSON | <https://api.sigame.localhost:8443/doc.json> |
+| Readiness | <https://api.sigame.localhost:8443/api/health/readiness> |
 
-   Resposta (`200`):
+O certificado TLS é autoassinado; aceite-o no navegador na primeira visita.
 
-   ```json
-   {
-     "data": {
-       "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-       "tokenType": "Bearer",
-       "expiresIn": 900
-     },
-     "meta": { "timestamp": "2026-11-04T12:00:00.000+00:00" }
-   }
-   ```
+### Configuração
 
-   O refresh token **não** aparece no corpo: vem em `Set-Cookie: refresh_token=rt_...`
-   (`HttpOnly`, path `/api/v1/auth`). O front-end precisa chamar a API com credenciais
-   habilitadas (`credentials: 'include'` no `fetch`, `withCredentials` no axios).
+- `.env` — padrões versionados;
+- `.env.dev` — padrões de desenvolvimento;
+- `.env.local` — segredos e overrides locais, **não versionado**;
+- `.env.test` — configuração da suíte de testes.
 
-3. Use o access token em `Authorization: Bearer <accessToken>` e renove com
-   `POST /api/v1/auth/refresh`, sem enviar corpo — o cookie é lido automaticamente.
+Para o login com Google, preencha `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URIS` em `.env.local`. O passo a passo está em [docs/autenticacao.md](docs/autenticacao.md).
 
-### 4. Comportamento do backend
+A lista completa de variáveis está em [docs/infraestrutura.md](docs/infraestrutura.md).
 
-- O `id_token` é validado contra o JWKS do Google (`iss`, `aud`, expiração e assinatura).
-- O login só é aceito com `email_verified=true`; caso contrário retorna
-  `SOCIAL_EMAIL_NOT_VERIFIED`.
-- Se o `sub` do Google já existe, o usuário é autenticado.
-- Se não existe mas o e-mail verificado pertence a uma conta local, a identidade Google é
-  **vinculada** a essa conta (sem duplicar usuário).
-- Se não existe e-mail cadastrado, uma nova conta é criada (CPF nulo, onboarding pendente).
-- Somente `google` está habilitado; outro provedor retorna `SOCIAL_PROVIDER_UNSUPPORTED`.
-- O endpoint é limitado a 10 requisições por minuto por provedor + IP (`429` ao exceder).
+## Endpoints
 
-## Usando o Google OAuth Playground
+Rotas de negócio usam `/api/v1`. Probes operacionais usam `/api/health`, sem versionamento.
 
-O [Google OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) serve para
-validar o Client ID/Secret, conferir escopos e inspecionar o `id_token` sem escrever um front-end.
-Como o backend troca o `code` por conta própria, o Playground é mais útil para **diagnóstico** —
-e também permite testar o endpoint, copiando o `code` antes de ele ser consumido.
+| Método | Rota | Autenticação | Descrição |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | Pública | Cadastrar usuário |
+| `POST` | `/api/v1/auth/login` | Pública | Autenticar com e-mail e senha |
+| `POST` | `/api/v1/auth/social/{provider}` | Pública | Autenticar com provedor social (`google`) |
+| `POST` | `/api/v1/auth/refresh` | Cookie | Renovar o par de tokens |
+| `POST` | `/api/v1/auth/logout` | Cookie | Encerrar a sessão atual |
+| `POST` | `/api/v1/auth/logout/all` | Bearer JWT | Encerrar todas as sessões |
+| `GET` | `/api/v1/users/me` | Bearer JWT | Obter os dados do usuário autenticado |
+| `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT | Definir o CPF (write-once) |
+| `GET` | `/api/health/liveness` | Pública | Verificar a execução da aplicação |
+| `GET` | `/api/health/readiness` | Pública | Verificar a prontidão e o banco |
 
-### 1. Configurar o Playground com suas credenciais
+O contrato completo, com schemas e exemplos, é servido em `/doc`.
 
-1. Abra <https://developers.google.com/oauthplayground/>.
-2. Clique na engrenagem (**OAuth 2.0 configuration**) no canto superior direito.
-3. Marque **Use your own OAuth credentials** e informe o **Client ID** e o **Client secret**
-   do mesmo cliente OAuth usado pelo backend.
-4. Cadastre `https://developers.google.com/oauthplayground` em **Authorized redirect URIs**
-   no Google Cloud Console (o Playground usa exatamente essa URL).
-5. Feche a engrenagem.
+## Autenticação em resumo
 
-> Se você não usar suas próprias credenciais, o código gerado pertence ao cliente do Google.
-> O backend tentará trocá-lo com o seu Client ID/Secret e receberá `invalid_grant`.
+- **Access token:** JWT HS256, 15 minutos, stateless, enviado em `Authorization: Bearer`.
+- **Refresh token:** string opaca `rt_` + 64 hex, 7 dias, persistido apenas como SHA-256 e entregue em cookie `HttpOnly`.
+- **Rotação:** cada renovação invalida o token anterior e cria outro na mesma família.
+- **Detecção de reuso:** reapresentar um token revogado fora da janela de graça revoga toda a família.
+- **Logout:** revoga a família atual; `/logout/all` revoga todas as sessões.
 
-### 2. Autorizar e obter o código
+O front-end precisa chamar a API com credenciais habilitadas (`credentials: 'include'` no `fetch` ou `withCredentials` no axios).
 
-1. No **Step 1**, informe/adicione os escopos:
-   ```
-   openid
-   email
-   profile
-   ```
-   Use o campo **Input your own scopes** se eles não aparecerem na lista.
-2. Clique em **Authorize APIs** e conclua o login com uma conta de teste.
-3. Você volta para o Playground, no **Step 2**. **Não clique em “Exchange authorization code
-   for tokens” ainda** — esse botão consome o código, que é de uso único.
+Fluxos, exemplos de request/response, códigos de erro, rate limiting e configuração do Google estão em [docs/autenticacao.md](docs/autenticacao.md).
 
-### 3. Testar o endpoint do SIGAME
+## Banco de dados e migrations
 
-1. Copie o `code` da URL de callback exibida no navegador:
-   ```
-   https://developers.google.com/oauthplayground/?code=4%2F0Ab...&scope=openid%20email%20profile
-   ```
-2. Faça o URL-decode (o `%2F` vira `/`).
-3. Envie para o backend, usando **exatamente** o `redirectUri` do Playground:
+O schema é versionado por Doctrine Migrations. O entrypoint aplica migrations pendentes ao subir o container.
 
-   ```bash
-   curl -i -X POST 'https://api.sigame.localhost:8443/api/v1/auth/social/google' \
-     -H 'Content-Type: application/json' \
-     --data '{
-       "code": "4/0Ab...",
-       "redirectUri": "https://developers.google.com/oauthplayground"
-     }'
-   ```
+```bash
+just sf doctrine:migrations:status
+just sf doctrine:migrations:migrate --no-interaction
+just sf doctrine:migrations:diff
+```
 
-   Esse `redirectUri` precisa estar em `GOOGLE_REDIRECT_URIS`; caso contrário o backend
-   responde `SOCIAL_AUTHENTICATION_FAILED` antes mesmo de chamar o Google.
+Nunca use `doctrine:schema:update` para alterar o schema. O histórico das migrations e as regras de evolução estão em [docs/implementacao.md](docs/implementacao.md#4-migrações-do-banco-de-dados).
 
-Se você demorar ou clicar em **Exchange** antes, o código já terá sido usado e o backend
-retorna `SOCIAL_AUTHENTICATION_FAILED` (`invalid_grant`). Nesse caso, autorize novamente
-para gerar outro código.
+## Testes e qualidade
 
-### 4. Inspecionar o id_token (sem o backend)
+```bash
+just test              # suíte completa
+just test-unit         # entidades, VOs, policies e handlers
+just test-functional   # HTTP: rotas, status, payload e autenticação
+just test-integration  # repositórios e adaptadores reais
+just cs-check          # padrão de código
+just phpstan           # análise estática nível 6
+just composer quality  # cs:check + phpstan + test
+```
 
-No **Step 2**, clique em **Exchange authorization code for tokens**. O Playground mostra
-`access_token` e, como o escopo `openid` foi solicitado, também o `id_token`. Cole o `id_token`
-em <https://jwt.io> (ou decodifique localmente) e confira as claims que o backend usa:
+Os testes de banco rodam em transação com rollback (DAMA) e o schema vem das migrations (`Foundry reset.mode: migrate`). Detalhes e convenções estão em [docs/desenvolvimento.md](docs/desenvolvimento.md).
 
-| Claim            | Uso no SIGAME                                             |
-|------------------|-----------------------------------------------------------|
-| `sub`            | identificador do usuário no Google (provider_subject)     |
-| `email`          | e-mail da conta                                           |
-| `email_verified` | precisa ser `true` para o login ser aceito                |
-| `name`           | nome inicial do perfil, quando a conta é criada           |
-| `picture`        | foto de perfil sugerida                                   |
-| `iss` / `aud`    | validação do emissor e da audiência                       |
+## Estrutura do projeto
 
-Isso permite confirmar o motivo de um `SOCIAL_EMAIL_NOT_VERIFIED` ou de um `aud` divergente
-sem depender do fluxo completo do front-end.
+```text
+src/
+├── Shared/          # kernel: VOs, erros, eventos, persistência base, HTTP comum
+├── Monitoring/      # liveness, readiness e saúde das dependências
+└── Identity/        # cadastro, autenticação, identidades e refresh tokens
+    ├── Domain/
+    ├── Application/
+    ├── Infrastructure/
+    └── Presentation/
 
-### 5. Problemas comuns
+tests/
+├── Unit/            # grupo unit
+├── Functional/      # grupo functional (HTTP)
+├── Integration/     # grupo integration (adaptadores reais)
+└── Helpers/         # ApiClient e factories de teste
+```
 
-| Sintoma                           | Causa provável                                                                                  |
-|-----------------------------------|-------------------------------------------------------------------------------------------------|
-| `redirect_uri_mismatch` no Google | URL não cadastrada no console ou diferente da usada na autorização                              |
-| `invalid_grant` na troca          | Código já consumido, expirado, ou credenciais de outro cliente OAuth                            |
-| `SOCIAL_AUTHENTICATION_FAILED`    | `redirectUri` fora de `GOOGLE_REDIRECT_URIS`, Client ID/Secret inválidos ou `id_token` inválido |
-| `SOCIAL_EMAIL_NOT_VERIFIED`       | A conta Google não tem e-mail verificado ou o escopo `email` não foi solicitado                 |
-| `SOCIAL_PROVIDER_UNSUPPORTED`     | Provider diferente de `google` na URL                                                           |
-| Cookie não é enviado no refresh   | `SameSite`/`Secure` incompatíveis com a origem, ou requisição sem credenciais                   |
-| Erro de CORS no navegador         | Origem ausente/incorreta em `CORS_ALLOW_ORIGINS`                                                |
+Módulos planejados: `Groups`, `Activities`, `Gamification`, `Moderation`, `Sponsorship`, `Notifications` e `Reports`. O estado de cada um está em [docs/implementacao.md](docs/implementacao.md).
+
+## Documentação
+
+| Documento | Conteúdo |
+|---|---|
+| [docs/arquitetura.md](docs/arquitetura.md) | Princípios, módulos, camadas, modelo de domínio e testes |
+| [docs/autenticacao.md](docs/autenticacao.md) | Tokens, endpoints, erros, rate limiting e Google |
+| [docs/desenvolvimento.md](docs/desenvolvimento.md) | Ambiente local, comandos, testes, qualidade e debug |
+| [docs/infraestrutura.md](docs/infraestrutura.md) | Serviços, portas, variáveis, S3/Garage e produção |
+| [docs/api-documentation.md](docs/api-documentation.md) | Convenções de tags, summaries, segurança e versionamento da OpenAPI |
+| [docs/implementacao.md](docs/implementacao.md) | Estado atual, roadmap, decisões abertas, migrations e dívidas técnicas |
+| [docs/decisoes.md](docs/decisoes.md) | Registro do porquê das decisões arquiteturais e de produto |
+| [docs/requisitos/levantamento-de-requisitos.md](docs/requisitos/levantamento-de-requisitos.md) | Requisitos funcionais, regras de negócio e critérios de aceitação |
+
+## Contribuição
+
+- Mensagens de commit seguem **Conventional Commits** (`feat`, `fix`, `docs`, `test`, `refactor`, `chore`…).
+- O hook de pre-commit roda php-cs-fixer e PHPStan nos arquivos alterados.
+- Antes de abrir um PR, rode `just composer quality`.
+
+## Referências
+
+- [Symfony](https://symfony.com/doc/current/)
+- [Symfony Docker](https://github.com/dunglas/symfony-docker)
+- [FrankenPHP](https://frankenphp.dev/docs/)
+- [PostgreSQL](https://www.postgresql.org/docs/)
+- [Doctrine ORM](https://www.doctrine-project.org/projects/orm.html)
+- [Pest](https://pestphp.com/)

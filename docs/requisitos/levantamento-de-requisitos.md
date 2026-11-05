@@ -1,9 +1,14 @@
 # SIGAME — Requisitos da V1
 
-> **Status:** Em revisão  
-> **Versão:** 0.2  
-> **Última atualização:** 2026-09-19  
+> **Status:** Em revisão
+>
+> **Versão:** 0.3
+>
+> **Última atualização:** 2026-11-05
+>
 > **Fonte:** levantamento inicial, especificação de requisitos e proposta arquitetural do SIGAME.
+
+> **Escopo deste documento:** requisitos de produto (RF, RN, CA). O estado da implementação, o roadmap e as decisões ainda abertas ficam em [../implementacao.md](../implementacao.md). As decisões já tomadas e o porquê ficam em [../decisoes.md](../decisoes.md).
 
 ---
 
@@ -770,22 +775,16 @@ flowchart TD
 
 ---
 
-## 14. Dependências e decisões pendentes
+## 14. Decisões e acompanhamento
 
-| ID      | Questão                                                   | Impacto       | Prioridade | Status   |
-|---------|-----------------------------------------------------------|---------------|------------|----------|
-| `DEC01` | Margem de conflito de horários e possibilidade de exceção | Atividades    | Alta       | Pendente |
-| `DEC02` | Tabela de XP por nível e evento                           | Gamificação   | Alta       | Pendente |
-| `DEC03` | Fórmula exata do deleveling                               | Gamificação   | Alta       | Pendente |
-| `DEC04` | Comportamento das notificações lidas/arquivadas           | Notificações  | Média      | Pendente |
-| `DEC05` | Efeitos do bloqueio entre usuários                        | Moderação     | Alta       | Pendente |
-| `DEC06` | Matriz final de visibilidade de dados                     | Privacidade   | Alta       | Pendente |
-| `DEC07` | Público, distribuição e limites de vouchers               | Vouchers      | Alta       | Pendente |
-| `DEC08` | Fórmula e periodicidade do indicador mensal               | Indicadores   | Média      | Pendente |
-| `DEC09` | Nitro como backend ou API Symfony/Laravel separada        | Arquitetura   | Alta       | Decidido |
-| `DEC10` | Janela operacional de check-in, início e finalização      | Atividades    | Alta       | Pendente |
-| `DEC11` | Permissões exatas do supervisor                           | Autorização   | Alta       | Pendente |
-| `DEC12` | Regra de atividade válida e mínimo de participantes       | Atividades/XP | Alta       | Pendente |
+As decisões pendentes (`DEC01`–`DEC12`, exceto `DEC09`) e o estado de implementação de cada requisito estão em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões já tomadas (`DEC09`, `DEC13`, `DEC14` e as decisões arquiteturais) estão em [../decisoes.md](../decisoes.md).
+
+Ao fechar uma decisão:
+
+1. registre contexto, decisão, alternativas e consequências em `../decisoes.md`;
+2. remova a pendência de `../implementacao.md`;
+3. atualize o requisito e os critérios de aceitação neste documento;
+4. adicione ou ajuste os testes correspondentes.
 
 ---
 
@@ -827,18 +826,12 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 |--------|------------|------------------------------------------------------------------------------------|--------------------------------|
 | 0.1    | 2026-09-19 | Consolidação inicial dos PDFs                                                      | Felipe do Nascimento Magalhães |
 | 0.2    | 2026-09-19 | Organização por capacidades, critérios de aceitação, matrizes e decisões pendentes | Gustavo Teixeira de Sousa      |
+| 0.3    | 2026-11-05 | Extração de decisões e acompanhamento para `implementacao.md` e `decisoes.md`      | Gustavo Teixeira de Sousa      |
 
 ---
 
-## 17. Checklist de revisão pendente
+## 17. Checklist de revisão
 
-- [ ] Definir o que é uma atividade válida.
-- [ ] Definir estados e janela operacional da atividade.
-- [ ] Definir XP por evento e por nível.
-- [ ] Definir fórmula exata de deleveling.
-- [ ] Definir permissões completas do supervisor.
-- [ ] Definir efeito do bloqueio entre usuários.
-- [ ] Definir visibilidade de cada campo de perfil.
-- [ ] Definir regras de geração e resgate de vouchers.
-- [ ] Definir fórmula do indicador mensal.
-- [ ] Validar se todos os critérios de aceitação serão convertidos em testes.
+O checklist de revisão pendente foi movido para [../implementacao.md](../implementacao.md#6-checklist-de-revisão-de-requisitos), junto com o roadmap e as decisões em aberto.
+
+Cada item fechado deve virar uma entrada em [../decisoes.md](../decisoes.md) e atualizar o requisito correspondente neste documento.
