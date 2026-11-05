@@ -69,7 +69,7 @@ final class AuthController extends AbstractController
     }
 
     /**
-     * Autenticar com e-mail e senha.
+     * Autenticar com e-mail e senha
      *
      * Valida as credenciais informadas e emite um access token JWT. O refresh
      * token é entregue em cookie HttpOnly e não aparece no corpo da resposta.
@@ -126,7 +126,7 @@ final class AuthController extends AbstractController
     }
 
     /**
-     * Login social por authorization code.
+     * Autenticar com provedor social
      *
      * Troca o authorization code do provedor por uma sessão da plataforma,
      * criando ou vinculando a conta quando necessário. O id_token é validado
@@ -217,7 +217,7 @@ final class AuthController extends AbstractController
     }
 
     /**
-     * Rotaciona o par access token + refresh token.
+     * Renovar o par de tokens
      *
      * Lê o refresh token do cookie HttpOnly e emite um novo par. O token
      * anterior é invalidado; a reapresentação de um token revogado revoga toda
@@ -294,7 +294,7 @@ final class AuthController extends AbstractController
     }
 
     /**
-     * Encerra a sessão do cookie atual.
+     * Encerrar a sessão atual
      *
      * Revoga a família do refresh token apresentado no cookie e limpa o cookie
      * no cliente. A operação é idempotente para um cookie já revogado.
@@ -315,7 +315,7 @@ final class AuthController extends AbstractController
     }
 
     /**
-     * Encerra todas as sessões do usuário autenticado.
+     * Encerrar todas as sessões
      *
      * Revoga todas as famílias de refresh tokens do usuário autenticado,
      * encerrando a sessão em todos os dispositivos.

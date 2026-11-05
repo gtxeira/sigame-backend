@@ -88,6 +88,65 @@ it('documents a summary and description for every operation', function () {
     expect($missing)->toBe([]);
 });
 
+it('follows the summary writing convention', function () {
+    $doc = readApiDoc($this);
+
+    $approvedVerbs = [
+        'Listar',
+        'Obter',
+        'Criar',
+        'Cadastrar',
+        'Substituir',
+        'Atualizar',
+        'Remover',
+        'Autenticar',
+        'Renovar',
+        'Encerrar',
+        'Revogar',
+        'Definir',
+        'Verificar',
+    ];
+
+    $problems = [];
+
+    foreach (apiDocValue($doc, 'paths') as $path => $operations) {
+        foreach ($operations as $method => $operation) {
+            $summary = trim((string) ($operation['summary'] ?? ''));
+            $label = sprintf('%s %s', strtoupper((string) $method), (string) $path);
+
+            if ('' === $summary) {
+                $problems[] = sprintf('%s: summary vazio.', $label);
+
+                continue;
+            }
+
+            if (str_ends_with($summary, '.') || str_ends_with($summary, ':')) {
+                $problems[] = sprintf('%s: summary não deve terminar com pontuação ("%s").', $label, $summary);
+            }
+
+            if (str_contains($summary, '(') || str_contains($summary, ')')) {
+                $problems[] = sprintf('%s: summary não deve conter parênteses ("%s").', $label, $summary);
+            }
+
+            if (mb_strlen($summary) > 60) {
+                $problems[] = sprintf('%s: summary com %d caracteres (máximo 60).', $label, mb_strlen($summary));
+            }
+
+            $firstWord = explode(' ', $summary)[0];
+
+            if (!in_array($firstWord, $approvedVerbs, true)) {
+                $problems[] = sprintf(
+                    '%s: summary deve começar com verbo no infinitivo aprovado, veio "%s".',
+                    $label,
+                    $firstWord,
+                );
+            }
+        }
+    }
+
+    expect($problems)->toBe([]);
+});
+
 it('keeps bearerAuth in sync with IsGranted', function () {
     $doc = readApiDoc($this);
 

@@ -78,6 +78,66 @@ consistência.
    `Infraestrutura`.
 5. Ao criar uma tag, adicione a descrição em `documentation.tags` e inclua-a em um
    grupo de `documentation.x-tagGroups`.
+6. Ao escrever o summary, siga a convenção da seção
+   [Convenção de escrita dos summaries](#convenção-de-escrita-dos-summaries).
+
+## Convenção de escrita dos summaries
+
+Todo summary de operação segue a mesma forma: verbo no infinitivo, sentence case,
+sem ponto final, sem parênteses e com até 60 caracteres. O summary é um rótulo de
+navegação; a precisão técnica fica na descrição.
+
+| Operação | Verbo |
+|---|---|
+| `GET` de coleção | `Listar` |
+| `GET` de item | `Obter` |
+| `POST` de criação de recurso | `Criar` |
+| `POST` de criação de conta | `Cadastrar` |
+| `PUT` | `Substituir` |
+| `PATCH` | `Atualizar` ou verbo de domínio (`Definir`) |
+| `DELETE` | `Remover` |
+| Ação de domínio | verbo específico (`Autenticar`, `Renovar`, `Encerrar`, `Revogar`, `Verificar`) |
+
+Decisões de vocabulário:
+
+- `Cadastrar` é reservado para criação de conta (`/auth/register`); as demais
+  criações de recurso usam `Criar`.
+- `Remover` é o padrão para `DELETE`; não usar `Excluir`.
+- `Atualizar` cobre `PATCH` genérico; quando a operação tem semântica própria, use o
+  verbo de domínio (`Definir o CPF`, `Renovar o par de tokens`).
+- O summary não repete a tag: dentro de `Autenticação`, `Autenticar com provedor
+  social` já é específico o bastante.
+
+Termos técnicos mantidos em inglês: `access token`, `refresh token`,
+`authorization code`, `cookie HttpOnly` e `probe`. Acrônimos ficam em caixa alta:
+`CPF`, `JWT`, `HTTP` e `JWKS`.
+
+O swagger-php usa a **primeira linha** do PHPDoc como `summary` e o restante,
+separado por uma linha em branco, como `description`. Ao editar o comentário,
+mantenha a primeira linha curta e sem pontuação final.
+
+Summaries atuais, usados como referência:
+
+| Endpoint | Summary |
+|---|---|
+| `POST /auth/register` | `Cadastrar usuário` |
+| `POST /auth/login` | `Autenticar com e-mail e senha` |
+| `POST /auth/social/{provider}` | `Autenticar com provedor social` |
+| `POST /auth/refresh` | `Renovar o par de tokens` |
+| `POST /auth/logout` | `Encerrar a sessão atual` |
+| `POST /auth/logout/all` | `Encerrar todas as sessões` |
+| `GET /users/me` | `Obter os dados do usuário autenticado` |
+| `PATCH /users/me/cpf` | `Definir o CPF do usuário autenticado` |
+| `GET /api/health/liveness` | `Verificar a execução da aplicação` |
+| `GET /api/health/readiness` | `Verificar a prontidão da aplicação` |
+
+A convenção vale apenas para summaries de operação. Descrição de operação continua
+em frase completa no presente, com ponto final. Descrição de resposta
+(`Dados do usuário autenticado.`) e descrição de campo (`E-mail do usuário.`) são
+frases nominais, porque descrevem resultado ou conteúdo, não uma ação.
+
+O teste `ApiDocumentationTest` verifica o formato do summary e a primeira palavra
+contra a lista de verbos aprovados.
 
 ## Segurança na documentação
 

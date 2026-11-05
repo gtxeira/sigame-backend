@@ -25,10 +25,10 @@ final class HealthController extends AbstractController
     }
 
     /**
-     * Verificação de Execução (Liveness Probe).
+     * Verificar a execução da aplicação
      *
-     * Endpoint leve utilizado como healthcheck para verificar se a aplicação
-     * está no ar e respondendo a requisições HTTP.
+     * Liveness probe leve que verifica se a aplicação está no ar e respondendo
+     * a requisições HTTP.
      */
     #[Route('/liveness', name: 'app_health_liveness', methods: ['GET'])]
     #[SuccessResponse(
@@ -54,10 +54,11 @@ final class HealthController extends AbstractController
     }
 
     /**
-     * Verificação de Prontidão (Readiness Probe).
+     * Verificar a prontidão da aplicação
      *
-     * Avalia a saúde geral do sistema e a conectividade com dependências críticas
-     * (Banco de Dados, Armazenamento, etc.) para determinar se a aplicação pode processar requisições.
+     * Readiness probe que avalia a saúde geral do sistema e a conectividade com
+     * dependências críticas (Banco de Dados, Armazenamento, etc.) para
+     * determinar se a aplicação pode processar requisições.
      */
     #[Route('/readiness', name: 'app_health_readiness', methods: ['GET'])]
     #[SuccessResponse(

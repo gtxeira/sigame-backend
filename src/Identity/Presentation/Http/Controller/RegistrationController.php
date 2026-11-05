@@ -38,7 +38,7 @@ final class RegistrationController extends AbstractController
     }
 
     /**
-     * Cadastrar usuário.
+     * Cadastrar usuário
      *
      * Cria uma conta local com e-mail e senha. O CPF é opcional e, quando
      * informado, pode vir formatado. A operação não autentica o usuário; o

@@ -45,6 +45,11 @@ return new PhpCsFixer\Config()
 
         'no_superfluous_phpdoc_tags' => true,
 
+        // A convenção dos summaries da OpenAPI é sem ponto final; a regra do
+        // @Symfony reintroduziria a pontuação e é verificada por
+        // ApiDocumentationTest.
+        'phpdoc_summary' => false,
+
         'single_line_throw' => false,
 
         'global_namespace_import' => [

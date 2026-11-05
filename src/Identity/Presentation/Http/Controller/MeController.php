@@ -55,7 +55,7 @@ final class MeController extends AbstractController
     }
 
     /**
-     * Dados públicos do usuário autenticado.
+     * Obter os dados do usuário autenticado
      *
      * Retorna os dados públicos da conta associada ao access token enviado no
      * header Authorization.
@@ -78,10 +78,11 @@ final class MeController extends AbstractController
     }
 
     /**
-     * Define o CPF do usuário autenticado (write-once).
+     * Definir o CPF do usuário autenticado
      *
-     * O CPF pode ser informado uma única vez e não pode ser alterado pelo
-     * próprio usuário depois de definido. A operação é limitada por usuário.
+     * O CPF pode ser informado uma única vez (write-once) e não pode ser
+     * alterado pelo próprio usuário depois de definido. A operação é limitada
+     * por usuário.
      */
     #[Route('/users/me/cpf', name: 'app_me_cpf', methods: ['PATCH'])]
     #[IsGranted('ROLE_USER')]
