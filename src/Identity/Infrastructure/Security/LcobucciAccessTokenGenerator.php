@@ -30,13 +30,13 @@ final readonly class LcobucciAccessTokenGenerator implements AccessTokenGenerato
     private Sha256 $signer;
 
     public function __construct(
-        #[Autowire('%env(ACCESS_TOKEN_SECRET)%')]
+        #[Autowire(env: 'ACCESS_TOKEN_SECRET')]
         private string $secret,
-        #[Autowire('%env(ACCESS_TOKEN_ISSUER)%')]
+        #[Autowire(env: 'ACCESS_TOKEN_ISSUER')]
         private string $issuer,
-        #[Autowire('%env(ACCESS_TOKEN_AUDIENCE)%')]
+        #[Autowire(env: 'ACCESS_TOKEN_AUDIENCE')]
         private string $audience,
-        #[Autowire('%env(int:ACCESS_TOKEN_TTL)%')]
+        #[Autowire(env: 'int:ACCESS_TOKEN_TTL')]
         private int $ttlSeconds,
         private ClockInterface $clock,
     ) {

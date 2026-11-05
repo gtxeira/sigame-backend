@@ -31,11 +31,11 @@ final readonly class TokenPairIssuer implements TokenPairIssuerInterface
         private RefreshTokenRepositoryInterface $refreshTokenRepository,
         private LockFactory $lockFactory,
         private ClockInterface $clock,
-        #[Autowire('%env(int:REFRESH_TOKEN_TTL)%')]
+        #[Autowire(env: 'int:REFRESH_TOKEN_TTL')]
         private int $refreshTtlSeconds = 604800,
-        #[Autowire('%env(int:REFRESH_TOKEN_REUSE_GRACE_SECONDS)%')]
+        #[Autowire(env: 'int:REFRESH_TOKEN_REUSE_GRACE_SECONDS')]
         private int $reuseGraceSeconds = 30,
-        #[Autowire('%env(int:REFRESH_TOKEN_MAX_FAMILIES)%')]
+        #[Autowire(env: 'int:REFRESH_TOKEN_MAX_FAMILIES')]
         private int $maxFamilies = 5,
     ) {
     }

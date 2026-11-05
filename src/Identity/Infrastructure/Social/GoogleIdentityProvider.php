@@ -30,11 +30,11 @@ final readonly class GoogleIdentityProvider implements SocialIdentityProviderInt
     public function __construct(
         private HttpClientInterface $httpClient,
         private IdTokenVerifierInterface $idTokenVerifier,
-        #[Autowire('%env(GOOGLE_CLIENT_ID)%')]
+        #[Autowire(env: 'GOOGLE_CLIENT_ID')]
         private string $clientId,
-        #[Autowire('%env(GOOGLE_CLIENT_SECRET)%')]
+        #[Autowire(env: 'GOOGLE_CLIENT_SECRET')]
         private string $clientSecret,
-        #[Autowire('%env(GOOGLE_REDIRECT_URIS)%')]
+        #[Autowire(env: 'GOOGLE_REDIRECT_URIS')]
         private string $redirectUris,
     ) {
     }

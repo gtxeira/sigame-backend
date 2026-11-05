@@ -17,13 +17,13 @@ use Symfony\Component\HttpFoundation\Cookie;
 final readonly class RefreshTokenCookieFactory
 {
     public function __construct(
-        #[Autowire('%env(REFRESH_COOKIE_NAME)%')]
+        #[Autowire(env: 'REFRESH_COOKIE_NAME')]
         private string $name,
-        #[Autowire('%env(bool:REFRESH_COOKIE_SECURE)%')]
+        #[Autowire(env: 'bool:REFRESH_COOKIE_SECURE')]
         private bool $secure,
-        #[Autowire('%env(REFRESH_COOKIE_SAMESITE)%')]
+        #[Autowire(env: 'REFRESH_COOKIE_SAMESITE')]
         private string $sameSite,
-        #[Autowire('%env(REFRESH_COOKIE_PATH)%')]
+        #[Autowire(env: 'REFRESH_COOKIE_PATH')]
         private string $path = '/api/v1/auth',
     ) {
     }

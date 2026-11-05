@@ -18,7 +18,7 @@ final readonly class JwksProvider
     public function __construct(
         private HttpClientInterface $httpClient,
         private CacheInterface $cache,
-        #[Autowire('%env(int:JWKS_CACHE_TTL)%')]
+        #[Autowire(env: 'int:JWKS_CACHE_TTL')]
         private int $cacheTtlSeconds = 3600,
     ) {
     }
