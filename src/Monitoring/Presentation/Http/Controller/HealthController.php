@@ -15,7 +15,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[OA\Tag(name: 'Monitoring', description: 'Endpoints para verificar o status da aplicação')]
+#[Route('/api/health')]
+#[OA\Tag(name: 'Saúde')]
 final class HealthController extends AbstractController
 {
     public function __construct(
@@ -29,7 +30,7 @@ final class HealthController extends AbstractController
      * Endpoint leve utilizado como healthcheck para verificar se a aplicação
      * está no ar e respondendo a requisições HTTP.
      */
-    #[Route('/api/health/liveness', name: 'app_health_liveness', methods: ['GET'])]
+    #[Route('/liveness', name: 'app_health_liveness', methods: ['GET'])]
     #[SuccessResponse(
         response: Response::HTTP_OK,
         description: 'Aplicação operando normalmente.',
@@ -58,7 +59,7 @@ final class HealthController extends AbstractController
      * Avalia a saúde geral do sistema e a conectividade com dependências críticas
      * (Banco de Dados, Armazenamento, etc.) para determinar se a aplicação pode processar requisições.
      */
-    #[Route('/api/health/readiness', name: 'app_health_readiness', methods: ['GET'])]
+    #[Route('/readiness', name: 'app_health_readiness', methods: ['GET'])]
     #[SuccessResponse(
         response: Response::HTTP_OK,
         description: 'Aplicação e dependências operando normalmente.',

@@ -27,7 +27,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Controller para registro de usuários.
  */
-#[OA\Tag(name: 'Auth', description: 'Operações relacionadas à autenticação de usuários')]
+#[Route('/api/v1')]
+#[OA\Tag(name: 'Autenticação')]
 final class RegistrationController extends AbstractController
 {
     public function __construct(
@@ -38,8 +39,12 @@ final class RegistrationController extends AbstractController
 
     /**
      * Cadastrar usuário.
+     *
+     * Cria uma conta local com e-mail e senha. O CPF é opcional e, quando
+     * informado, pode vir formatado. A operação não autentica o usuário; o
+     * login deve ser feito em seguida pelo endpoint de autenticação.
      */
-    #[Route('/api/v1/auth/register', name: 'app_auth_register', methods: ['POST'])]
+    #[Route('/auth/register', name: 'app_auth_register', methods: ['POST'])]
     #[SuccessResponse(
         dataModel: RegisterUserResponse::class,
         response: Response::HTTP_CREATED,

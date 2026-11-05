@@ -856,7 +856,8 @@ S3_REGION="us-east-1"
 
 ### 9.1 Prefixo de API
 
-Todas as rotas da API utilizam o prefixo `/api/v1`.
+As rotas de negócio utilizam o prefixo `/api/v1`. Os probes operacionais ficam em
+`/api/health`, sem versionamento, e a documentação em `/doc` e `/doc.json`.
 
 ### 9.2 Rotas do módulo Identity
 
@@ -871,6 +872,12 @@ Todas as rotas da API utilizam o prefixo `/api/v1`.
 | `GET`  | `/api/v1/users/me`      | `MeController::me`                 | Autenticado          |
 | `PATCH`| `/api/v1/users/me/cpf`  | `MeController::assignCpf`          | Autenticado          |
 | `PUT`  | `/api/v1/onboarding`    | `OnboardingController::complete`   | Autenticado          |
+
+### 9.3 Organização da documentação (tags e grupos)
+
+A divisão das tags, os grupos do Scalar (`x-tagGroups`), a decisão que mantém
+`/users` e `/users/{id}` na tag `Usuários` e a convenção de segurança da documentação
+estão registradas em [api-documentation.md](api-documentation.md).
 
 ---
 

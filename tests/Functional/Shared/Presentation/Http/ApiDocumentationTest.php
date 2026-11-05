@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Identity\Presentation\Http\Request\RegisterUserRequest;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Constraint;
 use Tests\FunctionalTestCase;
 
@@ -38,6 +39,133 @@ function readApiDoc(FunctionalTestCase $test): array
 
     return $doc;
 }
+
+it('declares the bearerAuth security scheme', function () {
+    $doc = readApiDoc($this);
+
+    expect(apiDocValue($doc, 'components', 'securitySchemes', 'bearerAuth'))
+        ->toMatchArray([
+            'type' => 'http',
+            'scheme' => 'bearer',
+            'bearerFormat' => 'JWT',
+        ]);
+});
+
+it('groups every documented tag', function () {
+    $doc = readApiDoc($this);
+
+    $tags = array_column(apiDocValue($doc, 'tags'), 'name');
+    $groups = apiDocValue($doc, 'x-tagGroups');
+
+    $groupedTags = [];
+
+    foreach ($groups as $group) {
+        expect($group)->toHaveKeys(['name', 'tags']);
+        $groupedTags = array_merge($groupedTags, $group['tags']);
+    }
+
+    expect(array_values(array_unique($groupedTags)))->toEqualCanonicalizing($tags)
+        ->and(array_diff($groupedTags, $tags))->toBe([]);
+});
+
+it('documents a summary and description for every operation', function () {
+    $doc = readApiDoc($this);
+
+    $missing = [];
+
+    foreach (apiDocValue($doc, 'paths') as $path => $operations) {
+        foreach ($operations as $method => $operation) {
+            if ('' === trim((string) ($operation['summary'] ?? ''))) {
+                $missing[] = sprintf('%s %s: summary', strtoupper((string) $method), (string) $path);
+            }
+
+            if ('' === trim((string) ($operation['description'] ?? ''))) {
+                $missing[] = sprintf('%s %s: description', strtoupper((string) $method), (string) $path);
+            }
+        }
+    }
+
+    expect($missing)->toBe([]);
+});
+
+it('keeps bearerAuth in sync with IsGranted', function () {
+    $doc = readApiDoc($this);
+
+    $router = $this->api->getKernelBrowser()->getContainer()->get('router');
+
+    $routesByPath = [];
+
+    foreach ($router->getRouteCollection() as $route) {
+        $routesByPath[$route->getPath()] = $route;
+    }
+
+    $problems = [];
+
+    foreach (apiDocValue($doc, 'paths') as $path => $operations) {
+        $route = $routesByPath[$path] ?? null;
+
+        if (null === $route) {
+            $problems[] = sprintf('%s: rota não encontrada no router.', (string) $path);
+
+            continue;
+        }
+
+        $controller = $route->getDefault('_controller');
+
+        if (is_array($controller) && is_string($controller[0] ?? null) && is_string($controller[1] ?? null)) {
+            [$class, $method] = $controller;
+        } elseif (is_string($controller) && str_contains($controller, '::')) {
+            [$class, $method] = explode('::', $controller, 2);
+        } else {
+            $problems[] = sprintf('%s: controller não reconhecido.', (string) $path);
+
+            continue;
+        }
+
+        if (!class_exists($class) || !method_exists($class, $method)) {
+            $problems[] = sprintf('%s: controller %s::%s não encontrado.', (string) $path, $class, $method);
+
+            continue;
+        }
+
+        $hasIsGranted = [] !== (new ReflectionClass($class))->getAttributes(IsGranted::class)
+            || [] !== (new ReflectionMethod($class, $method))->getAttributes(IsGranted::class);
+
+        foreach ($operations as $httpMethod => $operation) {
+            $hasBearerAuth = false;
+
+            foreach ($operation['security'] ?? [] as $requirement) {
+                if (is_array($requirement) && array_key_exists('bearerAuth', $requirement)) {
+                    $hasBearerAuth = true;
+
+                    break;
+                }
+            }
+
+            if ($hasIsGranted && !$hasBearerAuth) {
+                $problems[] = sprintf(
+                    '%s %s (%s::%s): tem #[IsGranted] mas não documenta bearerAuth.',
+                    strtoupper((string) $httpMethod),
+                    (string) $path,
+                    $class,
+                    $method,
+                );
+            }
+
+            if (!$hasIsGranted && $hasBearerAuth) {
+                $problems[] = sprintf(
+                    '%s %s (%s::%s): é público mas documenta bearerAuth.',
+                    strtoupper((string) $httpMethod),
+                    (string) $path,
+                    $class,
+                    $method,
+                );
+            }
+        }
+    }
+
+    expect($problems)->toBe([]);
+});
 
 it('documents every public api operation', function () {
     $doc = readApiDoc($this);

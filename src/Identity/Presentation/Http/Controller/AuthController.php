@@ -32,6 +32,7 @@ use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
 use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
 use App\Shared\Presentation\Http\RateLimit\RateLimitGuard;
 use App\Shared\Presentation\Http\Response\ResultResponder;
+use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -46,7 +47,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * Endpoints de autenticação: login local, login social, refresh e logout.
  */
-#[OA\Tag(name: 'Auth', description: 'Operações relacionadas à autenticação de usuários')]
+#[Route('/api/v1')]
+#[OA\Tag(name: 'Autenticação')]
 final class AuthController extends AbstractController
 {
     public function __construct(
@@ -68,8 +70,12 @@ final class AuthController extends AbstractController
 
     /**
      * Autenticar com e-mail e senha.
+     *
+     * Valida as credenciais informadas e emite um access token JWT. O refresh
+     * token é entregue em cookie HttpOnly e não aparece no corpo da resposta.
+     * O endpoint é limitado por e-mail e IP.
      */
-    #[Route('/api/v1/auth/login', name: 'app_auth_login', methods: ['POST'])]
+    #[Route('/auth/login', name: 'app_auth_login', methods: ['POST'])]
     #[SuccessResponse(
         dataModel: TokenResponse::class,
         description: 'Autenticado com sucesso; o refresh token é entregue no cookie HttpOnly.',
@@ -121,8 +127,19 @@ final class AuthController extends AbstractController
 
     /**
      * Login social por authorization code.
+     *
+     * Troca o authorization code do provedor por uma sessão da plataforma,
+     * criando ou vinculando a conta quando necessário. O id_token é validado
+     * contra o JWKS do provedor e o refresh token é entregue em cookie HttpOnly.
      */
-    #[Route('/api/v1/auth/social/{provider}', name: 'app_auth_social', methods: ['POST'])]
+    #[Route('/auth/social/{provider}', name: 'app_auth_social', methods: ['POST'])]
+    #[OA\Parameter(
+        name: 'provider',
+        in: 'path',
+        required: true,
+        description: 'Provedor social. Apenas `google` está habilitado nesta versão.',
+        schema: new OA\Schema(type: 'string', enum: ['google']),
+    )]
     #[SuccessResponse(
         dataModel: TokenResponse::class,
         description: 'Autenticado no provedor social; o refresh token é entregue no cookie HttpOnly.',
@@ -201,8 +218,12 @@ final class AuthController extends AbstractController
 
     /**
      * Rotaciona o par access token + refresh token.
+     *
+     * Lê o refresh token do cookie HttpOnly e emite um novo par. O token
+     * anterior é invalidado; a reapresentação de um token revogado revoga toda
+     * a família de tokens daquela sessão.
      */
-    #[Route('/api/v1/auth/refresh', name: 'app_auth_refresh', methods: ['POST'])]
+    #[Route('/auth/refresh', name: 'app_auth_refresh', methods: ['POST'])]
     #[SuccessResponse(
         dataModel: TokenResponse::class,
         description: 'Par de tokens rotacionado; o novo refresh token substitui o cookie anterior.',
@@ -274,8 +295,11 @@ final class AuthController extends AbstractController
 
     /**
      * Encerra a sessão do cookie atual.
+     *
+     * Revoga a família do refresh token apresentado no cookie e limpa o cookie
+     * no cliente. A operação é idempotente para um cookie já revogado.
      */
-    #[Route('/api/v1/auth/logout', name: 'app_auth_logout', methods: ['POST'])]
+    #[Route('/auth/logout', name: 'app_auth_logout', methods: ['POST'])]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Sessão encerrada.')]
     #[InternalErrorResponse]
     public function logout(Request $httpRequest): Response
@@ -292,9 +316,13 @@ final class AuthController extends AbstractController
 
     /**
      * Encerra todas as sessões do usuário autenticado.
+     *
+     * Revoga todas as famílias de refresh tokens do usuário autenticado,
+     * encerrando a sessão em todos os dispositivos.
      */
-    #[Route('/api/v1/auth/logout/all', name: 'app_auth_logout_all', methods: ['POST'])]
+    #[Route('/auth/logout/all', name: 'app_auth_logout_all', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
+    #[Security(name: 'bearerAuth')]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Todas as sessões foram encerradas.')]
     #[UnauthorizedResponse]
     #[InternalErrorResponse]

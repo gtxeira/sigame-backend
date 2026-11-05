@@ -12,6 +12,35 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'description' => 'API da plataforma web voltada ao incentivo à prática de atividades físicas em grupo.',
                 'version' => '1.0.0',
             ],
+            'tags' => [
+                [
+                    'name' => 'Autenticação',
+                    'description' => 'Cadastro, login local e social, renovação e revogação de credenciais.',
+                ],
+                [
+                    'name' => 'Minha conta',
+                    'description' => 'Ações do usuário autenticado sobre a própria conta.',
+                ],
+                [
+                    'name' => 'Saúde',
+                    'description' => 'Endpoints operacionais de saúde e diagnóstico da aplicação.',
+                ],
+            ],
+            'x-tagGroups' => [
+                [
+                    'name' => 'Acesso e conta',
+                    'tags' => [
+                        'Autenticação',
+                        'Minha conta',
+                    ],
+                ],
+                [
+                    'name' => 'Sistema',
+                    'tags' => [
+                        'Saúde',
+                    ],
+                ],
+            ],
             'components' => [
                 'schemas' => [
                     'ApiResponseMeta' => [
@@ -168,13 +197,15 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                         'type' => 'http',
                         'scheme' => 'bearer',
                         'bearerFormat' => 'JWT',
+                        'description' => 'Access token JWT no header Authorization: Bearer <token>.',
                     ],
                 ],
             ],
         ],
         'areas' => [
             'path_patterns' => [
-                '^/api(?!/doc$)',
+                '^/api/v1',
+                '^/api/health',
             ],
         ],
         'type_info' => true,

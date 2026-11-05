@@ -23,6 +23,7 @@ use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
 use App\Shared\Presentation\Http\RateLimit\RateLimitGuard;
 use App\Shared\Presentation\Http\Response\ApiResponse;
 use App\Shared\Presentation\Http\Response\ResultResponder;
+use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -37,9 +38,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  *
  * Quando existir um CRUD administrativo em `/api/v1/users/{id}`, a rota `me`
  * precisa ser declarada antes ou `{id}` precisa de um requirement que não
- * aceite o literal `me`.
+ * aceite o literal `me`. A tag `Minha conta` separa estas ações self-service
+ * da gestão administrativa de usuários.
  */
-#[OA\Tag(name: 'Usuários', description: 'Dados do usuário autenticado')]
+#[Route('/api/v1')]
+#[OA\Tag(name: 'Minha conta')]
 final class MeController extends AbstractController
 {
     public function __construct(
@@ -53,9 +56,13 @@ final class MeController extends AbstractController
 
     /**
      * Dados públicos do usuário autenticado.
+     *
+     * Retorna os dados públicos da conta associada ao access token enviado no
+     * header Authorization.
      */
-    #[Route('/api/v1/users/me', name: 'app_me', methods: ['GET'])]
+    #[Route('/users/me', name: 'app_me', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
+    #[Security(name: 'bearerAuth')]
     #[SuccessResponse(dataModel: CurrentUserResponse::class, description: 'Dados do usuário autenticado.')]
     #[UnauthorizedResponse]
     #[ForbiddenResponse]
@@ -72,9 +79,13 @@ final class MeController extends AbstractController
 
     /**
      * Define o CPF do usuário autenticado (write-once).
+     *
+     * O CPF pode ser informado uma única vez e não pode ser alterado pelo
+     * próprio usuário depois de definido. A operação é limitada por usuário.
      */
-    #[Route('/api/v1/users/me/cpf', name: 'app_me_cpf', methods: ['PATCH'])]
+    #[Route('/users/me/cpf', name: 'app_me_cpf', methods: ['PATCH'])]
     #[IsGranted('ROLE_USER')]
+    #[Security(name: 'bearerAuth')]
     #[SuccessResponse(dataModel: CurrentUserResponse::class, description: 'CPF definido com sucesso.')]
     #[UnauthorizedResponse]
     #[ForbiddenResponse]
