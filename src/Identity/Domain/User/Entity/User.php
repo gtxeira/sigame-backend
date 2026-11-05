@@ -70,10 +70,7 @@ final class User
     private function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'user_id', unique: true)]
-        private UserId $id,
-
-        #[ORM\Column(type: 'cpf', length: 11, nullable: true)]
-        private ?Cpf $cpf,
+        private readonly UserId $id,
 
         #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
         private Profile $profile,
@@ -88,10 +85,13 @@ final class User
         private OnboardingStatus $onboardingStatus,
 
         #[ORM\Column(type: 'instant')]
-        private Instant $createdAt,
+        private readonly Instant $createdAt,
 
         #[ORM\Column(type: 'instant')]
         private Instant $updatedAt,
+
+        #[ORM\Column(type: 'cpf', length: 11, nullable: true)]
+        private ?Cpf $cpf = null,
     ) {
         $this->modalities = new ArrayCollection();
         $this->identities = new ArrayCollection();
@@ -114,13 +114,13 @@ final class User
 
         $user = new self(
             id: UserId::generate(),
-            cpf: $cpf,
             profile: Profile::create($name),
             access: AccessState::initial(),
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
             createdAt: $now,
             updatedAt: $now,
+            cpf: $cpf,
         );
 
         $user->identities->add(UserIdentity::local($user, $email, $password));
@@ -145,13 +145,13 @@ final class User
 
         $user = new self(
             id: UserId::generate(),
-            cpf: null,
             profile: Profile::create($name ?? self::nameFromEmail($email)),
             access: AccessState::initial(),
             level: UserLevel::initial(),
             onboardingStatus: OnboardingStatus::PENDING,
             createdAt: $now,
             updatedAt: $now,
+            cpf: null,
         );
 
         $user->identities->add(UserIdentity::social(

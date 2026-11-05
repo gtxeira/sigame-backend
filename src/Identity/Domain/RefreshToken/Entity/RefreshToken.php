@@ -27,30 +27,30 @@ final class RefreshToken
     private function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'refresh_token_id')]
-        private RefreshTokenId $id,
+        private readonly RefreshTokenId $id,
 
         #[ORM\ManyToOne(targetEntity: User::class)]
         #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
-        private User $user,
+        private readonly User $user,
 
         #[ORM\Column(type: 'token_hash', length: 64)]
-        private TokenHash $tokenHash,
+        private readonly TokenHash $tokenHash,
 
         #[ORM\Column(type: 'token_family_id')]
-        private TokenFamilyId $familyId,
+        private readonly TokenFamilyId $familyId,
 
         #[ORM\Column(type: 'instant')]
-        private Instant $expiresAt,
+        private readonly Instant $expiresAt,
+
+        #[ORM\Column(type: 'instant')]
+        private readonly Instant $createdAt,
 
         #[ORM\Column(type: 'instant', nullable: true)]
-        private ?Instant $revokedAt,
+        private ?Instant $revokedAt = null,
 
         #[ORM\ManyToOne(targetEntity: self::class)]
         #[ORM\JoinColumn(name: 'replaced_by_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
-        private ?RefreshToken $replacedBy,
-
-        #[ORM\Column(type: 'instant')]
-        private Instant $createdAt,
+        private ?self $replacedBy = null,
     ) {
     }
 
@@ -66,9 +66,9 @@ final class RefreshToken
             tokenHash: $tokenHash,
             familyId: $familyId,
             expiresAt: $expiresAt,
+            createdAt: Instant::now(),
             revokedAt: null,
             replacedBy: null,
-            createdAt: Instant::now(),
         );
     }
 
