@@ -114,7 +114,8 @@ it('rejects a logout from a disallowed origin', function () {
         'HTTP_ORIGIN' => 'https://evil.example.com',
     ]);
 
-    expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN);
+    expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN)
+        ->and($this->api->errorCodes())->toBe(['ORIGIN_NOT_ALLOWED']);
 });
 
 it('rate limits repeated social flow starts', function () {

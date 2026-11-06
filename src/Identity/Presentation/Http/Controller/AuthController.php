@@ -165,6 +165,11 @@ final class AuthController extends AbstractController
                 summary: 'Conta suspensa',
                 description: 'A conta da sessão foi suspensa.',
             ),
+            'ORIGIN_NOT_ALLOWED' => new ApiErrorExample(
+                message: 'A origem da requisição não é permitida para esta operação.',
+                summary: 'Origem não permitida',
+                description: 'O header Origin não corresponde às origens permitidas para operações com cookie.',
+            ),
         ],
         fields: ['status' => 'Situação da conta.'],
     )]
@@ -208,6 +213,15 @@ final class AuthController extends AbstractController
      */
     #[Route('/auth/logout', name: 'app_auth_logout', methods: ['POST'])]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Sessão encerrada.')]
+    #[ForbiddenResponse(
+        examples: [
+            'ORIGIN_NOT_ALLOWED' => new ApiErrorExample(
+                message: 'A origem da requisição não é permitida para esta operação.',
+                summary: 'Origem não permitida',
+                description: 'O header Origin não corresponde às origens permitidas para operações com cookie.',
+            ),
+        ],
+    )]
     #[InternalErrorResponse]
     public function logout(Request $httpRequest): Response
     {

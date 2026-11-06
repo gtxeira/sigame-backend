@@ -57,7 +57,7 @@ Rotas públicas (`login`, `refresh`, `logout`, `register`, `email`, `password` e
 
 > Requisições autenticadas por cookie (refresh e logout) validam o header `Origin`
 > contra `CORS_ALLOW_ORIGINS`. Chamadas sem `Origin` (server-to-server) seguem
-> permitidas; origens desconhecidas recebem `403`.
+> permitidas; origens desconhecidas recebem `403 ORIGIN_NOT_ALLOWED`.
 
 ### 1.3 Rotação e detecção de reuso
 
@@ -206,14 +206,17 @@ Erros possíveis:
 | `REFRESH_TOKEN_ALREADY_ROTATED` | 401 | Reapresentação dentro da janela de graça |
 | `REFRESH_IN_PROGRESS` | 409 | Outra requisição está rotacionando o token |
 | `ACCOUNT_SUSPENDED` | 403 | Conta suspensa |
+| `ORIGIN_NOT_ALLOWED` | 403 | O header `Origin` não está em `CORS_ALLOW_ORIGINS` |
 
-Em qualquer falha, o cookie é limpo na resposta.
+Em qualquer falha, o cookie é limpo na resposta. O bloqueio de origem acontece
+antes da leitura do cookie: uma origem desconhecida retorna `ORIGIN_NOT_ALLOWED`
+mesmo que o cookie esteja ausente ou válido.
 
 ### 2.4 Logout
 
 `POST /api/v1/auth/logout` — usa o cookie.
 
-Revoga a família do refresh token apresentado e limpa o cookie. Retorna `204`. É idempotente para um cookie já revogado.
+Revoga a família do refresh token apresentado e limpa o cookie. Retorna `204`. É idempotente para um cookie já revogado. Uma origem desconhecida retorna `403 ORIGIN_NOT_ALLOWED` antes de qualquer operação com o cookie.
 
 `POST /api/v1/auth/logout/all` — exige `Authorization: Bearer <accessToken>`.
 

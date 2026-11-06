@@ -6,6 +6,7 @@ namespace App\Shared\Presentation\Http\ExceptionListener;
 
 use App\Shared\Presentation\Http\Response\ApiErrorCode;
 use App\Shared\Presentation\Http\Response\ApiResponse;
+use App\Shared\Presentation\Http\Security\CookieOriginNotAllowedException;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -37,7 +38,9 @@ final class HttpExceptionListener
             return;
         }
 
-        $code = $this->resolveCode($exception->getStatusCode());
+        $code = $exception instanceof CookieOriginNotAllowedException
+            ? ApiErrorCode::OriginNotAllowed
+            : $this->resolveCode($exception->getStatusCode());
 
         $response = ApiResponse::error([
             [

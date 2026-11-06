@@ -183,7 +183,8 @@ it('rejects a cookie refresh from a disallowed origin', function () {
         'HTTP_ORIGIN' => 'https://evil.example.com',
     ]);
 
-    expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN);
+    expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN)
+        ->and($this->api->errorCodes())->toBe(['ORIGIN_NOT_ALLOWED']);
 });
 
 it('accepts a cookie refresh from an allowed origin', function () {

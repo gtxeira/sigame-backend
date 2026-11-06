@@ -18,6 +18,7 @@ enum ApiErrorCode: string
     case AccessTokenInvalid = 'ACCESS_TOKEN_INVALID';
     case AccessTokenExpired = 'ACCESS_TOKEN_EXPIRED';
     case Forbidden = 'FORBIDDEN';
+    case OriginNotAllowed = 'ORIGIN_NOT_ALLOWED';
     case NotFound = 'NOT_FOUND';
     case MethodNotAllowed = 'METHOD_NOT_ALLOWED';
     case UnsupportedMediaType = 'UNSUPPORTED_MEDIA_TYPE';
@@ -41,6 +42,7 @@ enum ApiErrorCode: string
             self::AccessTokenInvalid => 'Token de acesso inválido.',
             self::AccessTokenExpired => 'Token de acesso expirado. Renove a sessão.',
             self::Forbidden => 'Acesso negado.',
+            self::OriginNotAllowed => 'A origem da requisição não é permitida para esta operação.',
             self::NotFound => 'Recurso não encontrado.',
             self::MethodNotAllowed => 'O método HTTP não é permitido para este recurso.',
             self::UnsupportedMediaType => 'O formato do conteúdo enviado não é suportado. Utilize application/json.',

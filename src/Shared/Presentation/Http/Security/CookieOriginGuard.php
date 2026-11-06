@@ -6,7 +6,6 @@ namespace App\Shared\Presentation\Http\Security;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Valida a origem de requisições autenticadas por cookie.
@@ -35,6 +34,6 @@ final readonly class CookieOriginGuard
             return;
         }
 
-        throw new AccessDeniedHttpException('Origem não permitida para esta operação.');
+        throw new CookieOriginNotAllowedException();
     }
 }

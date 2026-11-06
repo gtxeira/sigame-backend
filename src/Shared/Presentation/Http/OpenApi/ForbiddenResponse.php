@@ -21,7 +21,7 @@ final class ForbiddenResponse extends ApiErrorResponse
     {
         parent::__construct(
             response: Response::HTTP_FORBIDDEN,
-            description: 'A conta não pode executar a operação.',
+            description: 'A operação não pode ser executada.',
             examples: [] === $examples ? [
                 'FORBIDDEN' => new ApiErrorExample(
                     message: 'Acesso negado.',
