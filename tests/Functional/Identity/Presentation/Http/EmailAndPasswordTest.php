@@ -120,6 +120,24 @@ it('resets the password and revokes every session', function () {
         ->and($this->api->errorCodes())->toBe(['PASSWORD_RESET_TOKEN_INVALID']);
 });
 
+it('verifies an unverified email when the password is reset', function () {
+    $email = 'reset-verifies@example.com';
+    $user = authTestCreateUser($this, $email);
+
+    expect($user->isEmailVerified())->toBeFalse();
+
+    $this->api->post('app_auth_password_forgot', ['email' => $email]);
+    $token = (string) authTestMailer($this)->lastToken('password_reset', $email);
+
+    $reset = $this->api->post('app_auth_password_reset', [
+        'token' => $token,
+        'password' => 'new-secret-123',
+    ]);
+
+    expect($reset->getStatusCode())->toBe(Response::HTTP_NO_CONTENT)
+        ->and(emailTestUser($this, $email)?->isEmailVerified())->toBeTrue();
+});
+
 it('changes the password and rejects the wrong current password', function () {
     $email = 'change@example.com';
     authTestCreateUser($this, $email);

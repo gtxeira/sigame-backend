@@ -562,6 +562,7 @@ Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastra
 ```
 
 - Consome o token, grava a nova senha e **revoga todas as sessões**.
+- Se o e-mail ainda não estava verificado, ele passa a ser marcado como verificado: receber o token no endereço canônico prova a posse da caixa postal.
 - Não autentica automaticamente; o usuário deve fazer login.
 - Contas criadas por provedor social passam a ter uma credencial local (o e-mail já é verificado pelo provedor).
 - Erros: `PASSWORD_RESET_TOKEN_INVALID`, `PASSWORD_RESET_TOKEN_EXPIRED`, `ACCOUNT_SUSPENDED`.

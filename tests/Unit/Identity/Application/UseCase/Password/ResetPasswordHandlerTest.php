@@ -9,10 +9,12 @@ use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
 use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Event\UserEmailVerified;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
+use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
 use Symfony\Component\Clock\MockClock;
@@ -38,12 +40,19 @@ function resetPasswordTestHandler(
     UserRepositoryInterface $users,
     PasswordHasherInterface $hasher,
     TokenPairIssuerInterface $tokenPairIssuer,
+    ?EventDispatcherInterface $eventDispatcher = null,
 ): ResetPasswordHandler {
+    if (null === $eventDispatcher) {
+        $eventDispatcher = Mockery::mock(EventDispatcherInterface::class);
+        $eventDispatcher->shouldReceive('dispatch');
+    }
+
     return new ResetPasswordHandler(
         tokenRepository: $tokens,
         userRepository: $users,
         passwordHasher: $hasher,
         tokenPairIssuer: $tokenPairIssuer,
+        eventDispatcher: $eventDispatcher,
         clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
     );
 }
@@ -77,7 +86,50 @@ it('resets the password and revokes every session', function () {
     );
 
     expect($result->isSuccess())->toBeTrue()
-        ->and($user->password()?->value())->toBe('new-hash');
+        ->and($user->password()?->value())->toBe('new-hash')
+        ->and($user->isEmailVerified())->toBeTrue();
+});
+
+it('verifies an unverified email after a successful reset', function () {
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('unverified-reset@example.com')->value(),
+        password: HashedPassword::fromHash('old-hash'),
+        name: 'Unverified Reset',
+    );
+    $token = resetPasswordTestToken($user);
+
+    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
+    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
+    $tokens->shouldReceive('markConsumed')->once()->with($token)->andReturn(true);
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('save')->once()->with($user);
+
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->andReturn(HashedPassword::fromHash('new-hash'));
+
+    $tokenPairIssuer = Mockery::mock(TokenPairIssuerInterface::class);
+    $tokenPairIssuer->shouldReceive('revokeAllSessions')->once()->with($user->id());
+
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldReceive('dispatch')
+        ->once()
+        ->with(Mockery::on(
+            static fn (UserEmailVerified $event): bool => $user->id()->value() === $event->userId()
+                && 'unverified-reset@example.com' === $event->email(),
+        ));
+
+    expect($user->isEmailVerified())->toBeFalse();
+
+    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer, $events)(
+        'raw-reset-token',
+        'new-secret-123',
+    );
+
+    expect($result->isSuccess())->toBeTrue()
+        ->and($user->isEmailVerified())->toBeTrue()
+        ->and($user->emailVerifiedAt()?->format())->toBe('2026-01-01T00:00:00.000+00:00');
 });
 
 it('creates a local credential for a social-only account', function () {
@@ -102,16 +154,20 @@ it('creates a local credential for a social-only account', function () {
     $tokenPairIssuer = Mockery::mock(TokenPairIssuerInterface::class);
     $tokenPairIssuer->shouldReceive('revokeAllSessions')->once();
 
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldNotReceive('dispatch');
+
     expect($user->hasLocalPassword())->toBeFalse();
 
-    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer)(
+    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer, $events)(
         'raw-reset-token',
         'new-secret-123',
     );
 
     expect($result->isSuccess())->toBeTrue()
         ->and($user->hasLocalPassword())->toBeTrue()
-        ->and($user->identities())->toHaveCount(2);
+        ->and($user->identities())->toHaveCount(2)
+        ->and($user->isEmailVerified())->toBeTrue();
 });
 
 it('rejects an unknown token', function () {
