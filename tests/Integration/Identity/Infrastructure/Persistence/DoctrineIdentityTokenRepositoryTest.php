@@ -114,3 +114,38 @@ it('invalidates every unconsumed token of a purpose but keeps consumed ones', fu
         ->and($repository->findByHash(hash('sha256', 'raw-open-2'))?->isConsumed())->toBeTrue()
         ->and($repository->findByHash(hash('sha256', 'raw-reset'))?->isConsumed())->toBeFalse();
 });
+
+it('detects unconsumed tokens created after a given instant', function () {
+    $repository = $this->service(IdentityTokenRepositoryInterface::class);
+    $user = identityTokenRepositoryUser($this, 'token-cooldown@example.com');
+    $token = identityTokenRepositoryToken($user, 'raw-cooldown');
+
+    $repository->save($token);
+
+    $beforeCreation = Instant::fromDateTime((new DateTimeImmutable())->modify('-1 minute'));
+    $afterCreation = Instant::fromDateTime((new DateTimeImmutable())->modify('+1 minute'));
+
+    expect($repository->hasUnconsumedCreatedAfter(
+        $user,
+        IdentityTokenPurpose::EmailVerification,
+        $beforeCreation,
+    ))->toBeTrue()
+        ->and($repository->hasUnconsumedCreatedAfter(
+            $user,
+            IdentityTokenPurpose::EmailVerification,
+            $afterCreation,
+        ))->toBeFalse()
+        ->and($repository->hasUnconsumedCreatedAfter(
+            $user,
+            IdentityTokenPurpose::PasswordReset,
+            $beforeCreation,
+        ))->toBeFalse();
+
+    $repository->markConsumed($token);
+
+    expect($repository->hasUnconsumedCreatedAfter(
+        $user,
+        IdentityTokenPurpose::EmailVerification,
+        $beforeCreation,
+    ))->toBeFalse();
+});

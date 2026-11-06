@@ -65,4 +65,24 @@ final class DoctrineIdentityTokenRepository extends AbstractRepository implement
             ->getQuery()
             ->execute();
     }
+
+    public function hasUnconsumedCreatedAfter(
+        User $user,
+        IdentityTokenPurpose $purpose,
+        Instant $since,
+    ): bool {
+        $count = $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->where('IDENTITY(t.user) = :userId')
+            ->andWhere('t.purpose = :purpose')
+            ->andWhere('t.consumedAt IS NULL')
+            ->andWhere('t.createdAt > :since')
+            ->setParameter('userId', $user->id()->value())
+            ->setParameter('purpose', $purpose->value)
+            ->setParameter('since', $since, 'instant')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count > 0;
+    }
 }

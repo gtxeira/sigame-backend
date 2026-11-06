@@ -353,6 +353,7 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 - Persistir tokens de uso único em `identity_tokens` apenas como SHA-256, com `purpose`, `expires_at` e `consumed_at`.
 - Verificação de e-mail: 24 horas, enviada no cadastro e reenviável autenticado.
 - Reset de senha: 30 minutos, solicitação sempre responde `204` (sem enumeração).
+- Pedidos repetidos para a mesma conta respeitam um cooldown (`PASSWORD_RESET_COOLDOWN`, 60s); falha no envio consome o token recém-criado para não deixar credencial válida sem entrega.
 - O consumo é atômico (`UPDATE ... WHERE consumed_at IS NULL`); reset e troca revogam todas as famílias de refresh tokens.
 - O envio fica atrás de `IdentityMailerInterface`, com adapter Symfony Mailer e Mailpit em desenvolvimento.
 

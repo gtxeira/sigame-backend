@@ -8,6 +8,7 @@ use App\Identity\Application\Service\IdentityMailerInterface;
 use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
 use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
@@ -18,6 +19,8 @@ use Throwable;
 
 /**
  * Solicita o reset de senha sem revelar se o e-mail existe.
+ *
+ * Pedidos repetidos dentro do cooldown não geram novo token nem novo e-mail.
  */
 final readonly class RequestPasswordResetHandler
 {
@@ -29,6 +32,8 @@ final readonly class RequestPasswordResetHandler
         private ClockInterface $clock,
         #[Autowire(env: 'int:PASSWORD_RESET_TTL')]
         private int $ttlSeconds = 1800,
+        #[Autowire(env: 'int:PASSWORD_RESET_COOLDOWN')]
+        private int $cooldownSeconds = 60,
     ) {
     }
 
@@ -46,25 +51,53 @@ final readonly class RequestPasswordResetHandler
             return;
         }
 
+        $now = $this->clock->now();
+
+        if ($this->cooldownSeconds > 0 && $this->tokenRepository->hasUnconsumedCreatedAfter(
+            $user,
+            IdentityTokenPurpose::PasswordReset,
+            Instant::fromDateTime($now->modify(sprintf('-%d seconds', $this->cooldownSeconds))),
+        )) {
+            return;
+        }
+
         $this->tokenRepository->invalidateUnconsumed($user, IdentityTokenPurpose::PasswordReset);
 
         $rawToken = bin2hex(random_bytes(32));
 
         $expiresAt = sprintf('+%d seconds', $this->ttlSeconds)
-            |> $this->clock->now()->modify(...)
+            |> $now->modify(...)
             |> Instant::fromDateTime(...);
 
-        IdentityToken::create(
+        $token = IdentityToken::create(
             user: $user,
             purpose: IdentityTokenPurpose::PasswordReset,
             tokenHash: hash('sha256', $rawToken),
             expiresAt: $expiresAt,
-        ) |> $this->tokenRepository->save(...);
+        );
+
+        $this->tokenRepository->save($token);
 
         try {
             $this->mailer->sendPasswordReset($user->email(), $rawToken, $expiresAt);
         } catch (Throwable $exception) {
+            $this->consumeSilently($token, $user);
             $this->logger->warning('Falha ao enviar e-mail de reset de senha', [
+                'userId' => $user->id()->value(),
+                'reason' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Impede que um token não entregue continue válido após a falha de envio.
+     */
+    private function consumeSilently(IdentityToken $token, User $user): void
+    {
+        try {
+            $this->tokenRepository->markConsumed($token);
+        } catch (Throwable $exception) {
+            $this->logger->warning('Falha ao invalidar token após erro de e-mail de reset', [
                 'userId' => $user->id()->value(),
                 'reason' => $exception->getMessage(),
             ]);

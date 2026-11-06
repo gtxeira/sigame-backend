@@ -30,14 +30,17 @@ function passwordResetRequestHandler(
     IdentityTokenRepositoryInterface $tokens,
     IdentityMailerInterface $mailer,
     LoggerInterface $logger,
+    int $cooldownSeconds = 60,
+    ?MockClock $clock = null,
 ): RequestPasswordResetHandler {
     return new RequestPasswordResetHandler(
         userRepository: $users,
         tokenRepository: $tokens,
         mailer: $mailer,
         logger: $logger,
-        clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
+        clock: $clock ?? new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
         ttlSeconds: 1800,
+        cooldownSeconds: $cooldownSeconds,
     );
 }
 
@@ -111,6 +114,17 @@ it('invalidates previous tokens and sends a reset token valid for 30 minutes', f
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
     $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
+    $tokens->shouldReceive('hasUnconsumedCreatedAfter')
+        ->once()
+        ->with(
+            $user,
+            IdentityTokenPurpose::PasswordReset,
+            Mockery::on(static fn (Instant $since): bool => $since->equals(
+                Instant::fromDateTime(new DateTimeImmutable('2025-12-31T23:59:00+00:00')),
+            )),
+        )
+        ->andReturn(false);
+
     $tokens->shouldReceive('invalidateUnconsumed')
         ->once()
         ->with($user, IdentityTokenPurpose::PasswordReset);
@@ -130,7 +144,7 @@ it('invalidates previous tokens and sends a reset token valid for 30 minutes', f
     $mailer->shouldReceive('sendPasswordReset')
         ->once()
         ->with(
-            Mockery::type(Email::class),
+            $user->email(),
             Mockery::on(static function (string $token) use (&$rawToken): bool {
                 $rawToken = $token;
 
@@ -163,8 +177,22 @@ it('logs a warning instead of failing when the mailer throws', function () {
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
     $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
+    $tokens->shouldReceive('hasUnconsumedCreatedAfter')->once()->andReturn(false);
     $tokens->shouldReceive('invalidateUnconsumed')->once();
-    $tokens->shouldReceive('save')->once();
+
+    $saved = null;
+    $tokens->shouldReceive('save')->once()->with(Mockery::on(
+        static function (IdentityToken $token) use (&$saved): bool {
+            $saved = $token;
+
+            return true;
+        },
+    ));
+    $tokens->shouldReceive('markConsumed')
+        ->once()
+        ->with(Mockery::on(static function (IdentityToken $token) use (&$saved): bool {
+            return $token === $saved;
+        }));
 
     $mailer = Mockery::mock(IdentityMailerInterface::class);
     $mailer->shouldReceive('sendPasswordReset')
@@ -179,6 +207,98 @@ it('logs a warning instead of failing when the mailer throws', function () {
         ));
 
     $handler = passwordResetRequestHandler($users, $tokens, $mailer, $logger);
+
+    $handler('reset-request@example.com');
+});
+
+it('uses the email from the resolved account instead of the request payload', function () {
+    $user = passwordResetRequestUser('canonical@example.com');
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')
+        ->once()
+        ->with(Mockery::on(static fn (Email $email): bool => 'other@example.com' === $email->value()))
+        ->andReturn($user);
+
+    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
+    $tokens->shouldReceive('hasUnconsumedCreatedAfter')->once()->andReturn(false);
+    $tokens->shouldReceive('invalidateUnconsumed')->once();
+    $tokens->shouldReceive('save')->once();
+
+    $mailer = Mockery::mock(IdentityMailerInterface::class);
+    $mailer->shouldReceive('sendPasswordReset')
+        ->once()
+        ->with(
+            $user->email(),
+            Mockery::type('string'),
+            Mockery::type(Instant::class),
+        );
+
+    $handler = passwordResetRequestHandler(
+        $users,
+        $tokens,
+        $mailer,
+        Mockery::mock(LoggerInterface::class),
+    );
+
+    $handler('other@example.com');
+});
+
+it('does not send a new token while the cooldown is active', function () {
+    $user = passwordResetRequestUser();
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn($user);
+
+    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
+    $tokens->shouldReceive('hasUnconsumedCreatedAfter')
+        ->once()
+        ->with(
+            $user,
+            IdentityTokenPurpose::PasswordReset,
+            Mockery::on(static fn (Instant $since): bool => $since->equals(
+                Instant::fromDateTime(new DateTimeImmutable('2025-12-31T23:59:00+00:00')),
+            )),
+        )
+        ->andReturn(true);
+    $tokens->shouldNotReceive('invalidateUnconsumed');
+    $tokens->shouldNotReceive('save');
+    $tokens->shouldNotReceive('markConsumed');
+
+    $mailer = Mockery::mock(IdentityMailerInterface::class);
+    $mailer->shouldNotReceive('sendPasswordReset');
+
+    $handler = passwordResetRequestHandler(
+        $users,
+        $tokens,
+        $mailer,
+        Mockery::mock(LoggerInterface::class),
+    );
+
+    $handler('reset-request@example.com');
+});
+
+it('skips the cooldown check when it is disabled', function () {
+    $user = passwordResetRequestUser();
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn($user);
+
+    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
+    $tokens->shouldNotReceive('hasUnconsumedCreatedAfter');
+    $tokens->shouldReceive('invalidateUnconsumed')->once();
+    $tokens->shouldReceive('save')->once();
+
+    $mailer = Mockery::mock(IdentityMailerInterface::class);
+    $mailer->shouldReceive('sendPasswordReset')->once();
+
+    $handler = passwordResetRequestHandler(
+        $users,
+        $tokens,
+        $mailer,
+        Mockery::mock(LoggerInterface::class),
+        cooldownSeconds: 0,
+    );
 
     $handler('reset-request@example.com');
 });

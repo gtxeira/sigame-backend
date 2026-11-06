@@ -52,7 +52,8 @@ final class PasswordController extends AbstractController
      *
      * Envia um token de uso único para o e-mail canônico, quando a conta
      * existe e está ativa. A resposta é sempre 204 para não revelar quais
-     * endereços estão cadastrados.
+     * endereços estão cadastrados. Pedidos repetidos dentro do cooldown não
+     * geram novo e-mail.
      */
     #[Route('/auth/password/forgot', name: 'app_auth_password_forgot', methods: ['POST'])]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Solicitação processada.')]

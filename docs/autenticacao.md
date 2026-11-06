@@ -110,6 +110,7 @@ ainda é 23:30 do dia anterior em Brasília).
 | `SOCIAL_LINK_TICKET_TTL` | `600` | Validade do ticket de vínculo em segundos |
 | `EMAIL_VERIFICATION_TTL` | `86400` | Validade do token de verificação |
 | `PASSWORD_RESET_TTL` | `1800` | Validade do token de reset |
+| `PASSWORD_RESET_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de reset da mesma conta |
 | `MAILER_DSN` | `null://null` | Transporte de e-mail (dev: Mailpit) |
 | `MAILER_FROM_ADDRESS` | `noreply@sigame.com.br` | Remetente |
 | `MAILER_FROM_NAME` | `SIGAME` | Nome do remetente |
@@ -551,7 +552,7 @@ O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O fron
 { "email": "user@example.com" }
 ```
 
-Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Limite: 5 tentativas por minuto por e-mail + IP.
+Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo token nem novo e-mail. Limite: 5 tentativas por minuto por e-mail + IP.
 
 ### 5.2 Redefinir
 
