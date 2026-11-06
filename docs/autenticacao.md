@@ -361,12 +361,12 @@ Ao concluir o callback de login, o backend decide:
 | E-mail canônico existe e a conta **tem** senha local | `409 SOCIAL_ACCOUNT_LINK_REQUIRED` + `meta.link.token`; **não** emite tokens |
 | E-mail canônico não existe | Cria a conta (`users.email` + `email_verified_at`) e autentica |
 
-O ticket de vínculo (`meta.link.token`):
+O ticket de vínculo (`meta.link`) contém:
 
-- expira em 10 minutos (`SOCIAL_LINK_TICKET_TTL`);
-- é de uso único;
-- é vinculado ao e-mail que originou o conflito;
-- exige `Authorization: Bearer` e o **mesmo e-mail canônico** da conta autenticada.
+- `meta.link.token`: ticket de uso único, válido por 10 minutos (`SOCIAL_LINK_TICKET_TTL`);
+- `meta.link.expiresAt`: instante de expiração em ISO 8601 com milissegundos.
+
+O ticket é vinculado ao e-mail que originou o conflito e exige `Authorization: Bearer` e o **mesmo e-mail canônico** da conta autenticada.
 
 Isso impede o ataque de pré-cadastro: um atacante que registre o e-mail da vítima não consegue transformar a conta em “conta Google da vítima” apenas concluindo o consentimento. O dono da senha local precisa autenticar antes.
 

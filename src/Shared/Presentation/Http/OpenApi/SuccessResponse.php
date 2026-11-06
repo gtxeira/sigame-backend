@@ -17,6 +17,7 @@ final class SuccessResponse extends OA\Response
      * @param list<string>              $dataRequired
      * @param list<OA\Property>         $dataProperties
      * @param array<string, ApiExample> $examples       exemplos nomeados exibidos na documentação
+     * @param ApiMeta|null              $meta           campos adicionais de `meta` além do timestamp
      */
     public function __construct(
         ?string $dataModel = null,
@@ -25,6 +26,7 @@ final class SuccessResponse extends OA\Response
         array $dataRequired = [],
         array $dataProperties = [],
         array $examples = [],
+        ?ApiMeta $meta = null,
     ) {
         $dataProperty = match (true) {
             null !== $dataModel => new OA\Property(
@@ -45,12 +47,18 @@ final class SuccessResponse extends OA\Response
             ),
         };
 
+        $properties = [$dataProperty];
+
+        if (null !== $meta && !$meta->isEmpty()) {
+            $properties[] = $meta->toProperty();
+        }
+
         $allOf = [
             new OA\Schema(
                 ref: '#/components/schemas/ApiResponseSuccess',
             ),
             new OA\Schema(
-                properties: [$dataProperty],
+                properties: $properties,
             ),
         ];
 

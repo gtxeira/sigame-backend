@@ -24,6 +24,7 @@ use App\Identity\Presentation\Http\Response\TokenResponse;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
+use App\Shared\Presentation\Http\OpenApi\ApiMeta;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\ForbiddenResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
@@ -248,6 +249,33 @@ final class SocialAuthController extends AbstractController
             ),
         ],
         fields: ['email' => 'E-mail da conta existente.'],
+        meta: new ApiMeta(
+            required: ['link'],
+            properties: [
+                new OA\Property(
+                    property: 'link',
+                    description: 'Ticket para vincular a conta social após o login local.',
+                    type: 'object',
+                    required: ['token', 'expiresAt'],
+                    properties: [
+                        new OA\Property(
+                            property: 'token',
+                            description: 'Ticket de vínculo, de uso único.',
+                            type: 'string',
+                            maxLength: 128,
+                            example: 'a1b2c3...',
+                        ),
+                        new OA\Property(
+                            property: 'expiresAt',
+                            description: 'Instante de expiração do ticket, em ISO 8601 com milissegundos.',
+                            type: 'string',
+                            format: 'date-time',
+                            example: '2026-11-06T12:00:00.000+00:00',
+                        ),
+                    ],
+                ),
+            ],
+        ),
     )]
     #[TooManyRequestsResponse]
     #[BadRequestResponse]

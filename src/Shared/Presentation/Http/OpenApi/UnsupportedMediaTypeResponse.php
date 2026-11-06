@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class UnsupportedMediaTypeResponse extends ApiErrorResponse
 {
-    public function __construct()
+    public function __construct(?ApiMeta $meta = null)
     {
         parent::__construct(
             response: Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
@@ -25,6 +25,7 @@ final class UnsupportedMediaTypeResponse extends ApiErrorResponse
                     description: 'Requisição sem `Content-Type` ou com formato diferente de `application/json`.',
                 ),
             ],
+            meta: $meta,
         );
     }
 }

@@ -21,13 +21,60 @@ class ApiErrorResponse extends OA\Response
     /**
      * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
      * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
+     * @param ApiMeta|null                   $meta     campos adicionais de `meta` além do timestamp
      */
     public function __construct(
         int $response,
         string $description,
         array $examples,
         array $fields = [],
+        ?ApiMeta $meta = null,
     ) {
+        $properties = [
+            new OA\Property(
+                property: 'errors',
+                type: 'array',
+                items: new OA\Items(
+                    required: ['code', 'message'],
+                    properties: [
+                        new OA\Property(
+                            property: 'code',
+                            description: 'Código público do erro. É o contrato estável: novos códigos podem ser adicionados, os existentes não mudam de significado.',
+                            type: 'string',
+                            enum: array_keys($examples),
+                        ),
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(
+                            property: 'details',
+                            description: 'Detalhes do erro. `field` indica o campo afetado; `message` só é preenchido quando `code` é VALIDATION_ERROR.',
+                            type: 'array',
+                            items: new OA\Items(
+                                properties: [
+                                    new OA\Property(
+                                        property: 'field',
+                                        description: self::describeFields($fields),
+                                        type: 'string',
+                                        enum: [] === $fields ? null : array_keys($fields),
+                                    ),
+                                    new OA\Property(
+                                        property: 'message',
+                                        description: 'Mensagem de validação do campo. Presente apenas quando `code` é VALIDATION_ERROR.',
+                                        type: 'string',
+                                    ),
+                                ],
+                                type: 'object',
+                            ),
+                        ),
+                    ],
+                    type: 'object',
+                ),
+            ),
+        ];
+
+        if (null !== $meta && !$meta->isEmpty()) {
+            $properties[] = $meta->toProperty();
+        }
+
         parent::__construct(
             response: $response,
             description: $description,
@@ -36,46 +83,7 @@ class ApiErrorResponse extends OA\Response
                 allOf: [
                     new OA\Schema(ref: '#/components/schemas/ApiResponseError'),
                     new OA\Schema(
-                        properties: [
-                            new OA\Property(
-                                property: 'errors',
-                                type: 'array',
-                                items: new OA\Items(
-                                    required: ['code', 'message'],
-                                    properties: [
-                                        new OA\Property(
-                                            property: 'code',
-                                            description: 'Código público do erro. É o contrato estável: novos códigos podem ser adicionados, os existentes não mudam de significado.',
-                                            type: 'string',
-                                            enum: array_keys($examples),
-                                        ),
-                                        new OA\Property(property: 'message', type: 'string'),
-                                        new OA\Property(
-                                            property: 'details',
-                                            description: 'Detalhes do erro. `field` indica o campo afetado; `message` só é preenchido quando `code` é VALIDATION_ERROR.',
-                                            type: 'array',
-                                            items: new OA\Items(
-                                                properties: [
-                                                    new OA\Property(
-                                                        property: 'field',
-                                                        description: self::describeFields($fields),
-                                                        type: 'string',
-                                                        enum: [] === $fields ? null : array_keys($fields),
-                                                    ),
-                                                    new OA\Property(
-                                                        property: 'message',
-                                                        description: 'Mensagem de validação do campo. Presente apenas quando `code` é VALIDATION_ERROR.',
-                                                        type: 'string',
-                                                    ),
-                                                ],
-                                                type: 'object',
-                                            ),
-                                        ),
-                                    ],
-                                    type: 'object',
-                                ),
-                            ),
-                        ],
+                        properties: $properties,
                         type: 'object',
                     ),
                 ],

@@ -585,3 +585,42 @@ it('keeps the documented conflict fields in sync with the register rules', funct
 
     expect($documentedFields)->toEqualCanonicalizing(['cpf', 'email']);
 });
+
+it('documents the social callback link ticket meta', function () {
+    $doc = readApiDoc($this);
+
+    $responses = apiDocValue(
+        $doc,
+        'paths', '/api/v1/auth/social/{provider}/callback', 'post', 'responses',
+    );
+
+    $example = apiDocValue(
+        $responses,
+        '409', 'content', 'application/json', 'examples', 'SOCIAL_ACCOUNT_LINK_REQUIRED',
+    );
+
+    expect($example['value']['meta'])->toHaveKeys(['timestamp', 'link'])
+        ->and($example['value']['meta']['link'])->toHaveKeys(['token', 'expiresAt']);
+
+    $metaSchema = apiDocValue(
+        $responses,
+        '409', 'content', 'application/json', 'schema', 'allOf', 1,
+        'properties', 'meta',
+    );
+
+    expect($metaSchema['allOf'][0]['$ref'])->toBe('#/components/schemas/ApiResponseMeta')
+        ->and($metaSchema['allOf'][1]['properties']['link'])->toHaveKeys(['type', 'properties'])
+        ->and($metaSchema['allOf'][1]['required'])->toBe(['link']);
+});
+
+it('does not leak the link meta into other conflicts', function () {
+    $doc = readApiDoc($this);
+
+    $example = apiDocValue(
+        $doc,
+        'paths', '/api/v1/auth/register', 'post', 'responses',
+        '409', 'content', 'application/json', 'examples', 'EMAIL_ALREADY_EXISTS',
+    );
+
+    expect($example['value']['meta'])->not->toHaveKey('link');
+});

@@ -130,7 +130,41 @@ O teste `ApiDocumentationTest` cruza o `#[IsGranted]` real do controller com o `
 
 O prefixo `/api/v1` é declarado na classe do controller; as rotas dos métodos são relativas. Novas versões devem adicionar controllers em `/api/v2` sem alterar o contrato de `/api/v1`.
 
-## 9. Relação com outros documentos
+## 9. Meta adicional em respostas
+
+O envelope padrão sempre inclui `meta.timestamp`. Quando um endpoint precisa devolver campos adicionais em `meta`, o atributo da resposta recebe um `ApiMeta`:
+
+```php
+use App\Shared\Presentation\Http\OpenApi\ApiMeta;
+use OpenApi\Attributes as OA;
+
+#[ResourceConflictResponse(
+    examples: [...],
+    meta: new ApiMeta(
+        required: ['link'],
+        properties: [
+            new OA\Property(
+                property: 'link',
+                type: 'object',
+                required: ['token', 'expiresAt'],
+                properties: [
+                    new OA\Property(property: 'token', type: 'string', example: 'a1b2c3...'),
+                    new OA\Property(
+                        property: 'expiresAt',
+                        type: 'string',
+                        format: 'date-time',
+                        example: '2026-11-06T12:00:00.000+00:00',
+                    ),
+                ],
+            ),
+        ],
+    ),
+)]
+```
+
+O `ApiMeta` é composto com `ApiResponseMeta` via `allOf`, então o `timestamp` continua obrigatório e o schema não duplica a definição. O exemplo nomeado é derivado do schema; se o `value` do exemplo trouxer um `meta` explícito, o `FillNamedExampleValues` mescla os campos derivados sem sobrescrever os explícitos.
+
+## 10. Relação com outros documentos
 
 - Contrato de autenticação e exemplos: [autenticacao.md](autenticacao.md)
 - Endpoints implementados e roadmap: [implementacao.md](implementacao.md)

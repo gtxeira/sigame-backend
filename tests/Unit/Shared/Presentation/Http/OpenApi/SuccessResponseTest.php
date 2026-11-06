@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Identity\Presentation\Http\Response\RegisterUserResponse;
 use App\Shared\Presentation\Http\OpenApi\ApiExample;
+use App\Shared\Presentation\Http\OpenApi\ApiMeta;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
 use OpenApi\Attributes as OA;
 use OpenApi\Undefined;
@@ -74,4 +75,26 @@ it('keeps the data schema built from the given properties', function () {
     expect($dataProperty->property)->toBe('data')
         ->and($dataProperty->required)->toBe(['status'])
         ->and($dataProperty->properties[0]->property)->toBe('status');
+});
+
+it('adds custom meta properties to the success schema', function () {
+    $response = new SuccessResponse(
+        dataProperties: [
+            new OA\Property(property: 'status', type: 'string', example: 'UP'),
+        ],
+        meta: new ApiMeta(
+            properties: [
+                new OA\Property(property: 'requestId', type: 'string', example: 'req-1'),
+            ],
+        ),
+    );
+
+    $content = successMediaType($response);
+    $properties = $content->schema->allOf[1]->properties;
+
+    expect($properties)->toHaveCount(2)
+        ->and($properties[0]->property)->toBe('data')
+        ->and($properties[1]->property)->toBe('meta')
+        ->and($properties[1]->allOf[0]->ref)->toBe('#/components/schemas/ApiResponseMeta')
+        ->and($properties[1]->allOf[1]->properties[0]->property)->toBe('requestId');
 });

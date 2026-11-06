@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class TooManyRequestsResponse extends ApiErrorResponse
 {
-    public function __construct()
+    public function __construct(?ApiMeta $meta = null)
     {
         parent::__construct(
             response: Response::HTTP_TOO_MANY_REQUESTS,
@@ -25,6 +25,7 @@ final class TooManyRequestsResponse extends ApiErrorResponse
                     description: 'O cliente excedeu o limite de requisições para este endpoint.',
                 ),
             ],
+            meta: $meta,
         );
     }
 }

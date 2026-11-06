@@ -16,8 +16,9 @@ final class UnauthorizedResponse extends ApiErrorResponse
     /**
      * @param array<string, ApiErrorExample> $examples
      * @param array<string, string>          $fields
+     * @param ApiMeta|null                   $meta     campos adicionais de `meta` além do timestamp
      */
-    public function __construct(array $examples = [], array $fields = [])
+    public function __construct(array $examples = [], array $fields = [], ?ApiMeta $meta = null)
     {
         parent::__construct(
             response: Response::HTTP_UNAUTHORIZED,
@@ -40,6 +41,7 @@ final class UnauthorizedResponse extends ApiErrorResponse
                 ),
             ] : $examples,
             fields: $fields,
+            meta: $meta,
         );
     }
 }

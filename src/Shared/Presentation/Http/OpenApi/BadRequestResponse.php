@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class BadRequestResponse extends ApiErrorResponse
 {
-    public function __construct()
+    public function __construct(?ApiMeta $meta = null)
     {
         parent::__construct(
             response: Response::HTTP_BAD_REQUEST,
@@ -25,6 +25,7 @@ final class BadRequestResponse extends ApiErrorResponse
                     description: 'Corpo que não é um JSON válido.',
                 ),
             ],
+            meta: $meta,
         );
     }
 }

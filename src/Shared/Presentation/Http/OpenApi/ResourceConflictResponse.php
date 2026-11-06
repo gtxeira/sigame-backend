@@ -20,16 +20,19 @@ final class ResourceConflictResponse extends ApiErrorResponse
     /**
      * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
      * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
+     * @param ApiMeta|null                   $meta     campos adicionais de `meta` além do timestamp
      */
     public function __construct(
         array $examples = [],
         array $fields = [],
+        ?ApiMeta $meta = null,
     ) {
         parent::__construct(
             response: Response::HTTP_CONFLICT,
             description: 'A operação conflita com o estado atual do recurso.',
             examples: [] === $examples ? self::defaultExamples() : $examples,
             fields: $fields,
+            meta: $meta,
         );
     }
 

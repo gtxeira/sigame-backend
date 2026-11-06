@@ -87,20 +87,24 @@ final class FillNamedExampleValues
     /**
      * Completa o `meta` ausente em um body explícito usando o schema da resposta.
      *
-     * O `meta` é derivado de `ApiResponseMeta` (definido no YAML), então o
-     * exemplo do attribute não precisa repetir o timestamp.
+     * O `meta` é derivado do schema da resposta (`ApiResponseMeta` mais os campos
+     * adicionais), então o exemplo do attribute não precisa repetir o timestamp.
+     * Quando o exemplo já traz um `meta` explícito, os campos derivados são
+     * mesclados sem sobrescrever os valores informados.
      */
     private function appendMeta(mixed $value, mixed $derived): mixed
     {
-        if (!is_array($value) || array_is_list($value) || array_key_exists('meta', $value)) {
+        if (!is_array($value) || array_is_list($value)) {
             return $value;
         }
 
-        if (!is_array($derived) || !array_key_exists('meta', $derived)) {
+        if (!is_array($derived) || !array_key_exists('meta', $derived) || !is_array($derived['meta'])) {
             return $value;
         }
 
-        $value['meta'] = $derived['meta'];
+        $explicit = is_array($value['meta'] ?? null) ? $value['meta'] : [];
+
+        $value['meta'] = array_replace_recursive($derived['meta'], $explicit);
 
         return $value;
     }

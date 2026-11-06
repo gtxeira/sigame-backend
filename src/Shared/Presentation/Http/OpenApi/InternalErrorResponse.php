@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class InternalErrorResponse extends ApiErrorResponse
 {
-    public function __construct()
+    public function __construct(?ApiMeta $meta = null)
     {
         parent::__construct(
             response: Response::HTTP_INTERNAL_SERVER_ERROR,
@@ -28,6 +28,7 @@ final class InternalErrorResponse extends ApiErrorResponse
                     description: 'Exceção não tratada durante o processamento da requisição.',
                 ),
             ],
+            meta: $meta,
         );
     }
 }
