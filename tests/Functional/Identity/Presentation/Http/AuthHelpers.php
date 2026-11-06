@@ -5,8 +5,11 @@ declare(strict_types=1);
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\ValueObject\IdentityProvider;
+use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\FunctionalTestCase;
@@ -113,4 +116,62 @@ function authTestUserRepository(FunctionalTestCase $test): UserRepositoryInterfa
     $repository = $test->api->getKernelBrowser()->getContainer()->get(UserRepositoryInterface::class);
 
     return $repository;
+}
+
+function authTestEntityManager(FunctionalTestCase $test): EntityManagerInterface
+{
+    /** @var EntityManagerInterface $em */
+    /* @phpstan-ignore-next-line */
+    $em = $test->api->getKernelBrowser()->getContainer()->get(EntityManagerInterface::class);
+
+    return $em;
+}
+
+/**
+ * Força a expiração de um token de identidade já emitido.
+ *
+ * O UPDATE roda na transação do teste e o EntityManager é limpo para que o
+ * próximo request hidrate o token com a nova data.
+ */
+function authTestExpireIdentityToken(FunctionalTestCase $test, string $rawToken): void
+{
+    $em = authTestEntityManager($test);
+
+    $em->getConnection()->executeStatement(
+        "UPDATE identity_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash = ?",
+        [hash('sha256', $rawToken)],
+    );
+    $em->clear();
+}
+
+function authTestSocialFlowCookieObject(Response $response): ?\Symfony\Component\HttpFoundation\Cookie
+{
+    foreach ($response->headers->getCookies() as $cookie) {
+        if ('social_flow' === $cookie->getName()) {
+            return $cookie;
+        }
+    }
+
+    return null;
+}
+
+function authTestCreateSocialUser(
+    FunctionalTestCase $test,
+    string $email,
+    bool $suspended = false,
+): User {
+    $user = User::registerWithProvider(
+        provider: IdentityProvider::GOOGLE,
+        subject: ProviderSubject::fromString('google:'.$email),
+        email: Email::fromString($email)->value(),
+        name: 'Social User',
+    );
+
+    if ($suspended) {
+        $user->suspend('fraud');
+    }
+
+    authTestUserRepository($test)->save($user);
+
+    return $user;
 }

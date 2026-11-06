@@ -77,7 +77,19 @@ O e-mail é único no agregado `User` (`users.email`) e é a fonte de verdade pa
 - cadastro por provedor social nasce **verificado**, porque o provedor confirmou `email_verified=true`;
 - a verificação é registrada em `GET /api/v1/users/me` em `emailVerified`.
 
-### 1.5 Variáveis de configuração
+### 1.5 Fusos horários
+
+O domínio persiste e compara todos os instantes em **UTC**. Datas exibidas ao usuário
+final — inclusive o prazo nos e-mails de verificação e reset — são convertidas para
+**America/Sao_Paulo** (UTC-3, sem horário de verão desde 2019) e formatadas como
+`dd/mm/aaaa HH:MM`.
+
+A conversão é centralizada em
+`src/Identity/Infrastructure/Mailer/MailDateFormatter.php` e coberta por
+`SymfonyIdentityMailerTest` e `InstantTest`, incluindo a virada de dia (02:30 UTC
+ainda é 23:30 do dia anterior em Brasília).
+
+### 1.6 Variáveis de configuração
 
 | Variável | Padrão | Descrição |
 |---|---|---|
@@ -482,6 +494,7 @@ O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O fron
 - `204` quando o e-mail é verificado.
 - `EMAIL_VERIFICATION_TOKEN_INVALID` (422) para token inexistente ou já usado.
 - `EMAIL_VERIFICATION_TOKEN_EXPIRED` (422) para token vencido.
+- O prazo exibido no e-mail é formatado em `America/Sao_Paulo` (`dd/mm/aaaa HH:MM`).
 - Limite: 10 tentativas por minuto por IP.
 
 ### 4.2 Reenviar
@@ -504,7 +517,7 @@ O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O fron
 { "email": "user@example.com" }
 ```
 
-Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico. Limite: 5 tentativas por minuto por e-mail + IP.
+Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Limite: 5 tentativas por minuto por e-mail + IP.
 
 ### 5.2 Redefinir
 
@@ -590,3 +603,11 @@ Apple **não** está implementada nesta entrega. O enum `IdentityProvider` e o r
 | Testes do fluxo Google | `tests/Functional/Identity/Presentation/Http/SocialAuthTest.php` |
 | Testes de e-mail/senha | `tests/Functional/Identity/Presentation/Http/EmailAndPasswordTest.php` |
 | Testes de `/users/me` | `tests/Functional/Identity/Presentation/Http/MeTest.php` |
+| Testes de hardening HTTP (401/403/429, cookie e origem) | `tests/Functional/Identity/Presentation/Http/AuthHardeningTest.php` |
+| Testes dos use cases de verificação de e-mail | `tests/Unit/Identity/Application/UseCase/EmailVerification/` |
+| Testes dos use cases de senha | `tests/Unit/Identity/Application/UseCase/Password/` |
+| Testes do vínculo por fluxo | `tests/Unit/Identity/Application/UseCase/Social/LinkWithFlowHandlerTest.php` |
+| Testes do mailer, templates e fuso horário | `tests/Unit/Identity/Infrastructure/Mailer/` |
+| Testes das stores de OAuth e do JWKS | `tests/Unit/Identity/Infrastructure/Social/` |
+| Testes do Origin guard | `tests/Unit/Shared/Presentation/Http/Security/CookieOriginGuardTest.php` |
+| Testes do repositório de tokens de uso único | `tests/Integration/Identity/Infrastructure/Persistence/DoctrineIdentityTokenRepositoryTest.php` |

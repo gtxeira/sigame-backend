@@ -6,9 +6,8 @@ namespace App\Identity\Infrastructure\Social;
 
 use App\Identity\Application\DTO\SocialFlow;
 use App\Identity\Application\Service\SocialFlowStoreInterface;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 
 /**
  * Guarda o fluxo OAuth no cache até o callback.
@@ -21,40 +20,36 @@ final readonly class CacheSocialFlowStore implements SocialFlowStoreInterface
 
     public function __construct(
         #[Autowire(service: 'cache.social_flow')]
-        private CacheInterface $cache,
+        private CacheItemPoolInterface $cache,
     ) {
     }
 
     public function save(SocialFlow $flow, int $ttlSeconds): void
     {
-        $this->cache->get(
-            self::PREFIX.$flow->id,
-            static function (ItemInterface $item) use ($flow, $ttlSeconds): SocialFlow {
-                $item->expiresAfter($ttlSeconds);
-
-                return $flow;
-            },
-        );
+        $item = $this->cache->getItem(self::PREFIX.$flow->id);
+        $item->set($flow);
+        $item->expiresAfter($ttlSeconds);
+        $this->cache->save($item);
     }
 
     public function consume(string $flowId): ?SocialFlow
     {
         $key = self::PREFIX.$flowId;
+        $item = $this->cache->getItem($key);
 
-        /** @var SocialFlow|null $flow */
-        $flow = $this->cache->get($key, static fn (): ?SocialFlow => null);
-
-        if (null === $flow) {
+        if (!$item->isHit()) {
             return null;
         }
 
-        $this->cache->delete($key);
+        $this->cache->deleteItem($key);
 
-        return $flow;
+        $flow = $item->get();
+
+        return $flow instanceof SocialFlow ? $flow : null;
     }
 
     public function delete(string $flowId): void
     {
-        $this->cache->delete(self::PREFIX.$flowId);
+        $this->cache->deleteItem(self::PREFIX.$flowId);
     }
 }

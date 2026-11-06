@@ -7,7 +7,6 @@ namespace App\Identity\Infrastructure\Mailer;
 use App\Identity\Application\Service\IdentityMailerInterface;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
-use DateTimeZone;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\MailerInterface;
@@ -39,7 +38,7 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
             template: 'email/verify_email.html.twig',
             context: [
                 'url' => $this->frontendUrl.'/auth/verify?token='.urlencode($token),
-                'expiresAt' => $this->formatInstant($expiresAt),
+                'expiresAt' => MailDateFormatter::format($expiresAt),
             ],
         );
     }
@@ -52,7 +51,7 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
             template: 'email/password_reset.html.twig',
             context: [
                 'url' => $this->frontendUrl.'/auth/reset-password?token='.urlencode($token),
-                'expiresAt' => $this->formatInstant($expiresAt),
+                'expiresAt' => MailDateFormatter::format($expiresAt),
             ],
         );
     }
@@ -70,10 +69,5 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
             ->context($context);
 
         $this->mailer->send($email);
-    }
-
-    private function formatInstant(Instant $expiresAt): string
-    {
-        return $expiresAt->formatInTimezone(new DateTimeZone('America/Sao_Paulo'), 'd/m/y H:i');
     }
 }

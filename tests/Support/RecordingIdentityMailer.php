@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Support;
 
 use App\Identity\Application\Service\IdentityMailerInterface;
+use App\Identity\Infrastructure\Mailer\MailDateFormatter;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
-use DateTimeZone;
 
 /**
  * Mailer de teste que guarda os tokens em memória.
@@ -15,7 +15,7 @@ use DateTimeZone;
 final class RecordingIdentityMailer implements IdentityMailerInterface
 {
     /**
-     * @var list<array{type: string, email: string, token: string, expiresAt: Instant}>
+     * @var list<array{type: string, email: string, token: string, expiresAt: string}>
      */
     private array $messages = [];
 
@@ -25,7 +25,7 @@ final class RecordingIdentityMailer implements IdentityMailerInterface
             'type' => 'verification',
             'email' => $to->value(),
             'token' => $token,
-            'expiresAt' => $this->formatInstant($expiresAt),
+            'expiresAt' => MailDateFormatter::format($expiresAt),
         ];
     }
 
@@ -35,7 +35,7 @@ final class RecordingIdentityMailer implements IdentityMailerInterface
             'type' => 'password_reset',
             'email' => $to->value(),
             'token' => $token,
-            'expiresAt' => $this->formatInstant($expiresAt),
+            'expiresAt' => MailDateFormatter::format($expiresAt),
         ];
     }
 
@@ -65,13 +65,21 @@ final class RecordingIdentityMailer implements IdentityMailerInterface
         return $count;
     }
 
+    public function lastExpiresAt(string $type, string $email): ?string
+    {
+        $expiresAt = null;
+
+        foreach ($this->messages as $message) {
+            if ($message['type'] === $type && $message['email'] === $email) {
+                $expiresAt = $message['expiresAt'];
+            }
+        }
+
+        return $expiresAt;
+    }
+
     public function clear(): void
     {
         $this->messages = [];
-    }
-
-    private function formatInstant(Instant $expiresAt): string
-    {
-        return $expiresAt->formatInTimezone(new DateTimeZone('America/Sao_Paulo'), 'd/m/y H:i');
     }
 }

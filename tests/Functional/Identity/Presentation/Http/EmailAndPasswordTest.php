@@ -163,3 +163,160 @@ it('rate limits repeated registrations for the same email', function () {
     expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS)
         ->and($this->api->errorCodes())->toBe(['TOO_MANY_REQUESTS']);
 });
+
+it('announces the expiration date in America/Sao_Paulo', function () {
+    $email = 'timezone@example.com';
+
+    $this->api->post('app_auth_register', [
+        'email' => $email,
+        'name' => 'Timezone User',
+        'password' => 'secret123',
+    ]);
+
+    $expiresAt = authTestMailer($this)->lastExpiresAt('verification', $email);
+
+    expect($expiresAt)->toBeString()->toMatch('/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/');
+
+    $announced = DateTimeImmutable::createFromFormat(
+        'd/m/Y H:i',
+        (string) $expiresAt,
+        new DateTimeZone('America/Sao_Paulo'),
+    );
+
+    assert($announced instanceof DateTimeImmutable);
+
+    // Se o e-mail exibisse UTC, a diferença ficaria 3 horas menor.
+    expect($announced->getTimestamp() - time())
+        ->toBeGreaterThan(86_280)
+        ->toBeLessThan(86_520);
+});
+
+it('rejects an expired email verification token', function () {
+    $email = 'expired-verification@example.com';
+
+    $this->api->post('app_auth_register', [
+        'email' => $email,
+        'name' => 'Expired Verification',
+        'password' => 'secret123',
+    ]);
+    $token = (string) authTestMailer($this)->lastToken('verification', $email);
+
+    authTestExpireIdentityToken($this, $token);
+
+    $response = $this->api->post('app_auth_email_verify', ['token' => $token]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['EMAIL_VERIFICATION_TOKEN_EXPIRED']);
+});
+
+it('rejects an expired password reset token', function () {
+    $email = 'expired-reset@example.com';
+    authTestCreateUser($this, $email);
+
+    $this->api->post('app_auth_password_forgot', ['email' => $email]);
+    $token = (string) authTestMailer($this)->lastToken('password_reset', $email);
+
+    authTestExpireIdentityToken($this, $token);
+
+    $response = $this->api->post('app_auth_password_reset', [
+        'token' => $token,
+        'password' => 'new-secret-123',
+    ]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['PASSWORD_RESET_TOKEN_EXPIRED']);
+});
+
+it('creates a local password for a social-only account through reset', function () {
+    $email = 'social-reset@example.com';
+    authTestCreateSocialUser($this, $email);
+
+    $this->api->post('app_auth_password_forgot', ['email' => $email]);
+    $token = (string) authTestMailer($this)->lastToken('password_reset', $email);
+
+    $reset = $this->api->post('app_auth_password_reset', [
+        'token' => $token,
+        'password' => 'local-secret-123',
+    ]);
+
+    expect($reset->getStatusCode())->toBe(Response::HTTP_NO_CONTENT);
+
+    $user = emailTestUser($this, $email);
+
+    expect($user?->hasLocalPassword())->toBeTrue()
+        ->and($user?->identities())->toHaveCount(2)
+        ->and(authTestLogin($this, $email, 'local-secret-123')->getStatusCode())->toBe(Response::HTTP_OK);
+});
+
+it('rate limits repeated email verification attempts', function () {
+    for ($attempt = 0; $attempt < 10; ++$attempt) {
+        $this->api->post('app_auth_email_verify', ['token' => 'invalid-'.$attempt]);
+    }
+
+    $response = $this->api->post('app_auth_email_verify', ['token' => 'invalid-10']);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS)
+        ->and($this->api->errorCodes())->toBe(['TOO_MANY_REQUESTS']);
+});
+
+it('rate limits repeated email verification resends', function () {
+    $email = 'resend-limit@example.com';
+    authTestCreateUser($this, $email);
+    $accessToken = authTestAccessToken(authTestLogin($this, $email));
+    $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
+
+    for ($attempt = 0; $attempt < 3; ++$attempt) {
+        $this->api->post('app_me_email_resend', server: $server);
+    }
+
+    $response = $this->api->post('app_me_email_resend', server: $server);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
+});
+
+it('rate limits repeated password reset requests', function () {
+    for ($attempt = 0; $attempt < 5; ++$attempt) {
+        $this->api->post('app_auth_password_forgot', ['email' => 'forgot-limit@example.com']);
+    }
+
+    $response = $this->api->post('app_auth_password_forgot', ['email' => 'forgot-limit@example.com']);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
+});
+
+it('rate limits repeated password reset submissions', function () {
+    for ($attempt = 0; $attempt < 10; ++$attempt) {
+        $this->api->post('app_auth_password_reset', [
+            'token' => 'invalid-'.$attempt,
+            'password' => 'new-secret-123',
+        ]);
+    }
+
+    $response = $this->api->post('app_auth_password_reset', [
+        'token' => 'invalid-10',
+        'password' => 'new-secret-123',
+    ]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
+});
+
+it('rate limits repeated password changes', function () {
+    $email = 'change-limit@example.com';
+    authTestCreateUser($this, $email);
+    $accessToken = authTestAccessToken(authTestLogin($this, $email));
+    $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
+
+    for ($attempt = 0; $attempt < 5; ++$attempt) {
+        $this->api->post('app_me_password_change', [
+            'currentPassword' => 'wrong-password',
+            'newPassword' => 'new-secret-123',
+        ], server: $server);
+    }
+
+    $response = $this->api->post('app_me_password_change', [
+        'currentPassword' => 'wrong-password',
+        'newPassword' => 'new-secret-123',
+    ], server: $server);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
+});

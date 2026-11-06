@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Identity\Infrastructure\Social;
 
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use UnexpectedValueException;
 
@@ -23,7 +22,7 @@ final readonly class JwksProvider
 
     public function __construct(
         private HttpClientInterface $httpClient,
-        private CacheInterface $cache,
+        private CacheItemPoolInterface $cache,
         #[Autowire(env: 'int:JWKS_CACHE_TTL')]
         private int $cacheTtlSeconds = 3600,
     ) {
@@ -34,34 +33,27 @@ final readonly class JwksProvider
      */
     public function fetch(string $url, bool $forceRefresh = false): array
     {
-        $key = self::cacheKey($url);
+        $item = $this->cache->getItem(self::cacheKey($url));
 
-        if ($forceRefresh) {
-            $this->cache->delete($key);
+        if ($forceRefresh || !$item->isHit()) {
+            /** @var array<string, mixed> $payload */
+            $payload = $this->httpClient->request('GET', $url, [
+                'headers' => ['Accept' => 'application/json'],
+                'timeout' => 5,
+                'max_duration' => 10,
+            ])->toArray();
+
+            if (!isset($payload['keys']) || !is_array($payload['keys'])) {
+                throw new UnexpectedValueException('JWKS inválido: membro "keys" ausente.');
+            }
+
+            $item->set($payload);
+            $item->expiresAfter($this->cacheTtlSeconds);
+            $this->cache->save($item);
         }
 
-        $jwks = $this->cache->get(
-            $key,
-            function (ItemInterface $item) use ($url): array {
-                $item->expiresAfter($this->cacheTtlSeconds);
-
-                /** @var array<string, mixed> $payload */
-                $payload = $this->httpClient->request('GET', $url, [
-                    'headers' => ['Accept' => 'application/json'],
-                    'timeout' => 5,
-                    'max_duration' => 10,
-                ])->toArray();
-
-                if (!isset($payload['keys']) || !is_array($payload['keys'])) {
-                    throw new UnexpectedValueException('JWKS inválido: membro "keys" ausente.');
-                }
-
-                return $payload;
-            },
-        );
-
         /** @var array{keys: list<array<string, mixed>>} $jwks */
-        $jwks = $jwks;
+        $jwks = $item->get();
 
         return $jwks;
     }
@@ -73,28 +65,17 @@ final readonly class JwksProvider
      */
     public function refresh(string $url): array
     {
-        $guardKey = 'jwks.refresh.'.hash('sha256', $url);
+        $guard = $this->cache->getItem('jwks.refresh.'.hash('sha256', $url));
 
-        /** @var bool|null $refreshedRecently */
-        $refreshedRecently = $this->cache->get(
-            $guardKey,
-            static fn (): ?bool => null,
-        );
-
-        if (true === $refreshedRecently) {
+        if ($guard->isHit()) {
             return $this->fetch($url);
         }
 
-        $this->cache->get(
-            $guardKey,
-            static function (ItemInterface $item): bool {
-                $item->expiresAfter(self::REFRESH_GUARD_TTL);
+        $guard->set(true);
+        $guard->expiresAfter(self::REFRESH_GUARD_TTL);
+        $this->cache->save($guard);
 
-                return true;
-            },
-        );
-
-        return $this->fetch($url, true);
+        return $this->fetch($url, forceRefresh: true);
     }
 
     private static function cacheKey(string $url): string

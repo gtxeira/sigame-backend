@@ -20,7 +20,32 @@ it('returns the authenticated user on me', function () {
     $me = $this->api->deserializeResponse(CurrentUserResponse::class);
 
     expect($me->email)->toBe('me@example.com')
-        ->and($me->cpf)->toBeNull();
+        ->and($me->cpf)->toBeNull()
+        ->and($me->emailVerified)->toBeFalse();
+});
+
+it('reports the verified email state on me', function () {
+    $email = 'me-verified@example.com';
+
+    $this->api->post('app_auth_register', [
+        'email' => $email,
+        'name' => 'Verified Me',
+        'password' => 'secret123',
+    ]);
+
+    $token = (string) authTestMailer($this)->lastToken('verification', $email);
+    $this->api->post('app_auth_email_verify', ['token' => $token]);
+
+    $accessToken = authTestAccessToken(authTestLogin($this, $email));
+    $response = $this->api->get('app_me', server: [
+        'HTTP_AUTHORIZATION' => 'Bearer '.$accessToken,
+    ]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+
+    $me = $this->api->deserializeResponse(CurrentUserResponse::class);
+
+    expect($me->emailVerified)->toBeTrue();
 });
 
 it('rejects me without an access token', function () {
