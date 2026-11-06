@@ -13,10 +13,14 @@ use App\Shared\Domain\ValueObject\Instant;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Lcobucci\JWT\Builder;
+use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\JwtFacade;
 use Lcobucci\JWT\Signer\Hmac\Sha256;
 use Lcobucci\JWT\Signer\Key\InMemory;
+use Lcobucci\JWT\Token\Parser;
+use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint;
+use Lcobucci\JWT\Validation\Validator;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
@@ -83,14 +87,26 @@ final readonly class LcobucciAccessTokenGenerator implements AccessTokenGenerato
     public function parse(string $rawToken): AccessTokenClaims
     {
         try {
-            $token = new JwtFacade(clock: $this->clock)->parse(
-                $rawToken,
+            $token = (new Parser(new JoseEncoder()))->parse($rawToken);
+
+            if (!$token instanceof UnencryptedToken) {
+                throw InvalidTokenException::accessToken('token não é um JWT simples');
+            }
+
+            $validator = new Validator();
+            $validator->assert(
+                $token,
                 new Constraint\SignedWith($this->signer, $this->key),
-                new Constraint\StrictValidAt($this->clock),
                 new Constraint\IssuedBy($this->issuer),
                 new Constraint\PermittedFor($this->audience),
                 new Constraint\HasClaimWithValue('typ', 'access'),
             );
+
+            if ($token->isExpired($this->clock->now())) {
+                throw InvalidTokenException::accessTokenExpired();
+            }
+
+            $validator->assert($token, new Constraint\StrictValidAt($this->clock));
 
             $subject = $token->claims()->get('sub');
             $expiresAt = $token->claims()->get('exp');

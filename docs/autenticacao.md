@@ -45,6 +45,8 @@ Claims:
 
 O access token é validado a cada requisição. O usuário é recarregado do banco, então uma suspensão passa a valer imediatamente. Não existe lista de access tokens revogados; eles expiram em até 15 minutos.
 
+Rotas públicas (`login`, `refresh`, `logout`, `register`, `email`, `password` e `social`) **ignoram** o header `Authorization`. Um access token antigo ou malformado no cliente não impede que essas rotas sejam executadas; apenas rotas protegidas falham com `ACCESS_TOKEN_MISSING`, `ACCESS_TOKEN_INVALID` ou `ACCESS_TOKEN_EXPIRED`.
+
 ### 1.2 Refresh token
 
 - Valor bruto: `rt_` + `bin2hex(random_bytes(32))`.
@@ -192,7 +194,7 @@ O refresh token **não** aparece no corpo. Ele vem em `Set-Cookie: refresh_token
 
 `POST /api/v1/auth/refresh` — sem corpo; lê o cookie `refresh_token`.
 
-Resposta `200` com novo access token e novo cookie. O token anterior é invalidado.
+Resposta `200` com novo access token e novo cookie. O token anterior é invalidado. O header `Authorization` é ignorado: mesmo que o cliente envie um access token expirado, a renovação depende apenas do cookie.
 
 Erros possíveis:
 
@@ -246,6 +248,35 @@ Revoga todas as famílias do usuário autenticado. Retorna `204`.
 ```
 
 O CPF é write-once. Erros: `USER_CPF_ALREADY_SET`, `USER_CPF_ALREADY_EXISTS`, `CPF_INVALID`.
+
+### 2.6 Erros do access token
+
+Em rotas protegidas, falhas do access token retornam `401` com um código específico:
+
+| Código | Quando |
+|---|---|
+| `ACCESS_TOKEN_MISSING` | A requisição não enviou `Authorization: Bearer <token>` (ou o valor está vazio). |
+| `ACCESS_TOKEN_INVALID` | Token malformado, assinatura/emisor/audiência/`typ` inválidos, claims obrigatórios ausentes ou usuário inexistente. |
+| `ACCESS_TOKEN_EXPIRED` | Token autêntico, mas com `exp` no passado. |
+
+O header `WWW-Authenticate` acompanha a resposta:
+
+- `ACCESS_TOKEN_MISSING`: `Bearer realm="sigame-api"`
+- `ACCESS_TOKEN_INVALID` e `ACCESS_TOKEN_EXPIRED`: `Bearer realm="sigame-api", error="invalid_token"`
+
+Conta suspensa continua retornando `403 ACCOUNT_SUSPENDED`, independentemente do estado do token.
+
+### 2.7 Renovação no front-end
+
+O cliente deve tratar `401` de rota protegida assim:
+
+1. Se o código for `ACCESS_TOKEN_MISSING`, `ACCESS_TOKEN_INVALID` ou `ACCESS_TOKEN_EXPIRED`, chamar `POST /api/v1/auth/refresh` uma única vez (single-flight).
+2. Se a renovação funcionar, repetir a requisição original uma única vez.
+3. Se o refresh retornar `REFRESH_TOKEN_INVALID`, `REFRESH_TOKEN_EXPIRED`, `REFRESH_TOKEN_REUSED` ou `REFRESH_TOKEN_ALREADY_ROTATED`, limpar a sessão local e redirecionar para o login.
+4. Nunca renovar a partir de `401` de `/auth/login` nem de `/auth/refresh`; isso evita loop.
+5. `403 ACCOUNT_SUSPENDED` não dispara renovação.
+
+O ideal é renovar proativamente perto do fim de `expiresIn` (900 segundos), evitando a maioria dos `401`.
 
 ---
 

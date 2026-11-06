@@ -18,14 +18,18 @@ final class AccessTokenEntryPoint implements AuthenticationEntryPointInterface
 {
     public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
+        $code = $authException instanceof AccessTokenAuthenticationException
+            ? $authException->apiErrorCode()
+            : ApiErrorCode::AccessTokenMissing;
+
         $response = ApiResponse::error([
             [
-                'code' => ApiErrorCode::Unauthorized->value,
-                'message' => ApiErrorCode::Unauthorized->message(),
+                'code' => $code->value,
+                'message' => $code->message(),
             ],
         ])->toJsonResponse(Response::HTTP_UNAUTHORIZED);
 
-        $response->headers->set('WWW-Authenticate', 'Bearer');
+        $response->headers->set('WWW-Authenticate', AccessTokenChallenge::for($code));
 
         return $response;
     }

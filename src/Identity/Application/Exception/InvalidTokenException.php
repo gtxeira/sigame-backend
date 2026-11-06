@@ -13,8 +13,25 @@ use RuntimeException;
  */
 final class InvalidTokenException extends RuntimeException
 {
+    private function __construct(
+        string $message,
+        private readonly bool $expired = false,
+    ) {
+        parent::__construct($message);
+    }
+
     public static function accessToken(string $reason): self
     {
         return new self('Access token inválido: '.$reason);
+    }
+
+    public static function accessTokenExpired(): self
+    {
+        return new self('Access token expirado.', expired: true);
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expired;
     }
 }

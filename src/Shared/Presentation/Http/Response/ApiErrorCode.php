@@ -14,6 +14,9 @@ enum ApiErrorCode: string
 {
     case BadRequest = 'BAD_REQUEST';
     case Unauthorized = 'UNAUTHORIZED';
+    case AccessTokenMissing = 'ACCESS_TOKEN_MISSING';
+    case AccessTokenInvalid = 'ACCESS_TOKEN_INVALID';
+    case AccessTokenExpired = 'ACCESS_TOKEN_EXPIRED';
     case Forbidden = 'FORBIDDEN';
     case NotFound = 'NOT_FOUND';
     case MethodNotAllowed = 'METHOD_NOT_ALLOWED';
@@ -34,6 +37,9 @@ enum ApiErrorCode: string
         return match ($this) {
             self::BadRequest => 'A requisição contém dados inválidos.',
             self::Unauthorized => 'Autenticação necessária.',
+            self::AccessTokenMissing => 'Token de acesso ausente.',
+            self::AccessTokenInvalid => 'Token de acesso inválido.',
+            self::AccessTokenExpired => 'Token de acesso expirado. Renove a sessão.',
             self::Forbidden => 'Acesso negado.',
             self::NotFound => 'Recurso não encontrado.',
             self::MethodNotAllowed => 'O método HTTP não é permitido para este recurso.',

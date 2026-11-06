@@ -52,7 +52,7 @@ it('rejects me without an access token', function () {
     $response = $this->api->get('app_me');
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNAUTHORIZED)
-        ->and($this->api->errorCodes())->toBe(['UNAUTHORIZED']);
+        ->and($this->api->errorCodes())->toBe(['ACCESS_TOKEN_MISSING']);
 });
 
 it('rejects an access token from a suspended account', function () {

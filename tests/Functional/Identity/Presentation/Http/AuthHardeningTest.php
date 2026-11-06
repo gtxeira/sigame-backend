@@ -37,7 +37,7 @@ it('requires a bearer token on every protected account route', function (
     $response = $this->api->post($route, [], $routeParams);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNAUTHORIZED)
-        ->and($this->api->errorCodes())->toBe(['UNAUTHORIZED']);
+        ->and($this->api->errorCodes())->toBe(['ACCESS_TOKEN_MISSING']);
 })->with([
     'email resend' => ['app_me_email_resend', []],
     'password change' => ['app_me_password_change', []],

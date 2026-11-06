@@ -104,6 +104,21 @@ final class MeIdentityController extends AbstractController
     )]
     #[UnauthorizedResponse(
         examples: [
+            'ACCESS_TOKEN_MISSING' => new ApiErrorExample(
+                message: 'Token de acesso ausente.',
+                summary: 'Token ausente',
+                description: 'A requisição não apresentou um access token.',
+            ),
+            'ACCESS_TOKEN_INVALID' => new ApiErrorExample(
+                message: 'Token de acesso inválido.',
+                summary: 'Token inválido',
+                description: 'O access token é malformado, tem assinatura/claims inválidos ou pertence a um usuário inexistente.',
+            ),
+            'ACCESS_TOKEN_EXPIRED' => new ApiErrorExample(
+                message: 'Token de acesso expirado. Renove a sessão.',
+                summary: 'Token expirado',
+                description: 'O access token passou do prazo de validade e deve ser renovado pelo refresh token.',
+            ),
             'SOCIAL_AUTHENTICATION_FAILED' => new ApiErrorExample(
                 message: 'Não foi possível autenticar com o provedor social.',
                 summary: 'Falha no provedor',

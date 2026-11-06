@@ -39,8 +39,33 @@ it('rejects an expired access token', function () {
 
     $clock->modify('+16 minutes');
 
-    expect(static fn () => $generator->parse($issued->token))
-        ->toThrow(InvalidTokenException::class);
+    $exception = null;
+
+    try {
+        $generator->parse($issued->token);
+    } catch (InvalidTokenException $caught) {
+        $exception = $caught;
+    }
+
+    expect($exception)->not->toBeNull()
+        ->and($exception?->isExpired())->toBeTrue();
+});
+
+it('does not classify an invalid token as expired', function () {
+    $clock = new MockClock('2026-01-01 00:00:00 UTC');
+    $issued = accessTokenGenerator($clock)->issue(UserId::generate());
+    $other = accessTokenGenerator($clock, 'another-secret-with-at-least-32-chars!!!');
+
+    $exception = null;
+
+    try {
+        $other->parse($issued->token);
+    } catch (InvalidTokenException $caught) {
+        $exception = $caught;
+    }
+
+    expect($exception)->not->toBeNull()
+        ->and($exception?->isExpired())->toBeFalse();
 });
 
 it('rejects a token signed with another secret', function () {
