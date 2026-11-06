@@ -19,8 +19,8 @@ final readonly class RegisterUserResponse
         #[OA\Property(description: 'CPF do usuário, quando informado.', example: '477.051.220-14', nullable: true)]
         public ?string $cpf,
 
-        #[OA\Property(description: 'Endereço de e-mail do usuário.', format: 'email', example: 'user@example.com', nullable: true)]
-        public ?string $email,
+        #[OA\Property(description: 'Endereço de e-mail do usuário.', format: 'email', example: 'user@example.com')]
+        public string $email,
 
         #[OA\Property(description: 'Nome completo do usuário.', example: 'John Doe')]
         public string $name,
@@ -44,7 +44,7 @@ final readonly class RegisterUserResponse
         return new self(
             id: $user->id()->value(),
             cpf: $user->cpf()?->formatted(),
-            email: $user->email()?->value(),
+            email: $user->email()->value(),
             name: $user->name(),
             level: $user->level()->value(),
             status: $user->status()->value,

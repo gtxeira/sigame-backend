@@ -20,8 +20,11 @@ final readonly class CurrentUserResponse
         #[OA\Property(description: 'CPF, quando definido.', nullable: true, example: '477.051.220-14')]
         public ?string $cpf,
 
-        #[OA\Property(format: 'email', nullable: true, example: 'user@example.com')]
-        public ?string $email,
+        #[OA\Property(format: 'email', example: 'user@example.com')]
+        public string $email,
+
+        #[OA\Property(description: 'Indica se o e-mail canônico foi verificado.', example: false)]
+        public bool $emailVerified,
 
         #[OA\Property(example: 'John Doe')]
         public string $name,
@@ -48,7 +51,8 @@ final readonly class CurrentUserResponse
         return new self(
             id: $user->id()->value(),
             cpf: $user->cpf()?->formatted(),
-            email: $user->email()?->value(),
+            email: $user->email()->value(),
+            emailVerified: $user->isEmailVerified(),
             name: $user->name(),
             level: $user->level()->value(),
             status: $user->status()->value,

@@ -59,7 +59,7 @@ it('persists and reloads profile data and modalities', function () {
         ->and($weight?->kilograms())->toBe(62.5)
         ->and($found->photoUrl())->toBe('https://example.com/maria.jpg')
         ->and($found->name())->toBe('Maria Silva')
-        ->and($found->email()?->value())->toBe('persist@example.com')
+        ->and($found->email()->value())->toBe('persist@example.com')
         ->and($found->password()?->value())->toBe('hashed_password_123')
         ->and($found->role())->toBe(UserRole::USER)
         ->and($found->status())->toBe(UserStatus::ACTIVE)

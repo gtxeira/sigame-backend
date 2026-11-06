@@ -25,4 +25,12 @@ enum IdentityProvider: string
     {
         return !$this->isLocal();
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::LOCAL => 'Local',
+            self::GOOGLE => 'Google',
+        };
+    }
 }

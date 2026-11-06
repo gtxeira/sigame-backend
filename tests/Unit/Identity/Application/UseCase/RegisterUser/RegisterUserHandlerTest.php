@@ -73,7 +73,7 @@ it('registers a user successfully', function () {
     $user = $result->value();
 
     expect($user->cpf()?->value())->toBe($cpf)
-        ->and($user->email()?->value())->toBe($email)
+        ->and($user->email()->value())->toBe($email)
         ->and($user->name())->toBe($name);
 });
 

@@ -12,9 +12,15 @@ use UnexpectedValueException;
 
 /**
  * Busca e cacheia JWKS de provedores OIDC.
+ *
+ * Um `kid` desconhecido pode indicar rotação de chaves; nesse caso o cache é
+ * renovado, mas no máximo uma vez por minuto para não transformar tokens
+ * inválidos em carga contra o provedor.
  */
 final readonly class JwksProvider
 {
+    private const int REFRESH_GUARD_TTL = 60;
+
     public function __construct(
         private HttpClientInterface $httpClient,
         private CacheInterface $cache,
@@ -26,15 +32,25 @@ final readonly class JwksProvider
     /**
      * @return array{keys: list<array<string, mixed>>}
      */
-    public function fetch(string $url): array
+    public function fetch(string $url, bool $forceRefresh = false): array
     {
+        $key = self::cacheKey($url);
+
+        if ($forceRefresh) {
+            $this->cache->delete($key);
+        }
+
         $jwks = $this->cache->get(
-            'jwks.'.hash('sha256', $url),
+            $key,
             function (ItemInterface $item) use ($url): array {
                 $item->expiresAfter($this->cacheTtlSeconds);
 
                 /** @var array<string, mixed> $payload */
-                $payload = $this->httpClient->request('GET', $url)->toArray();
+                $payload = $this->httpClient->request('GET', $url, [
+                    'headers' => ['Accept' => 'application/json'],
+                    'timeout' => 5,
+                    'max_duration' => 10,
+                ])->toArray();
 
                 if (!isset($payload['keys']) || !is_array($payload['keys'])) {
                     throw new UnexpectedValueException('JWKS inválido: membro "keys" ausente.');
@@ -48,5 +64,41 @@ final readonly class JwksProvider
         $jwks = $jwks;
 
         return $jwks;
+    }
+
+    /**
+     * Renova o JWKS respeitando um intervalo mínimo entre tentativas.
+     *
+     * @return array{keys: list<array<string, mixed>>}
+     */
+    public function refresh(string $url): array
+    {
+        $guardKey = 'jwks.refresh.'.hash('sha256', $url);
+
+        /** @var bool|null $refreshedRecently */
+        $refreshedRecently = $this->cache->get(
+            $guardKey,
+            static fn (): ?bool => null,
+        );
+
+        if (true === $refreshedRecently) {
+            return $this->fetch($url);
+        }
+
+        $this->cache->get(
+            $guardKey,
+            static function (ItemInterface $item): bool {
+                $item->expiresAfter(self::REFRESH_GUARD_TTL);
+
+                return true;
+            },
+        );
+
+        return $this->fetch($url, true);
+    }
+
+    private static function cacheKey(string $url): string
+    {
+        return 'jwks.'.hash('sha256', $url);
     }
 }

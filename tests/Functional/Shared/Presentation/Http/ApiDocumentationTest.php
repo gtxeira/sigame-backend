@@ -105,6 +105,13 @@ it('follows the summary writing convention', function () {
         'Revogar',
         'Definir',
         'Verificar',
+        'Iniciar',
+        'Concluir',
+        'Vincular',
+        'Reenviar',
+        'Solicitar',
+        'Redefinir',
+        'Alterar',
     ];
 
     $problems = [];
@@ -238,9 +245,17 @@ it('documents every public api operation', function () {
             '/api/v1/auth/refresh',
             '/api/v1/auth/logout',
             '/api/v1/auth/logout/all',
-            '/api/v1/auth/social/{provider}',
+            '/api/v1/auth/social/{provider}/start',
+            '/api/v1/auth/social/{provider}/callback',
+            '/api/v1/auth/social/{provider}/link',
+            '/api/v1/auth/email/verify',
+            '/api/v1/auth/password/forgot',
+            '/api/v1/auth/password/reset',
             '/api/v1/users/me',
             '/api/v1/users/me/cpf',
+            '/api/v1/users/me/identities/{provider}',
+            '/api/v1/users/me/email/resend',
+            '/api/v1/users/me/password',
             '/api/health/liveness',
             '/api/health/readiness',
         ]);
@@ -448,6 +463,7 @@ it('documents the register error codes with named examples', function () {
         '409',
         '415',
         '422',
+        '429',
         '500',
     ]);
 

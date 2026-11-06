@@ -29,6 +29,7 @@ use App\Shared\Domain\ValueObject\Modality;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
 
 /**
  * Entidade User com comportamento de domínio rico.
@@ -70,7 +71,13 @@ final class User
     private function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'user_id', unique: true)]
-        private readonly UserId $id,
+        private UserId $id,
+
+        #[ORM\Column(type: 'email', length: 255, unique: true)]
+        private Email $email,
+
+        #[ORM\Column(type: 'instant', nullable: true)]
+        private ?Instant $emailVerifiedAt,
 
         #[ORM\Embedded(class: Profile::class, columnPrefix: false)]
         private Profile $profile,
@@ -114,6 +121,8 @@ final class User
 
         $user = new self(
             id: UserId::generate(),
+            email: $email,
+            emailVerifiedAt: null,
             profile: Profile::create($name),
             access: AccessState::initial(),
             level: UserLevel::initial(),
@@ -145,6 +154,8 @@ final class User
 
         $user = new self(
             id: UserId::generate(),
+            email: $email,
+            emailVerifiedAt: $emailVerifiedAt ?? Instant::now(),
             profile: Profile::create($name ?? self::nameFromEmail($email)),
             access: AccessState::initial(),
             level: UserLevel::initial(),
@@ -373,26 +384,80 @@ final class User
         return $this->access;
     }
 
-    public function email(): ?Email
+    public function email(): Email
     {
-        $local = $this->localIdentity();
+        return $this->email;
+    }
 
-        if (null !== $local?->email()) {
-            return $local->email();
+    public function emailVerifiedAt(): ?Instant
+    {
+        return $this->emailVerifiedAt;
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return null !== $this->emailVerifiedAt;
+    }
+
+    /**
+     * Marca o e-mail canônico como verificado.
+     *
+     * O vínculo entre conta e endereço é idempotente: chamadas repetidas
+     * preservam a data original.
+     */
+    public function verifyEmail(?Instant $verifiedAt = null): void
+    {
+        if (null !== $this->emailVerifiedAt) {
+            return;
         }
 
-        foreach ($this->identities as $identity) {
-            if (null !== $identity->email()) {
-                return $identity->email();
-            }
-        }
+        $this->emailVerifiedAt = $verifiedAt ?? Instant::now();
+        $this->localIdentity()?->verifyEmail($this->emailVerifiedAt);
+        $this->touch();
+    }
 
-        return null;
+    public function hasLocalPassword(): bool
+    {
+        return null !== $this->localIdentity()?->password();
     }
 
     public function password(): ?HashedPassword
     {
         return $this->localIdentity()?->password();
+    }
+
+    /**
+     * Define ou substitui a senha local (usado no reset de senha).
+     *
+     * Contas criadas por provedor social passam a ter uma credencial local,
+     * o que permite recuperação de acesso sem perder as identidades existentes.
+     */
+    public function setPassword(HashedPassword $password): void
+    {
+        $local = $this->localIdentity();
+
+        if (null !== $local) {
+            $local->changePassword($password);
+        } else {
+            $this->identities->add(UserIdentity::local($this, $this->email, $password));
+        }
+
+        $this->touch();
+    }
+
+    /**
+     * Substitui a senha de uma conta que já possui credencial local.
+     */
+    public function changePassword(HashedPassword $password): void
+    {
+        $local = $this->localIdentity();
+
+        if (null === $local) {
+            throw new LogicException('A conta não possui uma identidade local com senha.');
+        }
+
+        $local->changePassword($password);
+        $this->touch();
     }
 
     public function name(): string

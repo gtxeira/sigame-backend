@@ -10,6 +10,7 @@ use App\Identity\Application\Service\SocialIdentityProviderInterface;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Shared\Domain\ValueObject\Email;
+use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
@@ -17,9 +18,8 @@ use Throwable;
 /**
  * Troca o authorization code do Google por uma identidade.
  *
- * A validação do id_token usa o JWKS do Google; o fluxo por code é o único
- * implementado agora. O adapter não é referenciado pela camada de aplicação,
- * que conhece apenas SocialIdentityProviderInterface.
+ * A validação do id_token usa o JWKS do Google. O redirect URI e o PKCE vêm
+ * do fluxo mantido no servidor; nunca do corpo da requisição.
  */
 final readonly class GoogleIdentityProvider implements SocialIdentityProviderInterface
 {
@@ -34,9 +34,12 @@ final readonly class GoogleIdentityProvider implements SocialIdentityProviderInt
         private string $clientId,
         #[Autowire(env: 'GOOGLE_CLIENT_SECRET')]
         private string $clientSecret,
-        #[Autowire(env: 'GOOGLE_REDIRECT_URIS')]
-        private string $redirectUris,
+        #[Autowire(param: 'kernel.environment')]
+        private string $environment = 'dev',
     ) {
+        if ('prod' === $this->environment && (str_starts_with($this->clientId, 'change-me') || str_starts_with($this->clientSecret, 'change-me'))) {
+            throw new InvalidArgumentException('GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não podem usar os valores padrão em produção.');
+        }
     }
 
     public function provider(): IdentityProvider
@@ -47,21 +50,21 @@ final readonly class GoogleIdentityProvider implements SocialIdentityProviderInt
     public function fetchIdentity(
         string $authorizationCode,
         string $redirectUri,
-        ?string $codeVerifier = null,
-        ?string $name = null,
+        string $codeVerifier,
     ): SocialIdentity {
-        $this->assertRedirectUriIsAllowed($redirectUri);
-
         try {
             $response = $this->httpClient->request('POST', self::TOKEN_ENDPOINT, [
-                'body' => array_filter([
+                'headers' => ['Accept' => 'application/json'],
+                'timeout' => 5,
+                'max_duration' => 10,
+                'body' => [
                     'code' => $authorizationCode,
                     'client_id' => $this->clientId,
                     'client_secret' => $this->clientSecret,
                     'redirect_uri' => $redirectUri,
                     'grant_type' => 'authorization_code',
                     'code_verifier' => $codeVerifier,
-                ], static fn (?string $value): bool => null !== $value && '' !== $value),
+                ],
             ]);
 
             if (200 !== $response->getStatusCode()) {
@@ -106,19 +109,8 @@ final readonly class GoogleIdentityProvider implements SocialIdentityProviderInt
             subject: ProviderSubject::fromString($subject),
             email: $emailResult->value(),
             emailVerified: filter_var($claims['email_verified'] ?? false, FILTER_VALIDATE_BOOL),
-            name: is_string($claims['name'] ?? null) ? $claims['name'] : $name,
+            name: is_string($claims['name'] ?? null) ? mb_substr($claims['name'], 0, 255) : null,
             pictureUrl: is_string($claims['picture'] ?? null) ? $claims['picture'] : null,
         );
-    }
-
-    private function assertRedirectUriIsAllowed(string $redirectUri): void
-    {
-        $allowed = explode(',', $this->redirectUris)
-                |> (static fn (array $x) => array_map('trim', $x))
-                |> (static fn (array $x) => array_filter($x));
-
-        if (!in_array($redirectUri, $allowed, true)) {
-            throw SocialAuthenticationException::providerRejected('google');
-        }
     }
 }

@@ -27,7 +27,7 @@ final class RefreshToken
     private function __construct(
         #[ORM\Id]
         #[ORM\Column(type: 'refresh_token_id')]
-        private readonly RefreshTokenId $id,
+        private RefreshTokenId $id,
 
         #[ORM\ManyToOne(targetEntity: User::class)]
         #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIGAME — Diagnóstico OAuth (dev)</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 56rem; padding: 0 1rem; }
+        h1 { font-size: 1.4rem; }
+        pre { background: #f4f4f4; border-radius: .4rem; padding: 1rem; overflow: auto; white-space: pre-wrap; }
+        button { padding: .6rem 1rem; font-size: 1rem; cursor: pointer; }
+        .muted { color: #666; }
+    </style>
+</head>
+<body>
+<h1>Diagnóstico do login com Google</h1>
+<p class="muted">
+    Página disponível apenas em <code>APP_ENV=dev</code>. Ela simula o front-end:
+    chama <code>/auth/social/google/start</code>, redireciona ao Google e envia
+    <code>code</code> e <code>state</code> para <code>/auth/social/google/callback</code>.
+    O client secret permanece no backend.
+</p>
+<p>
+    Antes de usar, cadastre <code>GOOGLE_REDIRECT_URI_DEV</code> exatamente como
+    <em>Authorized redirect URI</em> no Google Cloud Console.
+</p>
+<p><button id="start" type="button">Iniciar fluxo</button></p>
+<pre id="output">Aguardando…</pre>
+
+<script>
+    const output = document.getElementById('output');
+
+    function show(value) {
+        output.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    }
+
+    async function post(path, body) {
+        const response = await fetch(path, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        let payload;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            payload = { status: response.status, body: await response.text() };
+        }
+
+        return { status: response.status, payload };
+    }
+
+    async function startFlow() {
+        show('Criando fluxo…');
+
+        const { status, payload } = await post('/api/v1/auth/social/google/start', { client: 'dev' });
+
+        if (status !== 200) {
+            show({ status, payload });
+            return;
+        }
+
+        show(payload);
+        window.location.assign(payload.data.authorizationUrl);
+    }
+
+    async function finishFlow(code, state) {
+        show('Concluindo callback…');
+
+        const { status, payload } = await post('/api/v1/auth/social/google/callback', { code, state });
+
+        show({ status, payload });
+
+        // Limpa o code/state da barra de endereço para não vazar em histórico/logs.
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+
+    if (code && state) {
+        finishFlow(code, state);
+    } else {
+        document.getElementById('start').addEventListener('click', startFlow);
+    }
+</script>
+</body>
+</html>

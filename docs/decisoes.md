@@ -32,6 +32,9 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-008](#adr-008--configuração-em-php-com-autowiring) | Configuração em PHP com autowiring | Vigente |
 | [ADR-009](#adr-009--postgresql-18-com-doctrine-migrations) | PostgreSQL 18 com Doctrine Migrations | Vigente |
 | [ADR-010](#adr-010--arquivos-em-s3-via-flysystemgarage) | Arquivos em S3 via Flysystem/Garage | Decidida; implementação pendente |
+| [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social) | E-mail canônico e vínculo explícito de identidade social | Vigente |
+| [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend) | Fluxo OAuth com state e PKCE no backend | Vigente |
+| [ADR-013](#adr-013--tokens-de-uso-único-para-verificação-de-e-mail-e-reset-de-senha) | Tokens de uso único para verificação de e-mail e reset de senha | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
 
@@ -123,11 +126,11 @@ O usuário pode entrar com e-mail/senha ou com Google. Guardar e-mail e senha di
 
 Separar:
 
-- `users` — perfil, estado de acesso, nível e onboarding;
+- `users` — perfil, estado de acesso, nível, onboarding e **e-mail canônico único** (`users.email`, `users.email_verified_at`);
 - `user_identities` — credenciais de login, com `provider`, `provider_subject`, `email`, `password` e `email_verified_at`;
-- a raiz delega `email()` e `password()` para a identidade local (ou para o primeiro e-mail social).
+- a raiz expõe `email()` a partir do e-mail canônico e `password()` a partir da identidade local.
 
-O par `(provider, provider_subject)` é único. O vínculo automático por e-mail só acontece quando o provedor confirma `email_verified=true`.
+O par `(provider, provider_subject)` é único. O vínculo automático por e-mail só acontece quando o provedor confirma `email_verified=true` **e a conta existente não possui senha local**. Contas com senha local exigem vínculo explícito, conforme o [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social).
 
 ### Alternativas consideradas
 
@@ -138,7 +141,7 @@ O par `(provider, provider_subject)` é único. O vínculo automático por e-mai
 
 - A migration `Version20261104120000` moveu os dados existentes para `user_identities`.
 - `User::register()` e `User::registerWithProvider()` criam a identidade correspondente.
-- A fonte de verdade para autenticação é `user_identities`.
+- A fonte de verdade para autenticação é `user_identities`; o e-mail canônico é `users.email` (ver [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social)).
 
 ---
 
@@ -284,6 +287,88 @@ Usar S3 como contrato de storage, com Flysystem como abstração e Garage como i
 
 ---
 
+## ADR-011 — E-mail canônico e vínculo explícito de identidade social
+
+### Contexto
+
+O vínculo automático por e-mail permitia um ataque de pré-cadastro: um atacante registrava o e-mail da vítima com uma senha própria e, quando a vítima entrava com Google, a identidade dela era vinculada à conta do atacante — que mantinha a senha e o acesso.
+
+### Decisão
+
+- `users.email` é o e-mail canônico, único e `NOT NULL`; `users.email_verified_at` registra a verificação.
+- O vínculo automático só ocorre quando a conta existente **não possui senha local**.
+- Contas com senha local recebem `409 SOCIAL_ACCOUNT_LINK_REQUIRED` + `meta.link.token` e precisam autenticar antes de vincular.
+- O ticket é de uso único, expira em 10 minutos e é vinculado ao e-mail que originou o conflito.
+- A tela de configurações pode iniciar um fluxo `purpose=link` com Bearer e concluir em `/users/me/identities/{provider}`.
+
+### Alternativas consideradas
+
+- Nunca vincular automaticamente: conflita com a RN01.11 e cria duplicatas para contas sociais.
+- Vincular sempre e remover a senha local: deixaria a vítima sem forma de recuperar a conta.
+
+### Consequências
+
+- A migration de `users.email` aborta se houver duplicatas, exigindo correção manual.
+- O cadastro local passa a enviar verificação de e-mail.
+- `GET /api/v1/users/me` expõe `emailVerified`.
+- A falha de unicidade de e-mail no banco é traduzida para `EMAIL_ALREADY_EXISTS`, sem 500.
+
+---
+
+## ADR-012 — Fluxo OAuth com state e PKCE no backend
+
+### Contexto
+
+O endpoint aceitava `code`, `redirectUri` e um `codeVerifier` opcional do cliente. Sem um binding do navegador, um código obtido pelo atacante podia ser injetado no navegador da vítima (login CSRF), e o `redirectUri` controlado pelo cliente aumentava a superfície.
+
+### Decisão
+
+- `POST /auth/social/{provider}/start` gera `state` e PKCE (S256), guarda o fluxo no servidor e seta o cookie `social_flow` (`HttpOnly`).
+- `POST /auth/social/{provider}/callback` valida cookie + `state`, consome o fluxo e troca o code usando o `redirect_uri` e o `code_verifier` do servidor.
+- O redirect URI é escolhido no servidor por `client` (`web`, `dev`); o cliente não envia `redirectUri`, `codeVerifier` nem `name`.
+- `kid` desconhecido no JWKS renova as chaves, no máximo uma vez por minuto.
+
+### Alternativas consideradas
+
+- Exigir apenas PKCE do cliente: protege a interceptação do code, mas não o login CSRF, porque o `state` continuaria no front.
+- Manter a allowlist de `redirectUri` no request: funcional, porém mantém um campo controlado pelo cliente e permite callbacks públicos de terceiros.
+
+### Consequências
+
+- O contrato anterior de login social foi removido.
+- O cookie `social_flow` usa o path `/api/v1` e a mesma configuração de `Secure`/`SameSite` do refresh.
+- O fluxo é guardado no pool `cache.social_flow`; em múltiplas instâncias, o pool precisa ser compartilhado.
+- A página `/dev/google-oauth` existe apenas em `APP_ENV=dev` e substitui o Playground no fluxo da aplicação.
+
+---
+
+## ADR-013 — Tokens de uso único para verificação de e-mail e reset de senha
+
+### Contexto
+
+O cadastro local não confirmava o e-mail e não havia recuperação de senha. Sem verificação, o endereço não podia ser usado como fator de recuperação nem distinguir o dono real da conta.
+
+### Decisão
+
+- Persistir tokens de uso único em `identity_tokens` apenas como SHA-256, com `purpose`, `expires_at` e `consumed_at`.
+- Verificação de e-mail: 24 horas, enviada no cadastro e reenviável autenticado.
+- Reset de senha: 30 minutos, solicitação sempre responde `204` (sem enumeração).
+- O consumo é atômico (`UPDATE ... WHERE consumed_at IS NULL`); reset e troca revogam todas as famílias de refresh tokens.
+- O envio fica atrás de `IdentityMailerInterface`, com adapter Symfony Mailer e Mailpit em desenvolvimento.
+
+### Alternativas consideradas
+
+- Token assinado stateless: simples, mas sem revogação, uso único nem auditoria.
+- Envio síncrono dentro do handler de cadastro: acoplaria o cadastro ao provedor de e-mail; o listener atual captura falhas e permite reenvio.
+
+### Consequências
+
+- Novas rotas: `auth/email/verify`, `users/me/email/resend`, `auth/password/forgot`, `auth/password/reset` e `users/me/password`.
+- Contas só sociais podem ganhar uma credencial local via reset (o e-mail já foi verificado pelo provedor).
+- O envio é síncrono; a migração para Messenger fica registrada como evolução.
+
+---
+
 ## DEC09 — Backend em Symfony
 
 ### Contexto
@@ -333,4 +418,6 @@ Implementar **apenas Google**, pelo fluxo de authorization code. Apple fica como
 
 - `SOCIAL_PROVIDER_UNSUPPORTED` é retornado para provedores diferentes de `google`.
 - O fluxo por `id_token` para app nativo fica preparado, mas não implementado.
+- O login usa `start` + `callback` com state e PKCE, conforme o [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend).
+- O vínculo automático por e-mail só ocorre para contas sem senha local; as demais exigem vínculo explícito, conforme o [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social).
 - A configuração do Google está em [autenticacao.md](autenticacao.md).

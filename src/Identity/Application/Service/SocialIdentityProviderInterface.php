@@ -25,7 +25,6 @@ interface SocialIdentityProviderInterface
     public function fetchIdentity(
         string $authorizationCode,
         string $redirectUri,
-        ?string $codeVerifier = null,
-        ?string $name = null,
+        string $codeVerifier,
     ): SocialIdentity;
 }

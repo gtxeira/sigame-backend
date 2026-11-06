@@ -106,11 +106,8 @@ it('invalidates the refresh token on logout', function () {
 
 it('rejects an unsupported social provider', function () {
     $response = $this->api->post(
-        'app_auth_social',
-        [
-            'code' => 'code',
-            'redirectUri' => 'http://localhost:3000/auth/google/callback',
-        ],
+        'app_auth_social_start',
+        ['client' => 'web'],
         ['provider' => 'apple'],
     );
 
@@ -118,15 +115,54 @@ it('rejects an unsupported social provider', function () {
         ->and($this->api->errorCodes())->toBe(['SOCIAL_PROVIDER_UNSUPPORTED']);
 });
 
-it('validates the social login payload', function () {
+it('validates the social start payload', function () {
     $response = $this->api->post(
-        'app_auth_social',
-        ['redirectUri' => 'http://localhost:3000/auth/google/callback'],
+        'app_auth_social_start',
+        [],
         ['provider' => 'google'],
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
         ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+});
+
+it('starts a social flow with state, PKCE and a flow cookie', function () {
+    $response = $this->api->post(
+        'app_auth_social_start',
+        ['client' => 'web'],
+        ['provider' => 'google'],
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+
+    $body = authTestBody($response);
+
+    expect($body['data']['authorizationUrl'])
+        ->toStartWith('https://accounts.google.com/o/oauth2/v2/auth?')
+        ->toContain('code_challenge_method=S256')
+        ->and($body['data']['state'])->toBeString()->not->toBeEmpty()
+        ->and($body['data']['expiresIn'])->toBe(600)
+        ->and(authTestSocialFlowCookie($response))->toBeString()->not->toBeEmpty();
+});
+
+it('rejects a social callback without the flow cookie', function () {
+    $start = $this->api->post(
+        'app_auth_social_start',
+        ['client' => 'web'],
+        ['provider' => 'google'],
+    );
+    $state = authTestBody($start)['data']['state'];
+
+    $this->api->getKernelBrowser()->getCookieJar()->clear();
+
+    $response = $this->api->post(
+        'app_auth_social_callback',
+        ['code' => 'user@example.com', 'state' => $state],
+        ['provider' => 'google'],
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['SOCIAL_FLOW_INVALID']);
 });
 
 it('rate limits repeated login attempts', function () {
@@ -140,4 +176,24 @@ it('rate limits repeated login attempts', function () {
 
     expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS)
         ->and($this->api->errorCodes())->toBe(['TOO_MANY_REQUESTS']);
+});
+
+it('rejects a cookie refresh from a disallowed origin', function () {
+    $response = $this->api->post('app_auth_refresh', server: [
+        'HTTP_ORIGIN' => 'https://evil.example.com',
+    ]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN);
+});
+
+it('accepts a cookie refresh from an allowed origin', function () {
+    authTestCreateUser($this, 'origin@example.com');
+    authTestLogin($this, 'origin@example.com');
+
+    $response = $this->api->post('app_auth_refresh', server: [
+        'HTTP_ORIGIN' => 'http://localhost:3000',
+    ]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK)
+        ->and(authTestRefreshCookie($response))->toBeString()->toStartWith('rt_');
 });

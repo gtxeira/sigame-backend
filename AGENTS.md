@@ -89,7 +89,8 @@ assumption; don't scaffold a full stack unprompted.
   (git-ignored) or the Symfony vault; `.env.dev` and `.env.test` hold environment
   defaults.
 - Not implemented yet: S3/Flysystem storage adapter, onboarding HTTP layer, Messenger,
-  API Platform, rate-limiter shared storage. Don't assume or scaffold them unless asked.
+  API Platform, shared storage for rate limiter and OAuth flow. Don't assume or scaffold
+  them unless asked.
 
 ## Test conventions
 

@@ -27,7 +27,7 @@ final readonly class Instant
 
     public static function now(): self
     {
-        return new self(new DateTimeImmutable());
+        return new self(new DateTimeImmutable('now', new DateTimeZone('UTC')));
     }
 
     /**
@@ -235,6 +235,24 @@ final readonly class Instant
     public function toIsoStringWithMicroseconds(): string
     {
         return $this->value->format('Y-m-d\TH:i:s.uP');
+    }
+
+    /**
+     * Retorna o DateTimeImmutable alterado para o fuso horário especificado.
+     */
+    public function inTimezone(DateTimeZone $timezone): DateTimeImmutable
+    {
+        return $this->value->setTimezone($timezone);
+    }
+
+    /**
+     * Formata o Instant no fuso horário especificado.
+     */
+    public function formatInTimezone(
+        DateTimeZone $timezone,
+        string $format = DateTimeInterface::RFC3339_EXTENDED,
+    ): string {
+        return $this->inTimezone($timezone)->format($format);
     }
 
     public function __toString(): string

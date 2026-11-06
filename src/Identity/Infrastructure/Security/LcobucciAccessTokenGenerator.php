@@ -39,9 +39,15 @@ final readonly class LcobucciAccessTokenGenerator implements AccessTokenGenerato
         #[Autowire(env: 'int:ACCESS_TOKEN_TTL')]
         private int $ttlSeconds,
         private ClockInterface $clock,
+        #[Autowire(param: 'kernel.environment')]
+        private string $environment = 'dev',
     ) {
         if (mb_strlen($this->secret) < 32) {
             throw new InvalidArgumentException('ACCESS_TOKEN_SECRET deve ter pelo menos 32 caracteres.');
+        }
+
+        if ('prod' === $this->environment && str_starts_with($this->secret, 'change-me')) {
+            throw new InvalidArgumentException('ACCESS_TOKEN_SECRET não pode usar o valor padrão em produção.');
         }
 
         $this->key = InMemory::plainText($this->secret);

@@ -38,6 +38,17 @@ enum IdentityErrorCode: string
     case SocialAuthenticationFailed = 'SOCIAL_AUTHENTICATION_FAILED';
     case SocialEmailNotVerified = 'SOCIAL_EMAIL_NOT_VERIFIED';
     case SocialEmailMissing = 'SOCIAL_EMAIL_MISSING';
+    case SocialAccountLinkRequired = 'SOCIAL_ACCOUNT_LINK_REQUIRED';
+    case SocialIdentityAlreadyLinked = 'SOCIAL_IDENTITY_ALREADY_LINKED';
+    case SocialLinkEmailMismatch = 'SOCIAL_LINK_EMAIL_MISMATCH';
+    case SocialLinkTokenInvalid = 'SOCIAL_LINK_TOKEN_INVALID';
+    case SocialFlowInvalid = 'SOCIAL_FLOW_INVALID';
+    case SocialClientUnsupported = 'SOCIAL_CLIENT_UNSUPPORTED';
+    case EmailVerificationTokenInvalid = 'EMAIL_VERIFICATION_TOKEN_INVALID';
+    case EmailVerificationTokenExpired = 'EMAIL_VERIFICATION_TOKEN_EXPIRED';
+    case PasswordResetTokenInvalid = 'PASSWORD_RESET_TOKEN_INVALID';
+    case PasswordResetTokenExpired = 'PASSWORD_RESET_TOKEN_EXPIRED';
+    case PasswordCurrentInvalid = 'PASSWORD_CURRENT_INVALID';
 
     public function kind(): ErrorKind
     {
@@ -48,7 +59,10 @@ enum IdentityErrorCode: string
             self::OnboardingAlreadyCompleted,
             self::UserAlreadyActive,
             self::UserAlreadySuspended,
-            self::RefreshInProgress => ErrorKind::Conflict,
+            self::RefreshInProgress,
+            self::SocialAccountLinkRequired,
+            self::SocialIdentityAlreadyLinked,
+            self::SocialLinkEmailMismatch => ErrorKind::Conflict,
 
             self::UserLevelInvalid,
             self::UserHeightInvalid,
@@ -58,7 +72,15 @@ enum IdentityErrorCode: string
             self::OnboardingNoModalitySelected,
             self::SocialProviderUnsupported,
             self::SocialEmailNotVerified,
-            self::SocialEmailMissing => ErrorKind::Validation,
+            self::SocialEmailMissing,
+            self::SocialLinkTokenInvalid,
+            self::SocialFlowInvalid,
+            self::SocialClientUnsupported,
+            self::EmailVerificationTokenInvalid,
+            self::EmailVerificationTokenExpired,
+            self::PasswordResetTokenInvalid,
+            self::PasswordResetTokenExpired,
+            self::PasswordCurrentInvalid => ErrorKind::Validation,
 
             self::InvalidCredentials,
             self::RefreshTokenInvalid,

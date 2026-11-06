@@ -39,7 +39,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
         ],
         'access_control' => [
             ['path' => '^/api/health', 'roles' => 'PUBLIC_ACCESS'],
-            ['path' => '^/api/v1/auth/(register|login|refresh|social)', 'roles' => 'PUBLIC_ACCESS'],
+            ['path' => '^/api/v1/auth/social/[a-z]+/link$', 'roles' => 'ROLE_USER'],
+            ['path' => '^/api/v1/auth/(register|login|refresh|social|email|password)', 'roles' => 'PUBLIC_ACCESS'],
             ['path' => '^/api/v1/auth/logout$', 'roles' => 'PUBLIC_ACCESS'],
             ['path' => '^/doc', 'roles' => 'PUBLIC_ACCESS'],
             ['path' => '^/api', 'roles' => 'ROLE_USER'],

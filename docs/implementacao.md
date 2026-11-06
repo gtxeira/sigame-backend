@@ -38,13 +38,16 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 |---|---|---|
 | Cadastro local com CPF opcional | Implementado | `src/Identity/Application/UseCase/RegisterUser/` |
 | Login com e-mail e senha | Implementado | `src/Identity/Application/UseCase/AuthenticateUser/` |
-| Login social com Google via authorization code | Implementado | `src/Identity/Application/UseCase/AuthenticateWithSocialProvider/` e `src/Identity/Infrastructure/Social/` |
+| Login social com Google via authorization code + state/PKCE | Implementado | `src/Identity/Application/UseCase/Social/` e `src/Identity/Infrastructure/Social/` |
+| Vínculo explícito de identidade social | Implementado | `LinkSocialIdentity/` e `POST /api/v1/auth/social/{provider}/link` |
+| Verificação de e-mail | Implementado | `src/Identity/Application/UseCase/EmailVerification/` e `src/Identity/Infrastructure/Mailer/` |
+| Recuperação e troca de senha | Implementado | `src/Identity/Application/UseCase/Password/` |
 | Access token JWT + refresh token opaco | Implementado | `src/Identity/Application/Service/TokenPairIssuer.php` |
 | Rotação de refresh com detecção de reuso | Implementado | `TokenPairIssuer::rotate()` |
 | Logout e logout de todos os dispositivos | Implementado | `src/Identity/Application/UseCase/Logout/` |
 | Dados do usuário autenticado | Implementado | `src/Identity/Presentation/Http/Controller/MeController.php` |
 | Definição de CPF write-once | Implementado | `AssignCpfHandler` e `PATCH /api/v1/users/me/cpf` |
-| Rate limiting de login, social, refresh e CPF | Implementado | `config/packages/rate_limiter.php` |
+| Rate limiting de cadastro, login, social, e-mail, senha, refresh e CPF | Implementado | `config/packages/rate_limiter.php` |
 | Health checks | Implementado | `src/Monitoring/` |
 | Onboarding | Parcial | Regras em `User::completeOnboarding()`; falta handler e controller |
 | Upload de foto de perfil em S3 | Não iniciado | Pacotes instalados, sem adapter de storage |
@@ -60,12 +63,20 @@ Rotas confirmadas por `bin/console debug:router`:
 |---|---|---|
 | `POST` | `/api/v1/auth/register` | Pública |
 | `POST` | `/api/v1/auth/login` | Pública |
-| `POST` | `/api/v1/auth/social/{provider}` | Pública |
+| `POST` | `/api/v1/auth/social/{provider}/start` | Pública (Bearer opcional) |
+| `POST` | `/api/v1/auth/social/{provider}/callback` | Pública + cookie `social_flow` |
+| `POST` | `/api/v1/auth/social/{provider}/link` | Bearer JWT |
+| `POST` | `/api/v1/auth/email/verify` | Pública |
+| `POST` | `/api/v1/auth/password/forgot` | Pública |
+| `POST` | `/api/v1/auth/password/reset` | Pública |
 | `POST` | `/api/v1/auth/refresh` | Cookie `refresh_token` |
 | `POST` | `/api/v1/auth/logout` | Cookie `refresh_token` |
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT |
+| `POST` | `/api/v1/users/me/email/resend` | Bearer JWT |
+| `POST` | `/api/v1/users/me/password` | Bearer JWT |
+| `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT |
 | `GET` | `/api/health/liveness` | Pública |
 | `GET` | `/api/health/readiness` | Pública |
 
@@ -103,10 +114,12 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 - [x] `MeController` com `/users/me` e `/users/me/cpf`.
 - [x] Adapter de segurança (`SecurityUser`, `SecurityUserProvider`, `ActiveUserChecker`).
 - [x] Autenticador de access token Bearer.
-- [x] Google via authorization code + JWKS.
-- [x] Rate limiting de login, social, refresh e CPF.
-- [x] Testes de unidade, integração e funcionais dos fluxos principais.
-- [ ] Teste funcional do login Google com sucesso (hoje o fluxo bem-sucedido é coberto por teste de unidade com provedor mockado).
+- [x] Google via authorization code + state/PKCE + JWKS.
+- [x] E-mail canônico único e vínculo explícito de identidade social.
+- [x] Verificação de e-mail e recuperação/troca de senha.
+- [x] Rate limiting de cadastro, login, social, e-mail, senha, refresh e CPF.
+- [x] Testes de unidade, integração e funcionais dos fluxos principais, incluindo sucesso do login Google com provedor fake.
+- [x] Página `/dev/google-oauth` para diagnóstico local sem Playground público.
 
 ### Fase 3 — Identity: onboarding
 
@@ -215,9 +228,10 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `UserRegistered` sem consumidor | O evento é publicado no cadastro e no login social | Implementar listener de Gamification quando o módulo existir. |
 | Motivo da suspensão não é persistido | `User::suspend(string $reason)` ignora o argumento | Criar histórico de suspensões com autor, motivo e datas. |
 | Sem upload de arquivos | Pacotes `league/flysystem` e `league/flysystem-aws-s3-v3` instalados, sem adapter | Implementar `FileStorageInterface` e o adapter S3/Garage. |
-| Login Google sem teste funcional de sucesso | `AuthTest` cobre provedor não suportado e payload inválido | Adicionar teste com provedor fake ou cliente HTTP mockado no nível funcional. |
 | CI não roda testes | `.github/workflows/ci.yaml` tem os passos de migrations/PHPUnit comentados | Reativar migrations, testes e `doctrine:schema:validate` no CI. |
-| Refresh tokens acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/revogados. |
+| Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
+| Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
+| Envio de e-mail síncrono | `IdentityMailerInterface` é chamado no fluxo da requisição | Migrar para Messenger quando o módulo de notificações entrar. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
 
 ---

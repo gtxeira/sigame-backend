@@ -7,14 +7,54 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 return static function (ContainerConfigurator $containerConfigurator): void {
     $containerConfigurator->extension('framework', [
         'rate_limiter' => [
+            'auth_register' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_REGISTER_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
             'auth_login' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:AUTH_LOGIN_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
-            'auth_social' => [
+            'auth_social_start' => [
                 'policy' => 'sliding_window',
-                'limit' => '%env(int:AUTH_SOCIAL_RATE_LIMIT)%',
+                'limit' => '%env(int:AUTH_SOCIAL_START_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_social_callback' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_SOCIAL_CALLBACK_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_social_link' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_SOCIAL_LINK_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_email_verify' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_EMAIL_VERIFY_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_email_resend' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_EMAIL_RESEND_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_password_forgot' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_PASSWORD_FORGOT_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_password_reset' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_PASSWORD_RESET_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'auth_password_change' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_PASSWORD_CHANGE_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
             'auth_refresh' => [

@@ -125,6 +125,20 @@ final class UserIdentity
         return $this->password;
     }
 
+    public function verifyEmail(Instant $verifiedAt): void
+    {
+        if (null !== $this->emailVerifiedAt) {
+            return;
+        }
+
+        $this->emailVerifiedAt = $verifiedAt;
+    }
+
+    public function changePassword(HashedPassword $password): void
+    {
+        $this->password = $password;
+    }
+
     public function emailVerifiedAt(): ?Instant
     {
         return $this->emailVerifiedAt;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Identity\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
@@ -12,6 +13,7 @@ use App\Identity\Domain\User\ValueObject\UserId;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Infrastructure\Persistence\AbstractRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -28,8 +30,22 @@ final class DoctrineUserRepository extends AbstractRepository implements UserRep
 
     public function save(User $user): void
     {
-        $this->getEntityManager()->persist($user);
-        $this->getEntityManager()->flush();
+        try {
+            $entityManager = $this->getEntityManager();
+            $entityManager->persist($user);
+            $entityManager->flush();
+        } catch (UniqueConstraintViolationException $exception) {
+            $message = $exception->getMessage();
+
+            if (
+                str_contains($message, 'uniq_users_email')
+                || str_contains($message, 'uniq_user_identities_provider_subject')
+            ) {
+                throw EmailAlreadyExistsException::create($exception);
+            }
+
+            throw $exception;
+        }
     }
 
     public function findById(UserId $id): ?User
@@ -40,10 +56,8 @@ final class DoctrineUserRepository extends AbstractRepository implements UserRep
     public function findByEmail(Email $email): ?User
     {
         return $this->createQueryBuilder('u')
-            ->innerJoin('u.identities', 'i')
-            ->where('i.email = :email')
+            ->where('u.email = :email')
             ->setParameter('email', $email, 'email')
-            ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
     }

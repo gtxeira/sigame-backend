@@ -170,6 +170,108 @@ final class IdentityErrors
         );
     }
 
+    public static function socialAccountLinkRequired(string $providerLabel = 'Google'): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialAccountLinkRequired,
+            message: sprintf(
+                'Já existe uma conta cadastrada com este e-mail. Faça login com sua senha para vincular sua conta do %s.',
+                $providerLabel,
+            ),
+            field: 'email',
+        );
+    }
+
+    public static function socialIdentityAlreadyLinked(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialIdentityAlreadyLinked,
+            message: 'Esta conta do provedor já está vinculada a outro usuário.',
+            field: 'provider',
+        );
+    }
+
+    public static function socialLinkEmailMismatch(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialLinkEmailMismatch,
+            message: 'A conta do provedor informada não corresponde ao e-mail desta conta.',
+            field: 'email',
+        );
+    }
+
+    public static function socialLinkTokenInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialLinkTokenInvalid,
+            message: 'O vínculo de conta expirou ou é inválido. Inicie o login novamente.',
+            field: 'linkToken',
+        );
+    }
+
+    public static function socialFlowInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialFlowInvalid,
+            message: 'O fluxo de autenticação social expirou ou é inválido. Inicie novamente.',
+            field: 'state',
+        );
+    }
+
+    public static function socialClientUnsupported(string $client): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SocialClientUnsupported,
+            message: sprintf('O cliente de login "%s" não é suportado.', $client),
+            field: 'client',
+        );
+    }
+
+    public static function emailVerificationTokenInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::EmailVerificationTokenInvalid,
+            message: 'O token de verificação de e-mail é inválido.',
+            field: 'token',
+        );
+    }
+
+    public static function emailVerificationTokenExpired(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::EmailVerificationTokenExpired,
+            message: 'O token de verificação de e-mail expirou. Solicite um novo.',
+            field: 'token',
+        );
+    }
+
+    public static function passwordResetTokenInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordResetTokenInvalid,
+            message: 'O token de redefinição de senha é inválido.',
+            field: 'token',
+        );
+    }
+
+    public static function passwordResetTokenExpired(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordResetTokenExpired,
+            message: 'O token de redefinição de senha expirou. Solicite um novo.',
+            field: 'token',
+        );
+    }
+
+    public static function passwordCurrentInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordCurrentInvalid,
+            message: 'A senha atual informada é inválida.',
+            field: 'currentPassword',
+        );
+    }
+
     private static function error(
         IdentityErrorCode $code,
         string $message,

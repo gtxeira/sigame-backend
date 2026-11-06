@@ -50,7 +50,7 @@ it('creates a new user via register factory method', function () {
     );
 
     expect($user->cpf()?->value())->toBe($cpf->value())
-        ->and($user->email()?->value())->toBe($email->value())
+        ->and($user->email()->value())->toBe($email->value())
         ->and($user->password()?->value())->toBe($password->value())
         ->and($user->name())->toBe('João Silva')
         ->and($user->role())->toBe(UserRole::USER)
@@ -277,7 +277,7 @@ it('registers a user without cpf', function () {
     );
 
     expect($user->cpf())->toBeNull()
-        ->and($user->email()?->value())->toBe('no-cpf@example.com');
+        ->and($user->email()->value())->toBe('no-cpf@example.com');
 });
 
 it('assigns the cpf once', function () {

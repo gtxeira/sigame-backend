@@ -8,6 +8,7 @@ use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserRegistered;
+use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
@@ -78,7 +79,13 @@ final readonly class RegisterUserHandler
             name: $command->name(),
         );
 
-        $this->userRepository->save($user);
+        try {
+            $this->userRepository->save($user);
+        } catch (EmailAlreadyExistsException) {
+            return Result::failure([
+                IdentityErrors::emailAlreadyExists(),
+            ]);
+        }
 
         // Publica evento de domínio
         $this->eventDispatcher->dispatch(UserRegistered::now(

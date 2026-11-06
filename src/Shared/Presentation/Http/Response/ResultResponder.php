@@ -49,9 +49,18 @@ final class ResultResponder
      */
     public function failure(Result $result): JsonResponse
     {
+        return $this->failureWithMeta($result, []);
+    }
+
+    /**
+     * @param Result<mixed>        $result
+     * @param array<string, mixed> $meta
+     */
+    public function failureWithMeta(Result $result, array $meta): JsonResponse
+    {
         $errors = ApiResponseErrorsMapper::fromDomainErrors($result->errors());
 
-        return ApiResponse::error($errors)
+        return ApiResponse::error($errors, $meta)
             ->toJsonResponse($this->errorStatusResolver->fromErrors($result->errors()));
     }
 }

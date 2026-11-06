@@ -14,14 +14,19 @@ use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
 use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
+use App\Shared\Presentation\Http\OpenApi\TooManyRequestsResponse;
 use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
 use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
+use App\Shared\Presentation\Http\RateLimit\RateLimitGuard;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -34,6 +39,9 @@ final class RegistrationController extends AbstractController
     public function __construct(
         private readonly RegisterUserHandler $registerUserHandler,
         private readonly ResultResponder $resultResponder,
+        private readonly RateLimitGuard $rateLimitGuard,
+        #[Autowire(service: 'limiter.auth_register')]
+        private readonly RateLimiterFactoryInterface $registerLimiter,
     ) {
     }
 
@@ -104,13 +112,20 @@ final class RegistrationController extends AbstractController
             'email' => 'E-mail do usuário.',
         ],
     )]
+    #[TooManyRequestsResponse]
     #[BadRequestResponse]
     #[UnsupportedMediaTypeResponse]
     #[InternalErrorResponse]
     public function register(
         #[MapRequestPayload]
         RegisterUserRequest $request,
+        Request $httpRequest,
     ): JsonResponse {
+        $this->rateLimitGuard->assertWithin(
+            $this->registerLimiter,
+            mb_strtolower(trim($request->email)).'|'.($httpRequest->getClientIp() ?? 'unknown'),
+        );
+
         $command = new RegisterUserCommand(
             cpf: $request->cpf,
             email: $request->email,

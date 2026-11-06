@@ -145,7 +145,7 @@ O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastr
 - `RN01.8` Todo usuário novo inicia no nível 1.
 - `RN01.9` O CPF pode ser definido depois do cadastro, por endpoint autenticado. Uma vez definido, é **write-once**: o próprio usuário não pode alterá-lo.
 - `RN01.10` O cadastro por provedor social cria a conta sem senha local e sem CPF, com onboarding pendente e nível 1.
-- `RN01.11` Quando o provedor confirma `email_verified=true` e o e-mail já pertence a uma conta, a identidade social é vinculada a essa conta em vez de criar uma duplicata.
+- `RN01.11` Quando o provedor confirma `email_verified=true` e o e-mail já pertence a uma conta **sem senha local**, a identidade social é vinculada a essa conta em vez de criar uma duplicata. Se a conta existente tiver senha local, o vínculo só ocorre após o usuário autenticar na conta e confirmar a vinculação.
 - `RN01.12` O CPF é exigido apenas para resgatar recompensas/vouchers externos à plataforma, como comprovação de identidade real e prevenção de ganhos indevidos.
 
 #### Critérios de aceitação
@@ -172,7 +172,7 @@ O sistema deve autenticar o usuário por e-mail/senha ou por provedor social (Go
 - `RN02.5` A cada renovação, o refresh token é rotacionado dentro da mesma família; o token anterior é revogado.
 - `RN02.6` O reuso de um refresh token revogado fora da janela de graça revoga toda a família.
 - `RN02.7` O logout revoga a família do cookie; o logout de todos os dispositivos revoga todas as famílias.
-- `RN02.8` No login social, o e-mail deve estar verificado pelo provedor e o vínculo automático só ocorre nesse caso.
+- `RN02.8` No login social, o e-mail deve estar verificado pelo provedor; o vínculo automático só ocorre quando a conta existente não tem senha local. Contas com senha local exigem autenticação e vínculo explícito.
 - `RN02.9` O refresh token nunca é retornado no corpo da resposta; o access token nunca é armazenado em cookie.
 
 #### Critérios de aceitação
