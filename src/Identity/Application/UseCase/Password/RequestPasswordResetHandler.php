@@ -56,7 +56,9 @@ final readonly class RequestPasswordResetHandler
         if ($this->cooldownSeconds > 0 && $this->tokenRepository->hasUnconsumedCreatedAfter(
             $user,
             IdentityTokenPurpose::PasswordReset,
-            Instant::fromDateTime($now->modify(sprintf('-%d seconds', $this->cooldownSeconds))),
+            sprintf('-%d seconds', $this->cooldownSeconds)
+                |> $now->modify(...)
+                |> Instant::fromDateTime(...),
         )) {
             return;
         }
