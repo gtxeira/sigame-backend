@@ -25,14 +25,17 @@ O `justfile` carrega `.env`, `.env.dev` e `.env.local` automaticamente.
 | Serviço | Imagem / build | Portas | Observações |
 |---|---|---|---|
 | `php` | `frankenphp_dev` | `8000/tcp` (HTTP), `8443/tcp` (HTTPS), `8443/udp` (HTTP/3) | Código montado em `/app`; worker com watch/hot reload |
+| `worker` | `frankenphp_dev` | — | Consome `messenger:consume async`; espera o `php` ficar saudável |
 | `postgres` | `postgres:18-alpine` | `5432` | Volume `pgdata`; padrão `POSTGRES_DB=sigame` |
 | `garage` | `dxflrs/garage:v2.4.1` | `3900` (S3 API), `3902` (Web) | Configuração em `garage.toml`; volumes `garage-meta` e `garage-data` |
 
-O entrypoint espera o PostgreSQL responder e aplica as migrations antes de liberar a aplicação.
+O entrypoint espera o PostgreSQL responder e aplica as migrations antes de liberar a aplicação. O worker usa `docker-php-entrypoint` e espera o `php` saudável para não rodar migrations em paralelo.
 
 ### 2.2 Produção
 
-O `compose.prod.yaml` substitui o build do `php` por `frankenphp_prod`. Ele **não** define PostgreSQL nem Garage: em produção, banco e storage devem ser serviços externos (ou um Compose separado), configurados por `DATABASE_URL` e `S3_*`.
+O `compose.prod.yaml` substitui o build do `php` por `frankenphp_prod` e sobe também o serviço `worker` com a mesma imagem. Ele **não** define PostgreSQL nem Garage: em produção, banco e storage devem ser serviços externos (ou um Compose separado), configurados por `DATABASE_URL` e `S3_*`.
+
+O serviço `php` de produção declara um healthcheck no endpoint de métricas do Caddy; o `worker` depende dele para começar depois das migrations.
 
 O Dockerfile de produção:
 
@@ -135,6 +138,20 @@ O Garage local usa `garage.toml`:
 | `LOCK_DSN` | `flock` | Store usado pelo `symfony/lock` |
 
 Em produção com múltiplas instâncias, prefira um store compartilhado (por exemplo, `postgresql+advisory://...`) em vez de `flock`.
+
+### 3.7 Messenger e worker
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `MESSENGER_TRANSPORT_DSN` | `doctrine://default?auto_setup=0` | Transporte usado pelo Messenger |
+| `MESSENGER_MAIL_ENCRYPTION_KEY` | — | Base64 de 32 bytes para cifrar o token na fila |
+
+- O transporte `async` usa a tabela `messenger_messages`, criada pela migration `Version20261106100000`; `auto_setup` fica desativado.
+- O transporte `failed` usa a mesma tabela com `queue_name=failed`.
+- O worker roda `php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just worker` executa manualmente e `just worker-logs` acompanha o serviço.
+- Inspecione a fila de falhas com `just messenger-failed` (`messenger:failed:show`). Mensagens de reset nessa fila já tiveram o token consumido: remova-as, não faça retry.
+- A chave `MESSENGER_MAIL_ENCRYPTION_KEY` deve ser idêntica no `php` e no `worker`. Rotação exige parar o worker, drenar `async` e só então trocar a chave.
+- A V1 roda uma réplica do worker para preservar a ordem FIFO entre reenvios do mesmo usuário.
 
 ## 4. Migrations e inicialização
 

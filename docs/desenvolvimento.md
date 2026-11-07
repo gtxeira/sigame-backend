@@ -37,6 +37,7 @@ O Compose sobe:
 | Serviço | Imagem | Uso |
 |---|---|---|
 | `php` | FrankenPHP + Caddy | Aplicação, HTTPS local e worker mode |
+| `worker` | FrankenPHP + Caddy | Consome a fila `async` do Messenger |
 | `postgres` | `postgres:18-alpine` | Banco de dados |
 | `garage` | `dxflrs/garage` | S3 local para arquivos |
 
@@ -79,6 +80,16 @@ Para acompanhar logs:
 just logs
 ```
 
+### 3.1 Chave de encriptação e worker
+
+O ambiente de desenvolvimento já traz uma chave em `.env.dev`. Para usar outra, gere com `just keygen` e defina em `.env.local`:
+
+```dotenv
+MESSENGER_MAIL_ENCRYPTION_KEY=<base64 de 32 bytes>
+```
+
+O worker do Messenger sobe junto com `just up`. Se ele estiver parado, os e-mails de verificação e reset ficam na fila `messenger_messages` até o worker voltar. Para rodar um consumidor manual use `just worker`; para acompanhar o serviço, `just worker-logs`.
+
 ## 4. Comandos do dia a dia
 
 ### 4.1 Just
@@ -91,6 +102,10 @@ just logs
 | `just start` | `build` + `up` |
 | `just down` | Para os containers e remove órfãos |
 | `just logs` | Acompanha os logs |
+| `just worker-logs` | Acompanha os logs do worker do Messenger |
+| `just worker` | Executa o worker manualmente no container `php` |
+| `just keygen` | Gera uma chave base64 de 32 bytes para `MESSENGER_MAIL_ENCRYPTION_KEY` |
+| `just messenger-failed` | Lista as mensagens da fila de falhas |
 | `just sh` / `just bash` | Abre shell no container `php` |
 | `just sf <args>` | Roda `bin/console` no container |
 | `just cc` | Limpa o cache do Symfony |
@@ -108,7 +123,8 @@ Exemplos:
 ```bash
 just sf debug:router
 just sf doctrine:migrations:status
-just composer req symfony/messenger
+just sf debug:messenger
+just keygen
 just test --filter="logs in"
 ```
 

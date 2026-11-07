@@ -41,6 +41,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Login social com Google via authorization code + state/PKCE | Implementado | `src/Identity/Application/UseCase/Social/` e `src/Identity/Infrastructure/Social/` |
 | Vínculo explícito de identidade social | Implementado | `LinkSocialIdentity/` e `POST /api/v1/auth/social/{provider}/link` |
 | Verificação de e-mail | Implementado | `src/Identity/Application/UseCase/EmailVerification/` e `src/Identity/Infrastructure/Mailer/` |
+| E-mail transacional assíncrono | Implementado | `IdentityMailDispatcherInterface`, `MessengerIdentityMailDispatcher` e worker do Messenger |
 | Recuperação e troca de senha | Implementado | `src/Identity/Application/UseCase/Password/` |
 | Access token JWT + refresh token opaco | Implementado | `src/Identity/Application/Service/TokenPairIssuer.php` |
 | Rotação de refresh com detecção de reuso | Implementado | `TokenPairIssuer::rotate()` |
@@ -208,6 +209,7 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261029191722` | 2026-10-29 | Substitui `users.profile` JSON por `height_cm`, `weight_kg` e `photo_url`; cria `user_modalities` e migra os dados existentes. |
 | `Version20261104120000` | 2026-11-04 | Cria `user_identities` e `refresh_tokens`; move e-mail/senha para identidades; torna `users.cpf` opcional. |
 | `Version20261105153437` | 2026-11-05 | Torna `users.updated_at` obrigatório, preenchendo nulos com `created_at`. |
+| `Version20261106100000` | 2026-11-06 | Cria `messenger_messages` para o transporte Doctrine do Messenger. |
 
 ### Regras
 
@@ -231,7 +233,6 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | CI não roda testes | `.github/workflows/ci.yaml` tem os passos de migrations/PHPUnit comentados | Reativar migrations, testes e `doctrine:schema:validate` no CI. |
 | Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
-| Envio de e-mail síncrono | `IdentityMailerInterface` é chamado no fluxo da requisição | Migrar para Messenger quando o módulo de notificações entrar. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
 
 ---

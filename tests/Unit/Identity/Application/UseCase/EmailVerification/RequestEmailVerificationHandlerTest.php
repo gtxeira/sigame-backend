@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Identity\Application\Service\IdentityMailerInterface;
+use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
 use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
@@ -32,12 +32,12 @@ it('returns early when the email is already verified', function () {
     $tokens->shouldNotReceive('invalidateUnconsumed');
     $tokens->shouldNotReceive('save');
 
-    $mailer = Mockery::mock(IdentityMailerInterface::class);
-    $mailer->shouldNotReceive('sendEmailVerification');
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldNotReceive('dispatchEmailVerification');
 
     $handler = new RequestEmailVerificationHandler(
         tokenRepository: $tokens,
-        mailer: $mailer,
+        mailDispatcher: $dispatcher,
         logger: Mockery::mock(LoggerInterface::class),
         clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
         ttlSeconds: 86400,
@@ -66,8 +66,8 @@ it('invalidates previous tokens and sends a token valid for the configured ttl',
             return true;
         }));
 
-    $mailer = Mockery::mock(IdentityMailerInterface::class);
-    $mailer->shouldReceive('sendEmailVerification')
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldReceive('dispatchEmailVerification')
         ->once()
         ->with(
             Mockery::on(static fn (Email $email): bool => 'verify@example.com' === $email->value()),
@@ -79,11 +79,14 @@ it('invalidates previous tokens and sends a token valid for the configured ttl',
             Mockery::on(static fn (Instant $expiresAt): bool => $expiresAt->equals(
                 Instant::fromDateTime(new DateTimeImmutable('2026-01-02T00:00:00+00:00')),
             )),
+            Mockery::on(static function (string $tokenHash) use (&$rawToken): bool {
+                return hash('sha256', (string) $rawToken) === $tokenHash;
+            }),
         );
 
     $handler = new RequestEmailVerificationHandler(
         tokenRepository: $tokens,
-        mailer: $mailer,
+        mailDispatcher: $dispatcher,
         logger: Mockery::mock(LoggerInterface::class),
         clock: $clock,
         ttlSeconds: 86400,
@@ -97,28 +100,28 @@ it('invalidates previous tokens and sends a token valid for the configured ttl',
         ->and($saved?->tokenHash())->toBe(hash('sha256', (string) $rawToken));
 });
 
-it('logs a warning instead of failing when the mailer throws', function () {
+it('logs a warning instead of failing when the dispatcher throws', function () {
     $user = emailVerificationTestUser();
 
     $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
     $tokens->shouldReceive('invalidateUnconsumed')->once();
     $tokens->shouldReceive('save')->once();
 
-    $mailer = Mockery::mock(IdentityMailerInterface::class);
-    $mailer->shouldReceive('sendEmailVerification')
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldReceive('dispatchEmailVerification')
         ->once()
         ->andThrow(new RuntimeException('smtp offline'));
 
     $logger = Mockery::mock(LoggerInterface::class);
     $logger->shouldReceive('warning')
         ->once()
-        ->with('Falha ao enviar e-mail de verificação', Mockery::on(
+        ->with('Falha ao enfileirar e-mail de verificação', Mockery::on(
             static fn (array $context): bool => 'smtp offline' === $context['reason'],
         ));
 
     $handler = new RequestEmailVerificationHandler(
         tokenRepository: $tokens,
-        mailer: $mailer,
+        mailDispatcher: $dispatcher,
         logger: $logger,
         clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
         ttlSeconds: 86400,

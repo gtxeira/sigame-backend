@@ -20,6 +20,9 @@ assumption; don't scaffold a full stack unprompted.
 - `just build`, `just up`, `just logs`, `just down`, `just sh` / `just bash`.
 - `just sf <args>` runs `bin/console`; `just composer <args>` runs Composer;
   `just cc` clears the cache.
+- Messenger runs in the `worker` service. Use `just worker-logs`, `just worker`
+  (manual consumer) and `just messenger-failed` (failed queue); `just keygen`
+  generates `MESSENGER_MAIL_ENCRYPTION_KEY`.
 - Add packages with `just composer req <package>` and let Flex register the bundle and
   recipe config. Don't hand-edit `config/bundles.php`.
 - App: https://api.sigame.localhost:8443, OpenAPI UI `/doc`, JSON `/doc.json`.
@@ -45,6 +48,9 @@ assumption; don't scaffold a full stack unprompted.
   and `Shared`.
 - Cross-module communication goes through Domain Events
   (`DomainEventInterface` + `#[AsEventListener]`), never direct imports.
+- Transactional email is enqueued through `IdentityMailDispatcherInterface`; use cases
+  must not call `IdentityMailerInterface` directly. The raw token is encrypted with
+  `PayloadEncryptor` before it reaches Messenger.
 - Keep layers clean: Domain is framework-free; Application holds ports/use cases;
   Infrastructure implements adapters; Presentation handles HTTP.
 - `tests/Unit/Architecture/ModuleBoundariesTest.php` fails on violations.
@@ -87,8 +93,12 @@ assumption; don't scaffold a full stack unprompted.
 - Register custom DBAL types in `config/packages/doctrine.php` and add their unit test.
 - `.env` holds committed defaults only. Secrets and overrides go in `.env.local`
   (git-ignored) or the Symfony vault; `.env.dev` and `.env.test` hold environment
-  defaults.
-- Not implemented yet: S3/Flysystem storage adapter, onboarding HTTP layer, Messenger,
+  defaults. `MESSENGER_MAIL_ENCRYPTION_KEY` is a base64 32-byte key required by the
+  web container and the worker.
+- `messenger_messages` is created by migration; keep `auto_setup=0` and do not route
+  `Symfony\Component\Mailer\Messenger\SendEmailMessage` to `async` (the mailer bus is
+  disabled on purpose).
+- Not implemented yet: S3/Flysystem storage adapter, onboarding HTTP layer,
   API Platform, shared storage for rate limiter and OAuth flow. Don't assume or scaffold
   them unless asked.
 

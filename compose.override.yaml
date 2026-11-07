@@ -29,6 +29,28 @@ services:
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###
 
+  worker:
+    image: ${IMAGES_PREFIX:-}app-php-dev
+    build:
+      context: .
+      target: frankenphp_dev
+    volumes:
+      - ./:/app
+      - /app/var
+    environment:
+      APP_ENV: "${APP_ENV:-dev}"
+      XDEBUG_MODE: "${XDEBUG_MODE:-debug,develop}"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    # O entrypoint do projeto roda migrations; o worker espera o php saudável
+    # para não duplicar esse trabalho.
+    entrypoint: ["docker-php-entrypoint"]
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M", "-vv"]
+    depends_on:
+      php:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped

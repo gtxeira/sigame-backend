@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Identity\Application\Service\IdentityMailerInterface;
+use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
 use App\Identity\Domain\User\Entity\User;
@@ -38,14 +38,14 @@ function registeredListenerUser(bool $verified = false): User
 function registeredListener(
     UserRepositoryInterface $users,
     IdentityTokenRepositoryInterface $tokens,
-    IdentityMailerInterface $mailer,
+    IdentityMailDispatcherInterface $dispatcher,
     LoggerInterface $logger,
 ): SendEmailVerificationOnUserRegistered {
     return new SendEmailVerificationOnUserRegistered(
         userRepository: $users,
         requestEmailVerificationHandler: new RequestEmailVerificationHandler(
             tokenRepository: $tokens,
-            mailer: $mailer,
+            mailDispatcher: $dispatcher,
             logger: $logger,
             clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
             ttlSeconds: 86400,
@@ -64,13 +64,13 @@ it('requests verification when the registered user is not verified', function ()
     $tokens->shouldReceive('invalidateUnconsumed')->once();
     $tokens->shouldReceive('save')->once();
 
-    $mailer = Mockery::mock(IdentityMailerInterface::class);
-    $mailer->shouldReceive('sendEmailVerification')->once();
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldReceive('dispatchEmailVerification')->once();
 
     $listener = registeredListener(
         $users,
         $tokens,
-        $mailer,
+        $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
 
@@ -86,13 +86,13 @@ it('does nothing when the user already has a verified email', function () {
     $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
     $tokens->shouldNotReceive('save');
 
-    $mailer = Mockery::mock(IdentityMailerInterface::class);
-    $mailer->shouldNotReceive('sendEmailVerification');
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldNotReceive('dispatchEmailVerification');
 
     $listener = registeredListener(
         $users,
         $tokens,
-        $mailer,
+        $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
 
@@ -106,13 +106,13 @@ it('does nothing when the user is not found', function () {
     $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
     $tokens->shouldNotReceive('save');
 
-    $mailer = Mockery::mock(IdentityMailerInterface::class);
-    $mailer->shouldNotReceive('sendEmailVerification');
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldNotReceive('dispatchEmailVerification');
 
     $listener = registeredListener(
         $users,
         $tokens,
-        $mailer,
+        $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
 
@@ -137,7 +137,7 @@ it('logs a warning instead of breaking the registration when the lookup fails', 
     $listener = registeredListener(
         $users,
         Mockery::mock(IdentityTokenRepositoryInterface::class),
-        Mockery::mock(IdentityMailerInterface::class),
+        Mockery::mock(IdentityMailDispatcherInterface::class),
         $logger,
     );
 

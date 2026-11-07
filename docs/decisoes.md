@@ -35,6 +35,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social) | E-mail canônico e vínculo explícito de identidade social | Vigente |
 | [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend) | Fluxo OAuth com state e PKCE no backend | Vigente |
 | [ADR-013](#adr-013--tokens-de-uso-único-para-verificação-de-e-mail-e-reset-de-senha) | Tokens de uso único para verificação de e-mail e reset de senha | Vigente |
+| [ADR-014](#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado) | E-mails de identidade assíncronos com payload cifrado | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
 
@@ -369,6 +370,43 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 > **Emenda (2026-11-06):** a rota de reenvio passou de `POST /users/me/email/resend` para `POST /auth/email/verification/resend`, mantendo a exigência de Bearer. O par de verificação ficou sob `/auth/email`.
 - Contas só sociais podem ganhar uma credencial local via reset (o e-mail já foi verificado pelo provedor).
 - O envio é síncrono; a migração para Messenger fica registrada como evolução.
+
+> **Emenda (2026-11-06):** o envio passou a ser assíncrono, conforme o [ADR-014](#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado). O token bruto continua fora do banco e é cifrado no payload da fila.
+
+---
+
+## ADR-014 — E-mails de identidade assíncronos com payload cifrado
+
+### Contexto
+
+O envio de e-mail dentro do request de cadastro, reenvio e reset prendia a resposta ao SMTP e não permitia retry. Ao mesmo tempo, o [ADR-013](#adr-013--tokens-de-uso-único-para-verificação-de-e-mail-e-reset-de-senha) determina que apenas o hash do token de uso único é persistido; colocar o token bruto em `messenger_messages` sem proteção reduziria essa garantia.
+
+### Decisão
+
+- Usar **Symfony Messenger** com transporte **Doctrine** (`messenger_messages`, `auto_setup=0`), worker dedicado e `failure_transport` para falhas definitivas.
+- Manter a criação do token no request, preservando cooldown, invalidação e a semântica de "um token válido por vez" do reset.
+- Publicar mensagens explícitas por caso de uso (`SendEmailVerificationMessage` e `SendPasswordResetMessage`) pela porta `IdentityMailDispatcherInterface`.
+- **Cifrar o token bruto** com libsodium `secretbox` (`EncryptedPayload` + `PayloadEncryptor`) antes de enfileirar. O `tokenHash` fica em claro para permitir a compensação.
+- O worker decifra, reconstrói `Email`/`Instant` e envia pelo `IdentityMailerInterface`. Retries reutilizam o mesmo token, então e-mails duplicados têm o mesmo link.
+- Em falha definitiva, o listener consome o token de reset (como já acontecia no envio síncrono). O token de verificação permanece válido para reenvio.
+- Desativar `framework.mailer.message_bus` para que o envio aconteça dentro do handler do worker, sem uma segunda camada de mensageria.
+
+### Alternativas consideradas
+
+- **Manter síncrono:** simples, mas mantém a latência e a perda silenciosa em falhas transitórias de SMTP.
+- **Gerar o token no worker:** elimina o segredo da fila, mas exige mover a checagem de cooldown para o worker, serializar por usuário e lidar com retry rotacionando tokens. O comportamento de cooldown deixaria de ser idêntico sob backlog.
+- **Usar o `SendEmailMessage` nativo do Mailer:** menos código, mas não permite carregar o `tokenHash` para compensar o token em falha definitiva.
+- **Enviar o token em claro na fila:** mais simples, porém contraria o espírito do ADR-013.
+
+### Consequências
+
+- Novos processos: o serviço `worker` no Compose e a receita `just worker`/`worker-logs`.
+- A tabela `messenger_messages` é criada por migration própria; o transporte não usa `auto_setup`.
+- Nova variável `MESSENGER_MAIL_ENCRYPTION_KEY` (base64 de 32 bytes), obrigatória no web e no worker. Rotação exige drenar a fila antes.
+- Entrega é **at-least-once**: um retry pode reenviar o mesmo e-mail; como o token é o mesmo, o link continua válido.
+- Mensagens de reset no `failed` são terminais porque o token já foi consumido; use `messenger:failed:remove`, não retry. Verificação pode ser retentada.
+- A V1 roda **uma réplica** do worker para preservar a ordem FIFO entre reenvios do mesmo usuário.
+- Testes usam `MESSENGER_TRANSPORT_DSN=sync://`, mantendo handlers e `RecordingIdentityMailer` no mesmo processo.
 
 ---
 

@@ -8,5 +8,24 @@ services:
       target: frankenphp_prod
     environment:
       APP_SECRET: ${APP_SECRET}
+      MESSENGER_MAIL_ENCRYPTION_KEY: ${MESSENGER_MAIL_ENCRYPTION_KEY}
       MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(false === @file_get_contents(\"http://localhost:2019/metrics\") ? 1 : 0);'"]
+      start_period: 60s
+
+  worker:
+    image: ${IMAGES_PREFIX:-}app-php-prod
+    build:
+      context: .
+      target: frankenphp_prod
+    environment:
+      APP_SECRET: ${APP_SECRET}
+      MESSENGER_MAIL_ENCRYPTION_KEY: ${MESSENGER_MAIL_ENCRYPTION_KEY}
+    entrypoint: ["docker-php-entrypoint"]
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M", "--no-interaction"]
+    depends_on:
+      php:
+        condition: service_healthy
+    restart: unless-stopped

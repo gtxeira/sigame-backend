@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Application\UseCase\Password;
 
-use App\Identity\Application\Service\IdentityMailerInterface;
+use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
 use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
@@ -27,7 +27,7 @@ final readonly class RequestPasswordResetHandler
     public function __construct(
         private UserRepositoryInterface $userRepository,
         private IdentityTokenRepositoryInterface $tokenRepository,
-        private IdentityMailerInterface $mailer,
+        private IdentityMailDispatcherInterface $mailDispatcher,
         private LoggerInterface $logger,
         private ClockInterface $clock,
         #[Autowire(env: 'int:PASSWORD_RESET_TTL')]
@@ -79,10 +79,15 @@ final readonly class RequestPasswordResetHandler
         $this->tokenRepository->save($token);
 
         try {
-            $this->mailer->sendPasswordReset($user->email(), $rawToken, $expiresAt);
+            $this->mailDispatcher->dispatchPasswordReset(
+                $user->email(),
+                $rawToken,
+                $expiresAt,
+                $token->tokenHash(),
+            );
         } catch (Throwable $exception) {
             $this->consumeSilently($token, $user);
-            $this->logger->warning('Falha ao enviar e-mail de reset de senha', [
+            $this->logger->warning('Falha ao enfileirar e-mail de reset de senha', [
                 'userId' => $user->id()->value(),
                 'reason' => $exception->getMessage(),
             ]);

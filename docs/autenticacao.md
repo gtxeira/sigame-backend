@@ -115,8 +115,22 @@ ainda é 23:30 do dia anterior em Brasília).
 | `MAILER_FROM_ADDRESS` | `noreply@sigame.com.br` | Remetente |
 | `MAILER_FROM_NAME` | `SIGAME` | Nome do remetente |
 | `FRONTEND_URL` | `http://localhost:3000` | Base dos links enviados por e-mail |
+| `MESSENGER_TRANSPORT_DSN` | `doctrine://default?auto_setup=0` | Transporte do Messenger; em testes, `sync://` |
+| `MESSENGER_MAIL_ENCRYPTION_KEY` | — | Base64 de 32 bytes usado para cifrar o token na fila |
 
 Em desenvolvimento com front em `http://localhost:3000` e API em outro host, use `REFRESH_COOKIE_SAMESITE=none` com `REFRESH_COOKIE_SECURE=1`. Em produção _same-site_, prefira `strict` ou `lax`.
+
+### 1.7 Entrega assíncrona de e-mails
+
+A verificação de e-mail e o reset de senha criam o token no request e apenas **enfileiram** a mensagem; o envio real acontece no worker do Messenger.
+
+- O token bruto vai cifrado (`EncryptedPayload`/`PayloadEncryptor`) e o banco guarda apenas o SHA-256, como antes.
+- O cooldown de reset e a invalidação do token anterior continuam no request, então o comportamento observável não muda.
+- Retries do worker reutilizam o mesmo token; um e-mail duplicado tem o mesmo link válido.
+- Em falha definitiva, o token de reset é consumido (não deixa credencial válida sem entrega) e o de verificação continua válido para reenvio.
+- Mensagens de reset na fila de falhas são terminais: o token já foi consumido; remova-as com `messenger:failed:remove`, não faça retry.
+- O worker é um processo separado (`worker` no Compose); em desenvolvimento, acompanhe com `just worker-logs`.
+- A chave `MESSENGER_MAIL_ENCRYPTION_KEY` precisa ser a mesma no web e no worker; rotacione-a apenas com a fila drenada.
 
 ---
 
@@ -161,7 +175,7 @@ Todas as rotas de negócio usam o prefixo `/api/v1`.
 - `cpf` é opcional e pode vir formatado.
 - A resposta `201` traz os dados do usuário.
 - O cadastro **não autentica**: chame o login em seguida.
-- Um e-mail de confirmação é enviado; o cadastro continua válido mesmo se o envio falhar (use o reenvio).
+- Um e-mail de confirmação é enfileirado e enviado pelo worker; o cadastro continua válido mesmo se o envio falhar (use o reenvio).
 - Erros: `VALIDATION_ERROR`, `CPF_INVALID`, `EMAIL_INVALID`, `USER_CPF_ALREADY_EXISTS`, `EMAIL_ALREADY_EXISTS`.
 - Limite: 5 tentativas por minuto por e-mail + IP.
 

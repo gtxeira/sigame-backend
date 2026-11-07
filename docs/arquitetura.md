@@ -238,7 +238,7 @@ A decisão completa está em [decisoes.md](decisoes.md#adr-005--cpf-opcional-e-w
 
 | Use case | Command | Handler | Responsabilidade |
 |---|---|---|---|
-| Cadastrar usuário | `RegisterUserCommand` | `RegisterUserHandler` | Valida unicidade CPF/e-mail → hash senha → persiste → publica `UserRegistered` |
+| Cadastrar usuário | `RegisterUserCommand` | `RegisterUserHandler` | Valida unicidade CPF/e-mail → hash senha → persiste → publica `UserRegistered`; o listener enfileira a verificação |
 | Autenticar | `AuthenticateUserCommand` | `AuthenticateUserHandler` | Busca identidade local → verifica senha e status → emite tokens |
 | Login social | `AuthenticateWithSocialProviderCommand` | `AuthenticateWithSocialProviderHandler` | Troca code → valida id_token → cria/vincula identidade → emite tokens |
 | Refresh token | `RefreshTokenCommand` | `RefreshTokenHandler` | Valida refresh opaco → detecta reuso → rotaciona o par |
@@ -287,9 +287,28 @@ Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 | `SocialIdentityProviderInterface` | `GoogleIdentityProvider` | `symfony/http-client` + JWKS |
 | `SystemHealthCheckerInterface` | `SystemHealthChecker` | `doctrine/dbal` |
 | `EventDispatcherInterface` | `SymfonyEventDispatcherAdapter` | `symfony/event-dispatcher` |
+| `IdentityMailDispatcherInterface` | `MessengerIdentityMailDispatcher` | `symfony/messenger` + `symfony/doctrine-messenger` |
+| `IdentityMailerInterface` | `SymfonyIdentityMailer` | `symfony/mailer` |
 | `FileStorageInterface` (planejado) | `FlysystemS3Adapter` (planejado) | `league/flysystem` |
 
 O adapter de storage ainda não foi implementado. A decisão está em [decisoes.md](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
+
+### 6.1 E-mail transacional assíncrono
+
+O request continua criando e persistindo o token (apenas o hash), mas não envia mais o e-mail. A porta `IdentityMailDispatcherInterface` publica uma mensagem explícita no Messenger:
+
+```text
+Request -> token + hash no banco
+        -> MessengerIdentityMailDispatcher
+        -> SendEmailVerificationMessage / SendPasswordResetMessage
+        -> transport async (Doctrine)
+        -> worker -> IdentityEmailMessageDecoder -> IdentityMailerInterface
+```
+
+- O token bruto vai no payload cifrado com `PayloadEncryptor` (libsodium `secretbox`); o `tokenHash` fica em claro para a compensação.
+- O transporte usa `messenger_messages` e `failure_transport`; a decisão completa está no [ADR-014](decisoes.md#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado).
+- Retries reutilizam o mesmo token. Em falha definitiva, o listener consome o token de reset e mantém o de verificação válido para reenvio.
+- O envio real acontece no worker; `framework.mailer.message_bus` fica desativado para não enfileirar duas vezes.
 
 ---
 

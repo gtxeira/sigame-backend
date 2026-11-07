@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Application\UseCase\EmailVerification;
 
-use App\Identity\Application\Service\IdentityMailerInterface;
+use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
 use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
@@ -22,7 +22,7 @@ final readonly class RequestEmailVerificationHandler
 {
     public function __construct(
         private IdentityTokenRepositoryInterface $tokenRepository,
-        private IdentityMailerInterface $mailer,
+        private IdentityMailDispatcherInterface $mailDispatcher,
         private LoggerInterface $logger,
         private ClockInterface $clock,
         #[Autowire(env: 'int:EMAIL_VERIFICATION_TTL')]
@@ -39,22 +39,30 @@ final readonly class RequestEmailVerificationHandler
         $this->tokenRepository->invalidateUnconsumed($user, IdentityTokenPurpose::EmailVerification);
 
         $rawToken = bin2hex(random_bytes(32));
-        $expiresAt = Instant::fromDateTime(
-            $this->clock->now()->modify(sprintf('+%d seconds', $this->ttlSeconds)),
-        );
 
-        $this->tokenRepository->save(IdentityToken::create(
+        $expiresAt = sprintf('+%d seconds', $this->ttlSeconds)
+            |> $this->clock->now()->modify(...)
+            |> Instant::fromDateTime(...);
+
+        $token = IdentityToken::create(
             user: $user,
             purpose: IdentityTokenPurpose::EmailVerification,
             tokenHash: hash('sha256', $rawToken),
             expiresAt: $expiresAt,
-        ));
+        );
+
+        $this->tokenRepository->save($token);
 
         try {
-            $this->mailer->sendEmailVerification($user->email(), $rawToken, $expiresAt);
+            $this->mailDispatcher->dispatchEmailVerification(
+                $user->email(),
+                $rawToken,
+                $expiresAt,
+                $token->tokenHash(),
+            );
         } catch (Throwable $exception) {
-            // Falha de e-mail não pode derrubar o cadastro; o usuário pode reenviar.
-            $this->logger->warning('Falha ao enviar e-mail de verificação', [
+            // Falha de enfileiramento não pode derrubar o cadastro; o usuário pode reenviar.
+            $this->logger->warning('Falha ao enfileirar e-mail de verificação', [
                 'userId' => $user->id()->value(),
                 'reason' => $exception->getMessage(),
             ]);

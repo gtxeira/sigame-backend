@@ -18,12 +18,12 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'description' => 'Cadastro e login local com e-mail e senha.',
                 ],
                 [
-                    'name' => 'Sessão',
-                    'description' => 'Renovação e revogação dos tokens da sessão.',
-                ],
-                [
                     'name' => 'Autenticação social',
                     'description' => 'Login e vínculo de identidades com provedores sociais.',
+                ],
+                [
+                    'name' => 'Sessão',
+                    'description' => 'Renovação e revogação dos tokens da sessão.',
                 ],
                 [
                     'name' => 'Verificação de e-mail',
@@ -47,8 +47,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'name' => 'Acesso',
                     'tags' => [
                         'Autenticação',
-                        'Sessão',
                         'Autenticação social',
+                        'Sessão',
                         'Verificação de e-mail',
                         'Senha',
                     ],

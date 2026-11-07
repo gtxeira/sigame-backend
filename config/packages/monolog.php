@@ -15,8 +15,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
         $containerConfigurator->extension('monolog', [
             'handlers' => [
                 'main' => [
-                    'type' => 'stream',
-                    'path' => '%kernel.logs_dir%/%kernel.environment%.log',
+                    'type' => 'error_log',
+                    'path' => 'php://stderr',
                     'level' => 'debug',
                     'channels' => [
                         '!event',
@@ -52,7 +52,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 ],
                 'nested' => [
                     'type' => 'stream',
-                    'path' => '%kernel.logs_dir%/%kernel.environment%.log',
+                    'path' => 'php://stderr',
                     'level' => 'debug',
                 ],
             ],

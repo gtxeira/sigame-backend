@@ -32,6 +32,26 @@ down:
 logs:
     @{{ _compose }} logs --tail=0 --follow
 
+# Gera uma chave base64 de 32 bytes para MESSENGER_MAIL_ENCRYPTION_KEY
+[group('Docker')]
+keygen:
+    @{{ _php }} php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'
+
+# Mostra os logs do worker do Messenger
+[group('Docker')]
+worker-logs:
+    @{{ _compose }} logs --tail=0 --follow worker
+
+# Executa o worker do Messenger manualmente no container PHP
+[group('Docker')]
+worker:
+    @{{ _php }} php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M -vv
+
+# Lista as mensagens que falharam definitivamente
+[group('Docker')]
+messenger-failed:
+    @{{ _php }} php bin/console messenger:failed:show
+
 # Shell sh no container PHP
 [group('Docker')]
 sh:
