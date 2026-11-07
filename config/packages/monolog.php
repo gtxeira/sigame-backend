@@ -15,7 +15,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
         $containerConfigurator->extension('monolog', [
             'handlers' => [
                 'main' => [
-                    'type' => 'error_log',
+                    'type' => 'stream',
                     'path' => 'php://stderr',
                     'level' => 'debug',
                     'channels' => [
