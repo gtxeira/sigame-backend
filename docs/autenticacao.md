@@ -139,7 +139,7 @@ Todas as rotas de negócio usam o prefixo `/api/v1`.
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT |
-| `POST` | `/api/v1/users/me/email/resend` | Bearer JWT |
+| `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT |
 | `GET` | `/api/health/liveness` | Pública |
@@ -534,7 +534,7 @@ O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O fron
 
 ### 4.2 Reenviar
 
-`POST /api/v1/users/me/email/resend` — Bearer. Retorna `204`.
+`POST /api/v1/auth/email/verification/resend` — Bearer. Retorna `204`. Apesar do prefixo `/auth`, a rota exige `Authorization`; a confirmação pública continua em `POST /auth/email/verify`.
 
 - Gera um novo token e invalida o anterior.
 - Contas já verificadas não recebem novo e-mail.

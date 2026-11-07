@@ -324,12 +324,20 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 |---|---|---|---|
 | `POST` | `/api/v1/auth/register` | `RegistrationController::register` | Pública |
 | `POST` | `/api/v1/auth/login` | `AuthController::login` | Pública |
-| `POST` | `/api/v1/auth/social/{provider}` | `AuthController::social` | Pública |
+| `POST` | `/api/v1/auth/social/{provider}/start` | `SocialAuthController::start` | Pública (Bearer opcional) |
+| `POST` | `/api/v1/auth/social/{provider}/callback` | `SocialAuthController::callback` | Pública + cookie `social_flow` |
+| `POST` | `/api/v1/auth/social/{provider}/link` | `SocialAuthController::link` | Bearer JWT |
+| `POST` | `/api/v1/auth/email/verify` | `EmailVerificationController::verify` | Pública |
+| `POST` | `/api/v1/auth/email/verification/resend` | `EmailVerificationController::resend` | Bearer JWT |
+| `POST` | `/api/v1/auth/password/forgot` | `PasswordController::forgot` | Pública |
+| `POST` | `/api/v1/auth/password/reset` | `PasswordController::reset` | Pública |
 | `POST` | `/api/v1/auth/refresh` | `AuthController::refresh` | Cookie `refresh_token` |
 | `POST` | `/api/v1/auth/logout` | `AuthController::logout` | Cookie `refresh_token` |
 | `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | `MeController::me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | `MeController::assignCpf` | Bearer JWT |
+| `POST` | `/api/v1/users/me/password` | `MePasswordController::change` | Bearer JWT |
+| `POST` | `/api/v1/users/me/identities/{provider}` | `MeIdentityController::link` | Bearer JWT |
 | `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |
 | `GET` | `/api/health/readiness` | `HealthController::index` | Pública |
 

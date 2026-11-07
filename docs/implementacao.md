@@ -74,7 +74,7 @@ Rotas confirmadas por `bin/console debug:router`:
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT |
-| `POST` | `/api/v1/users/me/email/resend` | Bearer JWT |
+| `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT |
 | `GET` | `/api/health/liveness` | Pública |

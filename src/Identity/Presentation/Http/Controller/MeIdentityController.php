@@ -37,7 +37,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Vínculo de identidades sociais iniciado pela tela de configurações.
  */
 #[Route('/api/v1')]
-#[OA\Tag(name: 'Minha conta')]
+#[OA\Tag(name: 'Autenticação social')]
 final class MeIdentityController extends AbstractController
 {
     public function __construct(
@@ -57,7 +57,7 @@ final class MeIdentityController extends AbstractController
      * O vínculo é permitido mesmo quando o e-mail do provedor difere do e-mail
      * canônico; a ação é explícita do dono da conta.
      */
-    #[Route('/users/me/identities/{provider}', name: 'app_me_identity_link', methods: ['POST'])]
+    #[Route('/users/me/identities/{provider}', name: 'app_me_identity_link', methods: ['POST'], priority: -1)]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
     #[OA\Parameter(

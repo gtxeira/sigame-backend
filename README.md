@@ -144,12 +144,20 @@ Rotas de negócio usam `/api/v1`. Probes operacionais usam `/api/health`, sem ve
 |---|---|---|---|
 | `POST` | `/api/v1/auth/register` | Pública | Cadastrar usuário |
 | `POST` | `/api/v1/auth/login` | Pública | Autenticar com e-mail e senha |
-| `POST` | `/api/v1/auth/social/{provider}` | Pública | Autenticar com provedor social (`google`) |
+| `POST` | `/api/v1/auth/social/{provider}/start` | Pública (Bearer opcional) | Iniciar o fluxo de login social |
+| `POST` | `/api/v1/auth/social/{provider}/callback` | Pública + cookie | Concluir o login social |
+| `POST` | `/api/v1/auth/social/{provider}/link` | Bearer JWT | Vincular conta social pelo ticket |
+| `POST` | `/api/v1/auth/email/verify` | Pública | Verificar o e-mail |
+| `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT | Reenviar verificação de e-mail |
+| `POST` | `/api/v1/auth/password/forgot` | Pública | Solicitar redefinição de senha |
+| `POST` | `/api/v1/auth/password/reset` | Pública | Redefinir a senha |
 | `POST` | `/api/v1/auth/refresh` | Cookie | Renovar o par de tokens |
 | `POST` | `/api/v1/auth/logout` | Cookie | Encerrar a sessão atual |
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT | Encerrar todas as sessões |
 | `GET` | `/api/v1/users/me` | Bearer JWT | Obter os dados do usuário autenticado |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT | Definir o CPF (write-once) |
+| `POST` | `/api/v1/users/me/password` | Bearer JWT | Alterar a senha |
+| `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT | Vincular identidade social |
 | `GET` | `/api/health/liveness` | Pública | Verificar a execução da aplicação |
 | `GET` | `/api/health/readiness` | Pública | Verificar a prontidão e o banco |
 

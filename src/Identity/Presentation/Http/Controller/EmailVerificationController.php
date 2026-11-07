@@ -32,7 +32,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Verificação do e-mail canônico da conta.
  */
 #[Route('/api/v1')]
-#[OA\Tag(name: 'Autenticação')]
+#[OA\Tag(name: 'Verificação de e-mail')]
 final class EmailVerificationController extends AbstractController
 {
     public function __construct(
@@ -104,7 +104,7 @@ final class EmailVerificationController extends AbstractController
      * Gera um novo token para o usuário autenticado, invalidando o anterior.
      * Se o e-mail já estiver verificado, a operação é idempotente.
      */
-    #[Route('/users/me/email/resend', name: 'app_me_email_resend', methods: ['POST'])]
+    #[Route('/auth/email/verification/resend', name: 'app_auth_email_resend', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Verificação reenviada quando aplicável.')]

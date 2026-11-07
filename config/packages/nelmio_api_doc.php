@@ -15,11 +15,27 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'tags' => [
                 [
                     'name' => 'Autenticação',
-                    'description' => 'Cadastro, login local e social, renovação e revogação de credenciais.',
+                    'description' => 'Cadastro e login local com e-mail e senha.',
+                ],
+                [
+                    'name' => 'Sessão',
+                    'description' => 'Renovação e revogação dos tokens da sessão.',
+                ],
+                [
+                    'name' => 'Autenticação social',
+                    'description' => 'Login e vínculo de identidades com provedores sociais.',
+                ],
+                [
+                    'name' => 'Verificação de e-mail',
+                    'description' => 'Confirmação e reenvio da verificação do e-mail canônico.',
+                ],
+                [
+                    'name' => 'Senha',
+                    'description' => 'Recuperação, redefinição e troca de senha.',
                 ],
                 [
                     'name' => 'Minha conta',
-                    'description' => 'Ações do usuário autenticado sobre a própria conta.',
+                    'description' => 'Dados do usuário autenticado sobre a própria conta.',
                 ],
                 [
                     'name' => 'Saúde',
@@ -28,9 +44,18 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             ],
             'x-tagGroups' => [
                 [
-                    'name' => 'Acesso e conta',
+                    'name' => 'Acesso',
                     'tags' => [
                         'Autenticação',
+                        'Sessão',
+                        'Autenticação social',
+                        'Verificação de e-mail',
+                        'Senha',
+                    ],
+                ],
+                [
+                    'name' => 'Conta',
+                    'tags' => [
                         'Minha conta',
                     ],
                 ],

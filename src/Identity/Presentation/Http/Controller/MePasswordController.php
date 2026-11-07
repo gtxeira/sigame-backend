@@ -31,7 +31,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Troca de senha para o usuário autenticado.
  */
 #[Route('/api/v1')]
-#[OA\Tag(name: 'Minha conta')]
+#[OA\Tag(name: 'Senha')]
 final class MePasswordController extends AbstractController
 {
     public function __construct(

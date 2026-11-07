@@ -50,7 +50,7 @@ it('resends the verification and invalidates the previous token', function () {
     $firstToken = authTestMailer($this)->lastToken('verification', $email);
     $accessToken = authTestAccessToken(authTestLogin($this, $email));
 
-    $resend = $this->api->post('app_me_email_resend', server: [
+    $resend = $this->api->post('app_auth_email_resend', server: [
         'HTTP_AUTHORIZATION' => 'Bearer '.$accessToken,
     ]);
 
@@ -308,10 +308,10 @@ it('rate limits repeated email verification resends', function () {
     $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
 
     for ($attempt = 0; $attempt < 3; ++$attempt) {
-        $this->api->post('app_me_email_resend', server: $server);
+        $this->api->post('app_auth_email_resend', server: $server);
     }
 
-    $response = $this->api->post('app_me_email_resend', server: $server);
+    $response = $this->api->post('app_auth_email_resend', server: $server);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
 });

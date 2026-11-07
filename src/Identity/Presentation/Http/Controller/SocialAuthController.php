@@ -53,7 +53,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Fluxo OAuth do backend: start, callback e vínculo explícito.
  */
 #[Route('/api/v1/auth/social/{provider}')]
-#[OA\Tag(name: 'Autenticação')]
+#[OA\Tag(name: 'Autenticação social')]
 final class SocialAuthController extends AbstractController
 {
     public function __construct(
@@ -250,20 +250,18 @@ final class SocialAuthController extends AbstractController
         ],
         fields: ['email' => 'E-mail da conta existente.'],
         meta: new ApiMeta(
-            required: ['link'],
             properties: [
                 new OA\Property(
                     property: 'link',
                     description: 'Ticket para vincular a conta social após o login local.',
-                    type: 'object',
                     required: ['token', 'expiresAt'],
                     properties: [
                         new OA\Property(
                             property: 'token',
                             description: 'Ticket de vínculo, de uso único.',
                             type: 'string',
-                            maxLength: 128,
                             example: 'a1b2c3...',
+                            maxLength: 128,
                         ),
                         new OA\Property(
                             property: 'expiresAt',
@@ -273,8 +271,10 @@ final class SocialAuthController extends AbstractController
                             example: '2026-11-06T12:00:00.000+00:00',
                         ),
                     ],
+                    type: 'object',
                 ),
             ],
+            required: ['link'],
         ),
     )]
     #[TooManyRequestsResponse]

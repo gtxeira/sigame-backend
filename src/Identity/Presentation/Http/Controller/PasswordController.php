@@ -31,7 +31,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * Recuperação de senha para quem não está autenticado.
  */
 #[Route('/api/v1')]
-#[OA\Tag(name: 'Autenticação')]
+#[OA\Tag(name: 'Senha')]
 final class PasswordController extends AbstractController
 {
     public function __construct(

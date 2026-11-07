@@ -43,10 +43,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Endpoints de autenticação: login local, login social, refresh e logout.
+ * Endpoints de autenticação: login local, refresh e logout.
  */
 #[Route('/api/v1')]
-#[OA\Tag(name: 'Autenticação')]
 final class AuthController extends AbstractController
 {
     public function __construct(
@@ -73,6 +72,7 @@ final class AuthController extends AbstractController
      * O endpoint é limitado por e-mail e IP.
      */
     #[Route('/auth/login', name: 'app_auth_login', methods: ['POST'])]
+    #[OA\Tag(name: 'Autenticação')]
     #[SuccessResponse(
         dataModel: TokenResponse::class,
         description: 'Autenticado com sucesso; o refresh token é entregue no cookie HttpOnly.',
@@ -130,6 +130,7 @@ final class AuthController extends AbstractController
      * a família de tokens daquela sessão.
      */
     #[Route('/auth/refresh', name: 'app_auth_refresh', methods: ['POST'])]
+    #[OA\Tag(name: 'Sessão')]
     #[SuccessResponse(
         dataModel: TokenResponse::class,
         description: 'Par de tokens rotacionado; o novo refresh token substitui o cookie anterior.',
@@ -212,6 +213,7 @@ final class AuthController extends AbstractController
      * no cliente. A operação é idempotente para um cookie já revogado.
      */
     #[Route('/auth/logout', name: 'app_auth_logout', methods: ['POST'])]
+    #[OA\Tag(name: 'Sessão')]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Sessão encerrada.')]
     #[ForbiddenResponse(
         examples: [
@@ -243,6 +245,7 @@ final class AuthController extends AbstractController
      * encerrando a sessão em todos os dispositivos.
      */
     #[Route('/auth/logout/all', name: 'app_auth_logout_all', methods: ['POST'])]
+    #[OA\Tag(name: 'Sessão')]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Todas as sessões foram encerradas.')]
