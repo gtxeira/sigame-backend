@@ -60,6 +60,7 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode $code) 
     IdentityErrorCode::OnboardingAlreadyCompleted,
     IdentityErrorCode::UserAlreadyActive,
     IdentityErrorCode::UserAlreadySuspended,
+    IdentityErrorCode::EmailAlreadyVerified,
     IdentityErrorCode::UserCpfAlreadySet,
     IdentityErrorCode::RefreshInProgress,
 ]);

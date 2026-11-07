@@ -368,6 +368,8 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 - Novas rotas: `auth/email/verify`, `users/me/email/resend`, `auth/password/forgot`, `auth/password/reset` e `users/me/password`.
 
 > **Emenda (2026-11-06):** a rota de reenvio passou de `POST /users/me/email/resend` para `POST /auth/email/verification/resend`, mantendo a exigência de Bearer. O par de verificação ficou sob `/auth/email`.
+
+> **Emenda (2026-11-07):** o reenvio passou a responder `409 EMAIL_ALREADY_VERIFIED` quando o e-mail já está verificado, em vez de `204`. Como a rota é autenticada, informar o estado não vaza a existência de contas; a checagem ocorre antes do rate limit e o cliente deixa de depender de `GET /users/me` para saber se ainda deve esperar a confirmação.
 - Contas só sociais podem ganhar uma credencial local via reset (o e-mail já foi verificado pelo provedor).
 - O envio é síncrono; a migração para Messenger fica registrada como evolução.
 

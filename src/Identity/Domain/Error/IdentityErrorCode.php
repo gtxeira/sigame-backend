@@ -44,6 +44,7 @@ enum IdentityErrorCode: string
     case SocialLinkTokenInvalid = 'SOCIAL_LINK_TOKEN_INVALID';
     case SocialFlowInvalid = 'SOCIAL_FLOW_INVALID';
     case SocialClientUnsupported = 'SOCIAL_CLIENT_UNSUPPORTED';
+    case EmailAlreadyVerified = 'EMAIL_ALREADY_VERIFIED';
     case EmailVerificationTokenInvalid = 'EMAIL_VERIFICATION_TOKEN_INVALID';
     case EmailVerificationTokenExpired = 'EMAIL_VERIFICATION_TOKEN_EXPIRED';
     case PasswordResetTokenInvalid = 'PASSWORD_RESET_TOKEN_INVALID';
@@ -59,6 +60,7 @@ enum IdentityErrorCode: string
             self::OnboardingAlreadyCompleted,
             self::UserAlreadyActive,
             self::UserAlreadySuspended,
+            self::EmailAlreadyVerified,
             self::RefreshInProgress,
             self::SocialAccountLinkRequired,
             self::SocialIdentityAlreadyLinked,

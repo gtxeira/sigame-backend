@@ -23,6 +23,15 @@ it('builds email already exists error', function () {
         ->and($error->field)->toBe('email');
 });
 
+it('builds email already verified error', function () {
+    $error = IdentityErrors::emailAlreadyVerified();
+
+    expect($error->code)->toBe('EMAIL_ALREADY_VERIFIED')
+        ->and($error->message)->toBe('O e-mail já está verificado.')
+        ->and($error->kind)->toBe(ErrorKind::Conflict)
+        ->and($error->field)->toBeNull();
+});
+
 it('builds user level below minimum error', function () {
     $error = IdentityErrors::userLevelBelowMinimum(1);
 

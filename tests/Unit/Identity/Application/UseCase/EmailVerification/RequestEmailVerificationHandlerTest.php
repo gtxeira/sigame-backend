@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
+use App\Identity\Application\UseCase\EmailVerification\EmailVerificationRequestOutcome;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
 use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
 use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
@@ -43,7 +44,7 @@ it('returns early when the email is already verified', function () {
         ttlSeconds: 86400,
     );
 
-    $handler($user);
+    expect($handler($user))->toBe(EmailVerificationRequestOutcome::AlreadyVerified);
 });
 
 it('invalidates previous tokens and sends a token valid for the configured ttl', function () {
@@ -92,9 +93,10 @@ it('invalidates previous tokens and sends a token valid for the configured ttl',
         ttlSeconds: 86400,
     );
 
-    $handler($user);
+    $outcome = $handler($user);
 
-    expect($saved)->toBeInstanceOf(IdentityToken::class)
+    expect($outcome)->toBe(EmailVerificationRequestOutcome::Queued)
+        ->and($saved)->toBeInstanceOf(IdentityToken::class)
         ->and($rawToken)->toBeString()->not->toBeEmpty()
         ->and($saved?->purpose())->toBe(IdentityTokenPurpose::EmailVerification)
         ->and($saved?->tokenHash())->toBe(hash('sha256', (string) $rawToken));
@@ -127,5 +129,5 @@ it('logs a warning instead of failing when the dispatcher throws', function () {
         ttlSeconds: 86400,
     );
 
-    $handler($user);
+    expect($handler($user))->toBe(EmailVerificationRequestOutcome::Queued);
 });

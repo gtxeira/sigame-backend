@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Identity\Presentation\Http\Controller;
 
+use App\Identity\Application\UseCase\EmailVerification\EmailVerificationRequestOutcome;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
 use App\Identity\Application\UseCase\EmailVerification\VerifyEmailHandler;
+use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Infrastructure\Security\SecurityUser;
 use App\Identity\Presentation\Http\Request\EmailVerifyRequest;
+use App\Shared\Domain\Functional\Result;
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
+use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
 use App\Shared\Presentation\Http\OpenApi\TooManyRequestsResponse;
 use App\Shared\Presentation\Http\OpenApi\UnauthorizedResponse;
 use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
@@ -101,14 +105,25 @@ final class EmailVerificationController extends AbstractController
     /**
      * Reenviar verificação de e-mail
      *
-     * Gera um novo token para o usuário autenticado, invalidando o anterior.
-     * Se o e-mail já estiver verificado, a operação é idempotente.
+     * Gera um novo token e invalida o anterior. O cadastro local já enfileira
+     * a confirmação automaticamente; use este endpoint quando o e-mail não
+     * chegou ou quando o link expirou. Contas já verificadas não recebem novo
+     * e-mail.
      */
     #[Route('/auth/email/verification/resend', name: 'app_auth_email_resend', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
-    #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Verificação reenviada quando aplicável.')]
+    #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'E-mail de verificação enfileirado.')]
     #[UnauthorizedResponse]
+    #[ResourceConflictResponse(
+        examples: [
+            'EMAIL_ALREADY_VERIFIED' => new ApiErrorExample(
+                message: 'O e-mail já está verificado.',
+                summary: 'E-mail já verificado',
+                description: 'Nenhum novo e-mail é enviado quando o endereço já foi confirmado.',
+            ),
+        ],
+    )]
     #[TooManyRequestsResponse]
     #[InternalErrorResponse]
     public function resend(): Response
@@ -116,12 +131,19 @@ final class EmailVerificationController extends AbstractController
         $securityUser = $this->getUser();
         assert($securityUser instanceof SecurityUser);
 
+        if ($securityUser->user()->isEmailVerified()) {
+            return $this->resultResponder->failure(
+                Result::failure([IdentityErrors::emailAlreadyVerified()]),
+            );
+        }
+
         $this->rateLimitGuard->assertWithin(
             $this->resendLimiter,
             $securityUser->user()->id()->value(),
         );
 
-        ($this->requestEmailVerificationHandler)($securityUser->user());
+        $outcome = ($this->requestEmailVerificationHandler)($securityUser->user());
+        assert(EmailVerificationRequestOutcome::Queued === $outcome);
 
         return new Response(null, Response::HTTP_NO_CONTENT);
     }

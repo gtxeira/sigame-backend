@@ -301,6 +301,31 @@ it('rate limits repeated email verification attempts', function () {
         ->and($this->api->errorCodes())->toBe(['TOO_MANY_REQUESTS']);
 });
 
+it('reports a conflict when resending verification for an already verified email', function () {
+    $email = 'resend-verified@example.com';
+
+    $this->api->post('app_auth_register', [
+        'email' => $email,
+        'name' => 'Already Verified',
+        'password' => 'secret123',
+    ]);
+
+    $token = (string) authTestMailer($this)->lastToken('verification', $email);
+    $this->api->post('app_auth_email_verify', ['token' => $token]);
+
+    $accessToken = authTestAccessToken(authTestLogin($this, $email));
+    $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
+
+    for ($attempt = 0; $attempt < 4; ++$attempt) {
+        $response = $this->api->post('app_auth_email_resend', server: $server);
+
+        expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT);
+    }
+
+    expect($this->api->errorCodes())->toBe(['EMAIL_ALREADY_VERIFIED'])
+        ->and(authTestMailer($this)->count('verification', $email))->toBe(1);
+});
+
 it('rate limits repeated email verification resends', function () {
     $email = 'resend-limit@example.com';
     authTestCreateUser($this, $email);

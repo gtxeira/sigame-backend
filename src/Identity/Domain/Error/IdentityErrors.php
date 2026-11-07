@@ -227,6 +227,14 @@ final class IdentityErrors
         );
     }
 
+    public static function emailAlreadyVerified(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::EmailAlreadyVerified,
+            message: 'O e-mail já está verificado.',
+        );
+    }
+
     public static function emailVerificationTokenInvalid(): DomainError
     {
         return self::error(

@@ -548,11 +548,12 @@ O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O fron
 
 ### 4.2 Reenviar
 
-`POST /api/v1/auth/email/verification/resend` — Bearer. Retorna `204`. Apesar do prefixo `/auth`, a rota exige `Authorization`; a confirmação pública continua em `POST /auth/email/verify`.
+`POST /api/v1/auth/email/verification/resend` — Bearer. Apesar do prefixo `/auth`, a rota exige `Authorization`; a confirmação pública continua em `POST /auth/email/verify`.
 
-- Gera um novo token e invalida o anterior.
-- Contas já verificadas não recebem novo e-mail.
-- Limite: 3 reenvios por minuto por usuário.
+- O cadastro local já enfileira uma confirmação automaticamente; use o reenvio quando o e-mail não chegou ou o link expirou.
+- Gera um novo token e invalida o anterior; responde `204` quando a mensagem é enfileirada.
+- Contas já verificadas recebem `409` com `EMAIL_ALREADY_VERIFIED` e nenhum novo e-mail é enviado.
+- Limite: 3 reenvios por minuto por usuário. A checagem de conta verificada acontece antes do rate limit, porque não há trabalho a executar.
 
 ---
 

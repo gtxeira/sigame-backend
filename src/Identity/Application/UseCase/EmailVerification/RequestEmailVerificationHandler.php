@@ -30,10 +30,10 @@ final readonly class RequestEmailVerificationHandler
     ) {
     }
 
-    public function __invoke(User $user): void
+    public function __invoke(User $user): EmailVerificationRequestOutcome
     {
         if ($user->isEmailVerified()) {
-            return;
+            return EmailVerificationRequestOutcome::AlreadyVerified;
         }
 
         $this->tokenRepository->invalidateUnconsumed($user, IdentityTokenPurpose::EmailVerification);
@@ -67,5 +67,7 @@ final readonly class RequestEmailVerificationHandler
                 'reason' => $exception->getMessage(),
             ]);
         }
+
+        return EmailVerificationRequestOutcome::Queued;
     }
 }
