@@ -81,7 +81,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'type' => 'stream',
                     'path' => 'php://stderr',
                     'level' => 'debug',
-                    'formatter' => 'monolog.formatter.json',
+                    'formatter' => StructuredLogFormatter::class,
                 ],
                 'console' => [
                     'type' => 'console',
@@ -97,7 +97,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                         'deprecation',
                     ],
                     'path' => 'php://stderr',
-                    'formatter' => 'monolog.formatter.json',
+                    'formatter' => StructuredLogFormatter::class,
                 ],
             ],
         ]);

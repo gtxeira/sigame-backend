@@ -3,6 +3,10 @@
 
 	{$CADDY_GLOBAL_OPTIONS}
 
+	log {
+		format json
+	}
+
 	frankenphp {
 		{$FRANKENPHP_CONFIG}
 	}
@@ -15,6 +19,7 @@
 		{$CADDY_SERVER_LOG_OPTIONS}
 		# Redact the authorization query parameter that can be set by Mercure
 		format filter {
+			wrap json
 			request>uri query {
 				replace authorization REDACTED
 			}
