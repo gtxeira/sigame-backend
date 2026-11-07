@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 /**
  * Listener para converter exceções inesperadas e/ou não tratadas em resposta HTTP.
  */
-#[AsEventListener(event: 'kernel.exception')]
+#[AsEventListener(event: 'kernel.exception', priority: 0)]
 final readonly class ApiExceptionListener
 {
     public function __construct(private LoggerInterface $logger)
@@ -24,10 +24,13 @@ final readonly class ApiExceptionListener
     public function __invoke(ExceptionEvent $event): void
     {
         $exception = $event->getThrowable();
-        $this->logger->error($exception->getMessage(), ['exception' => $exception]);
+        $request = $event->getRequest();
 
-        $event->getThrowable()
-            |> (fn ($exception) => $this->logger->error($exception->getMessage(), ['exception' => $exception]));
+        $this->logger->critical('Unhandled exception', [
+            'exception' => $exception,
+            'method' => $request->getMethod(),
+            'path' => $request->getPathInfo(),
+        ]);
 
         // Exceções inesperadas/não tratadas — 500 com mensagem genérica
         $response = ApiResponse::error(
