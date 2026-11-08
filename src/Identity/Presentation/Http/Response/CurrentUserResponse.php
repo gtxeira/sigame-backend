@@ -8,11 +8,15 @@ use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
 use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserStatus;
+use App\Shared\Domain\ValueObject\Modality;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(description: 'Dados públicos do usuário autenticado.')]
 final readonly class CurrentUserResponse
 {
+    /**
+     * @param list<string> $modalities
+     */
     public function __construct(
         #[OA\Property(format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
         public string $id,
@@ -28,6 +32,34 @@ final readonly class CurrentUserResponse
 
         #[OA\Property(example: 'John Doe')]
         public string $name,
+
+        #[OA\Property(description: 'Altura em centímetros, quando informada.', nullable: true, example: 178)]
+        public ?int $heightCm,
+
+        #[OA\Property(description: 'Peso em quilogramas, quando informado.', nullable: true, example: 75.5)]
+        public ?float $weightKg,
+
+        #[OA\Property(description: 'URL da foto de perfil, quando informada.', nullable: true, example: 'https://example.com/photo.jpg')]
+        public ?string $photoUrl,
+
+        #[OA\Property(
+            description: 'Modalidades praticadas.',
+            type: 'array',
+            items: new OA\Items(
+                type: 'string',
+                enum: [Modality::WALKING->value, Modality::RUNNING->value, Modality::CYCLING->value],
+            ),
+            example: ['caminhada', 'corrida'],
+        )]
+        public array $modalities,
+
+        #[OA\Property(
+            description: 'Modalidade principal, quando definida.',
+            nullable: true,
+            enum: [Modality::WALKING->value, Modality::RUNNING->value, Modality::CYCLING->value],
+            example: 'corrida',
+        )]
+        public ?string $primaryModality,
 
         #[OA\Property(example: UserLevel::MIN_LEVEL)]
         public int $level,
@@ -54,6 +86,14 @@ final readonly class CurrentUserResponse
             email: $user->email()->value(),
             emailVerified: $user->isEmailVerified(),
             name: $user->name(),
+            heightCm: $user->height()?->centimeters(),
+            weightKg: $user->weight()?->kilograms(),
+            photoUrl: $user->photoUrl(),
+            modalities: array_map(
+                static fn (Modality $modality): string => $modality->value,
+                $user->modalities(),
+            ),
+            primaryModality: $user->primaryModality()?->value,
             level: $user->level()->value(),
             status: $user->status()->value,
             onboardingStatus: $user->onboardingStatus()->value,

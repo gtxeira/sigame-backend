@@ -2,7 +2,7 @@
 
 > **Status:** documento de trabalho
 >
-> **Última atualização:** 2026-11-05
+> **Última atualização:** 2026-11-08
 >
 > **Finalidade:** registrar o estado da implementação, o roadmap, as decisões ainda abertas, o histórico de migrations e as dívidas técnicas.
 
@@ -25,7 +25,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | 0 | Infraestrutura base (Docker, PostgreSQL, Doctrine, Shared) | Concluída; integração de storage ainda pendente |
 | 1 | Identity: cadastro | Concluída |
 | 2 | Identity: autenticação | Concluída |
-| 3 | Identity: onboarding | Parcial — domínio pronto, falta camada HTTP |
+| 3 | Identity: onboarding | Concluída |
 | 4 | Groups | Não iniciada |
 | 5 | Activities | Não iniciada |
 | 6 | Gamification | Não iniciada |
@@ -48,12 +48,12 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Logout e logout de todos os dispositivos | Implementado | `src/Identity/Application/UseCase/Logout/` |
 | Dados do usuário autenticado | Implementado | `src/Identity/Presentation/Http/Controller/MeController.php` |
 | Definição de CPF write-once | Implementado | `AssignCpfHandler` e `PATCH /api/v1/users/me/cpf` |
-| Rate limiting de cadastro, login, social, e-mail, senha, refresh e CPF | Implementado | `config/packages/rate_limiter.php` |
+| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF e onboarding | Implementado | `config/packages/rate_limiter.php` |
 | Health checks | Implementado | `src/Monitoring/` |
-| Onboarding | Parcial | Regras em `User::completeOnboarding()`; falta handler e controller |
+| Onboarding | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
 | Upload de foto de perfil em S3 | Não iniciado | Pacotes instalados, sem adapter de storage |
 | CRUD administrativo de usuários | Não iniciado | Planejado |
-| Gamificação | Não iniciada | Evento `UserRegistered` é publicado, mas não há listener |
+| Gamificação | Não iniciada | Eventos `UserRegistered` e `OnboardingCompleted` são publicados, mas não há listener |
 | Demais módulos de negócio | Não iniciados | Groups, Activities, Notifications, Moderation, Sponsorship, Reports |
 
 ### 1.3 O que existe hoje no HTTP
@@ -75,13 +75,14 @@ Rotas confirmadas por `bin/console debug:router`:
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT |
+| `POST` | `/api/v1/users/me/onboarding` | Bearer JWT |
 | `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT |
 | `GET` | `/api/health/liveness` | Pública |
 | `GET` | `/api/health/readiness` | Pública |
 
-Não existe rota de onboarding nem página inicial. A documentação interativa fica em `/doc` e o JSON OpenAPI em `/doc.json`.
+Não existe página inicial (o front-end é separado). A documentação interativa fica em `/doc` e o JSON OpenAPI em `/doc.json`.
 
 ---
 
@@ -126,11 +127,11 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 
 - [x] Regras de onboarding no agregado `User`.
 - [x] Value objects de altura, peso, modalidades e status de onboarding.
-- [x] Evento `OnboardingCompleted` (classe definida).
-- [ ] `CompleteOnboardingCommand` e `CompleteOnboardingHandler`.
-- [ ] `OnboardingController` e DTOs de request/response.
-- [ ] Publicação efetiva de `OnboardingCompleted` e integração com Gamification.
-- [ ] Teste funcional do fluxo registro → onboarding → nível 2.
+- [x] `CompleteOnboardingCommand` e `CompleteOnboardingHandler`.
+- [x] `OnboardingController` e DTOs de request/response.
+- [x] Publicação efetiva de `OnboardingCompleted`.
+- [x] Teste funcional do fluxo registro → onboarding → nível 2.
+- [ ] Consumo de `OnboardingCompleted` pela Gamification (Fase 6).
 
 ### Fase 4 — Groups
 
@@ -209,7 +210,12 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261029191722` | 2026-10-29 | Substitui `users.profile` JSON por `height_cm`, `weight_kg` e `photo_url`; cria `user_modalities` e migra os dados existentes. |
 | `Version20261104120000` | 2026-11-04 | Cria `user_identities` e `refresh_tokens`; move e-mail/senha para identidades; torna `users.cpf` opcional. |
 | `Version20261105153437` | 2026-11-05 | Torna `users.updated_at` obrigatório, preenchendo nulos com `created_at`. |
+| `Version20261106090000` | 2026-11-06 | Adiciona `users.email` e `users.email_verified_at` e faz o backfill a partir das identidades. |
+| `Version20261106090100` | 2026-11-06 | Valida duplicatas e cria o índice único de `users.email`. |
+| `Version20261106090200` | 2026-11-06 | Cria `identity_tokens` para verificação de e-mail e reset de senha. |
 | `Version20261106100000` | 2026-11-06 | Cria `messenger_messages` para o transporte Doctrine do Messenger. |
+
+A conclusão do onboarding não exigiu migration: `height_cm`, `weight_kg`, `photo_url` e `user_modalities` já existiam desde `Version20261029191722`.
 
 ### Regras
 
@@ -225,8 +231,8 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 
 | Item | Evidência | Ação sugerida |
 |---|---|---|
-| Onboarding sem HTTP | `User::completeOnboarding()` existe; não há handler nem controller | Criar `CompleteOnboardingCommand/Handler`, `OnboardingController`, DTOs e teste funcional. |
-| `OnboardingCompleted` não é publicado | A classe existe, mas nenhum fluxo a dispara | Publicar no handler de onboarding. |
+| `OnboardingCompleted` sem consumidor | O evento é publicado na conclusão do onboarding, mas a Gamification ainda não existe | Implementar o listener da Fase 6. |
+| Troca de modalidade principal ausente | RN03.5/CA03.5 exigem alterar a principal preservando histórico, mas `completeOnboarding()` só aceita uma conclusão | Criar caso de uso e endpoint próprios, com teste de preservação de XP. |
 | `UserRegistered` sem consumidor | O evento é publicado no cadastro e no login social | Implementar listener de Gamification quando o módulo existir. |
 | Motivo da suspensão não é persistido | `User::suspend(string $reason)` ignora o argumento | Criar histórico de suspensões com autor, motivo e datas. |
 | Sem upload de arquivos | Pacotes `league/flysystem` e `league/flysystem-aws-s3-v3` instalados, sem adapter | Implementar `FileStorageInterface` e o adapter S3/Garage. |

@@ -38,6 +38,10 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'description' => 'Dados do usuário autenticado sobre a própria conta.',
                 ],
                 [
+                    'name' => 'Onboarding',
+                    'description' => 'Conclusão do onboarding inicial e definição do perfil esportivo.',
+                ],
+                [
                     'name' => 'Saúde',
                     'description' => 'Endpoints operacionais de saúde e diagnóstico da aplicação.',
                 ],
@@ -57,6 +61,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'name' => 'Conta',
                     'tags' => [
                         'Minha conta',
+                        'Onboarding',
                     ],
                 ],
                 [

@@ -2,7 +2,7 @@
 
 > **Status:** registro vivo
 >
-> **Última atualização:** 2026-11-05
+> **Última atualização:** 2026-11-08
 >
 > **Finalidade:** preservar o contexto e o porquê das decisões já tomadas, para orientar mudanças futuras.
 
@@ -36,6 +36,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend) | Fluxo OAuth com state e PKCE no backend | Vigente |
 | [ADR-013](#adr-013--tokens-de-uso-único-para-verificação-de-e-mail-e-reset-de-senha) | Tokens de uso único para verificação de e-mail e reset de senha | Vigente |
 | [ADR-014](#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado) | E-mails de identidade assíncronos com payload cifrado | Vigente |
+| [ADR-015](#adr-015--onboarding-como-ação-única-e-evento-de-domínio) | Onboarding como ação única e evento de domínio | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
 
@@ -409,6 +410,36 @@ O envio de e-mail dentro do request de cadastro, reenvio e reset prendia a respo
 - Mensagens de reset no `failed` são terminais porque o token já foi consumido; use `messenger:failed:remove`, não retry. Verificação pode ser retentada.
 - A V1 roda **uma réplica** do worker para preservar a ordem FIFO entre reenvios do mesmo usuário.
 - Testes usam `MESSENGER_TRANSPORT_DSN=sync://`, mantendo handlers e `RecordingIdentityMailer` no mesmo processo.
+
+---
+
+## ADR-015 — Onboarding como ação única e evento de domínio
+
+### Contexto
+
+O agregado `User` já concentrava as regras de onboarding, mas faltava expô-las por HTTP e publicar `OnboardingCompleted` para a futura Gamification. Era preciso decidir a forma da rota, o comportamento em repetição, onde ficam as validações e quando o evento é disparado.
+
+### Decisão
+
+- Expor a conclusão como **ação de domínio** em `POST /api/v1/users/me/onboarding`, autenticada por Bearer JWT, na tag `Onboarding`.
+- Tratar a conclusão como **única**: depois de concluída, novas tentativas retornam `409 ONBOARDING_ALREADY_COMPLETED` sem conceder novamente o nível 2. O requisito `CA03.2` admite tanto a conclusão única quanto a idempotente; a opção única evita comparação de payload e mantém a regra no agregado.
+- Validar **tipo e formato no request** (URL da foto, valores de modalidade) e **regras de negócio no agregado** (faixa de altura e peso, ao menos uma modalidade, modalidade principal entre as selecionadas). Assim o cliente recebe os códigos `USER_HEIGHT_INVALID`, `USER_WEIGHT_INVALID`, `ONBOARDING_NO_MODALITY_SELECTED` e `ONBOARDING_INVALID_PRIMARY_MODALITY`, e `VALIDATION_ERROR` fica reservado a entrada malformada.
+- Publicar `OnboardingCompleted` **depois** da persistência, no handler, seguindo o padrão de `UserRegistered`.
+- Reutilizar `CurrentUserResponse` e acrescentar altura, peso, foto, modalidades e modalidade principal. A mudança é aditiva e permite que `GET /users/me` mostre o perfil completo.
+- Aceitar `photoUrl` como URL livre por enquanto; o upload real depende do adapter S3/Flysystem do [ADR-010](#adr-010--arquivos-em-s3-via-flysystemgarage).
+
+### Alternativas consideradas
+
+- **`PUT /users/me/onboarding`:** sugeriria substituição idempotente, mas o agregado recusa a segunda conclusão.
+- **Idempotência por comparação de payload:** devolveria 200 quando os dados fossem iguais, porém exige duplicar a comparação de modalidades e dificulta distinguir "já concluído" de "já concluído com outros dados".
+- **Validar faixas no request:** devolveria `VALIDATION_ERROR` genérico e esconderia os códigos de negócio já catalogados.
+
+### Consequências
+
+- O nível 2 é promovido pelo próprio agregado na conclusão; o evento apenas comunica o fato para os listeners da Fase 6.
+- A troca de modalidade principal depois de concluído (`RN03.5`) fica como dívida, com caso de uso e endpoint próprios.
+- O endpoint é limitado por usuário pelo limiter `user_onboarding`.
+- Testes: `CompleteOnboardingHandlerTest` (unidade) e `OnboardingTest` (HTTP), além do caminho de 401 em `AuthHardeningTest`.
 
 ---
 

@@ -42,6 +42,7 @@ it('requires a bearer token on every protected account route', function (
     'email resend' => ['app_auth_email_resend', []],
     'password change' => ['app_me_password_change', []],
     'identity link' => ['app_me_identity_link', ['provider' => 'google']],
+    'onboarding' => ['app_me_onboarding', []],
 ]);
 
 it('authenticates an existing social identity without creating a duplicate account', function () {

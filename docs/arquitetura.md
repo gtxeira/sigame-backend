@@ -4,7 +4,7 @@
 >
 > **Versão:** 0.2
 >
-> **Última atualização:** 2026-11-05
+> **Última atualização:** 2026-11-08
 >
 > **Autor:** Gustavo Teixeira de Sousa
 
@@ -244,15 +244,16 @@ A decisão completa está em [decisoes.md](decisoes.md#adr-005--cpf-opcional-e-w
 | Refresh token | `RefreshTokenCommand` | `RefreshTokenHandler` | Valida refresh opaco → detecta reuso → rotaciona o par |
 | Logout | `LogoutCommand` | `LogoutHandler` | Revoga a família do cookie ou todas as famílias |
 | Definir CPF | `AssignCpfCommand` | `AssignCpfHandler` | Valida CPF → verifica unicidade → define (write-once) |
+| Concluir onboarding | `CompleteOnboardingCommand` | `CompleteOnboardingHandler` | Carrega o usuário → conclui no agregado → persiste → publica `OnboardingCompleted` |
 
-O onboarding ainda não tem handler nem controller HTTP; as regras existem no agregado `User`. O estado está em [implementacao.md](implementacao.md).
+A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado está em [implementacao.md](implementacao.md).
 
 ### 5.2 Eventos
 
 | Evento | Disparado quando | Consumidores |
 |---|---|---|
 | `UserRegistered` | Após cadastro local ou social | Nenhum implementado; previsto para Gamification |
-| `OnboardingCompleted` | Após onboarding válido (previsto; ainda não disparado) | Nenhum implementado; previsto para Gamification |
+| `OnboardingCompleted` | Após onboarding válido | Nenhum implementado; previsto para Gamification |
 
 ### 5.3 Fluxos planejados
 
@@ -355,6 +356,7 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | `MeController::me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | `MeController::assignCpf` | Bearer JWT |
+| `POST` | `/api/v1/users/me/onboarding` | `OnboardingController::complete` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | `MePasswordController::change` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | `MeIdentityController::link` | Bearer JWT |
 | `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |

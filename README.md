@@ -2,7 +2,7 @@
 
 Plataforma web para incentivar a prática de atividades físicas em grupo: encontrar pessoas com interesses e disponibilidades compatíveis, formar pequenos grupos, organizar atividades, registrar presença e acompanhar a evolução de cada participante.
 
-> **Status:** V1 em desenvolvimento. O módulo de identidade (cadastro, autenticação e conta) está implementado; o onboarding tem domínio pronto e ainda falta a camada HTTP. Os demais módulos estão no roadmap. O acompanhamento detalhado fica em [docs/implementacao.md](docs/implementacao.md).
+> **Status:** V1 em desenvolvimento. O módulo de identidade (cadastro, autenticação, conta e onboarding) está implementado. Os demais módulos estão no roadmap. O acompanhamento detalhado fica em [docs/implementacao.md](docs/implementacao.md).
 
 ## Visão do projeto
 
@@ -156,6 +156,7 @@ Rotas de negócio usam `/api/v1`. Probes operacionais usam `/api/health`, sem ve
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT | Encerrar todas as sessões |
 | `GET` | `/api/v1/users/me` | Bearer JWT | Obter os dados do usuário autenticado |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT | Definir o CPF (write-once) |
+| `POST` | `/api/v1/users/me/onboarding` | Bearer JWT | Concluir o onboarding e alcançar o nível 2 |
 | `POST` | `/api/v1/users/me/password` | Bearer JWT | Alterar a senha |
 | `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT | Vincular identidade social |
 | `GET` | `/api/health/liveness` | Pública | Verificar a execução da aplicação |
