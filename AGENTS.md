@@ -60,8 +60,43 @@ assumption; don't scaffold a full stack unprompted.
 
 ## Error and HTTP contract
 
-- Expected business failure -> `Result` with `DomainError` list. Broken invariant ->
-  `DomainException`. Don't use generic exceptions for expected cases.
+### Result vs exception
+
+Choose by the nature of the failure, not by convenience:
+
+- **Expected and recoverable -> `Result` with a `DomainError` list.** Input rejected,
+  business-rule conflict, credential/token failure, or any state the client can act on.
+  Never throw for these.
+- **Input and Value Object validation -> `ValidationResult`.** Accumulate independent
+  errors and cross the use-case boundary with `Result::fromValidation()`.
+- **Idempotent no-op -> don't throw.** When the resource is already in the requested
+  state, return success (e.g. `bool` telling whether a transition happened, or a
+  `Result` success) instead of an "already done" exception.
+- **Broken invariant or programmer error -> exception.** Impossible states, invalid VO
+  arguments from trusted code, API misuse. If the client is not meant to see it, use
+  `LogicException` (or a dedicated internal exception) and let it surface as 500; do
+  not add it to the public error catalog.
+- **Client-facing domain failure that cannot return a value -> `DomainException`.**
+  A concrete subclass per error for a VO/entity invariant the client must see. It must
+  declare `errorCode()`, `kind()`, `publicMessage()` and `errorDetails()`.
+- **Adapter boundary -> typed exception converted at the use case.** Infrastructure
+  failures (Doctrine constraint, JWT parsing, external provider, crypto, Messenger)
+  throw a typed exception; the use case catches it and returns a `Result`. Examples:
+  unique-constraint races -> `EmailAlreadyExistsException` /
+  `CpfAlreadyExistsException` / `SocialIdentityAlreadyLinkedException`;
+  `InvalidTokenException`; `SocialAuthenticationException`; `PayloadDecryptionFailed`.
+- **Framework contracts -> keep the framework exception.** Symfony Security, Messenger
+  and HTTP exceptions must not be replaced by `Result`.
+- **Configuration/boot errors -> fail fast.** Throw in constructors/service wiring so
+  the container does not boot with invalid configuration.
+
+Additional rules:
+
+- Don't use generic `\RuntimeException` or SPL `\InvalidArgumentException` for expected
+  business failures. Expected failures are `Result`; internal invariants are
+  `LogicException` or a concrete domain exception.
+- Don't add internal or unreachable codes to the public catalog; `ApiDocumentationTest`
+  asserts they never leak into the OpenAPI document.
 - Create errors only through the module's `*ErrorCode` catalog and `*Errors` factory;
   add the case to `ErrorCodeCatalogTest`. The code string is a public contract; public
   messages are PT-BR.
