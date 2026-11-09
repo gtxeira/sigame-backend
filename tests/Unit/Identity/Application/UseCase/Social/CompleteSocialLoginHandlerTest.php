@@ -13,6 +13,7 @@ use App\Identity\Application\Service\TokenPairIssuerInterface;
 use App\Identity\Application\UseCase\Social\CompleteSocialLogin\CompleteSocialLoginCommand;
 use App\Identity\Application\UseCase\Social\CompleteSocialLogin\CompleteSocialLoginHandler;
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
@@ -148,6 +149,49 @@ it('links automatically when the existing account has no local password', functi
 
     expect($result->isSuccess())->toBeTrue()
         ->and($result->value()->tokens)->not->toBeNull();
+});
+
+it('returns a conflict when the social identity is linked concurrently on signup', function () {
+    ['handler' => $handler, 'repository' => $repository] = socialLoginHandler();
+
+    $repository->shouldReceive('findByProviderSubject')->once()->andReturn(null);
+    $repository->shouldReceive('findByEmail')->once()->andReturn(null);
+    $repository->shouldReceive('save')->once()->andThrow(SocialIdentityAlreadyLinkedException::create());
+
+    $result = $handler(new CompleteSocialLoginCommand(
+        provider: 'google',
+        flowId: 'flow-id',
+        state: 'state',
+        authorizationCode: 'created@example.com',
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('SOCIAL_IDENTITY_ALREADY_LINKED');
+});
+
+it('returns a conflict when the social identity is linked concurrently during automatic link', function () {
+    ['handler' => $handler, 'repository' => $repository] = socialLoginHandler();
+
+    $user = User::registerWithProvider(
+        provider: IdentityProvider::GOOGLE,
+        subject: ProviderSubject::fromString('other-subject'),
+        email: Email::fromString('social-only@example.com')->value(),
+        name: 'Social Only',
+    );
+
+    $repository->shouldReceive('findByProviderSubject')->once()->andReturn(null);
+    $repository->shouldReceive('findByEmail')->once()->andReturn($user);
+    $repository->shouldReceive('save')->once()->andThrow(SocialIdentityAlreadyLinkedException::create());
+
+    $result = $handler(new CompleteSocialLoginCommand(
+        provider: 'google',
+        flowId: 'flow-id',
+        state: 'state',
+        authorizationCode: 'social-only@example.com',
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('SOCIAL_IDENTITY_ALREADY_LINKED');
 });
 
 it('rejects a login with an unverified provider email', function () {

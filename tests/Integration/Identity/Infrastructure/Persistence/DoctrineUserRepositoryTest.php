@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
@@ -210,4 +212,57 @@ it('finds a user by provider subject', function () {
     assert($found instanceof User);
 
     expect($found->id()->value())->toBe($user->id()->value());
+});
+
+it('translates a duplicate cpf into a domain conflict', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+
+    $first = makeUserWith(
+        cpf: '52998224725',
+        email: 'cpf-first@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'First User',
+    );
+    $repository->save($first);
+
+    $second = makeUserWith(
+        cpf: '52998224725',
+        email: 'cpf-second@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Second User',
+    );
+
+    expect(fn () => $repository->save($second))->toThrow(CpfAlreadyExistsException::class);
+});
+
+it('translates a duplicate social identity into a domain conflict', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+    $subject = ProviderSubject::fromString('same-google-subject');
+
+    $first = makeUserWith(
+        cpf: '52998224725',
+        email: 'social-first@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'First User',
+    );
+    $first->linkSocialIdentity(
+        IdentityProvider::GOOGLE,
+        $subject,
+        Email::fromString('social-first@example.com')->value(),
+    );
+    $repository->save($first);
+
+    $second = makeUserWith(
+        cpf: '47705122014',
+        email: 'social-second@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Second User',
+    );
+    $second->linkSocialIdentity(
+        IdentityProvider::GOOGLE,
+        $subject,
+        Email::fromString('social-second@example.com')->value(),
+    );
+
+    expect(fn () => $repository->save($second))->toThrow(SocialIdentityAlreadyLinkedException::class);
 });

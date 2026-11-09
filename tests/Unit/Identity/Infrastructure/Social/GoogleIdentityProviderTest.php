@@ -81,6 +81,26 @@ it('rejects a token endpoint error', function () {
     );
 })->throws(SocialAuthenticationException::class);
 
+it('rejects a provider subject longer than the maximum length', function () {
+    $httpClient = new MockHttpClient(static fn (): MockResponse => new MockResponse(
+        json_encode(['id_token' => 'id-token'], JSON_THROW_ON_ERROR),
+        ['http_code' => 200],
+    ));
+
+    $verifier = Mockery::mock(IdTokenVerifierInterface::class);
+    $verifier->shouldReceive('verify')->once()->andReturn([
+        'sub' => str_repeat('a', 256),
+        'email' => 'user@example.com',
+        'email_verified' => true,
+    ]);
+
+    googleProvider($httpClient, $verifier)->fetchIdentity(
+        authorizationCode: 'auth-code',
+        redirectUri: 'https://app.example.com/auth/google/callback',
+        codeVerifier: 'verifier',
+    );
+})->throws(SocialAuthenticationException::class);
+
 it('rejects a provider response without id_token', function () {
     $httpClient = new MockHttpClient(static fn (): MockResponse => new MockResponse(
         json_encode([], JSON_THROW_ON_ERROR),

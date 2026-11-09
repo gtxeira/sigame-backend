@@ -9,6 +9,7 @@ use App\Identity\Application\Exception\SocialAuthenticationException;
 use App\Identity\Application\Service\SocialFlowStoreInterface;
 use App\Identity\Application\Service\SocialIdentityProviderRegistry;
 use App\Identity\Domain\Error\IdentityErrors;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Shared\Domain\Functional\Result;
@@ -107,7 +108,12 @@ final readonly class LinkWithFlowHandler
                 email: $identity->email,
                 emailVerifiedAt: Instant::fromDateTime($this->clock->now()),
             );
-            $this->userRepository->save($user);
+
+            try {
+                $this->userRepository->save($user);
+            } catch (SocialIdentityAlreadyLinkedException) {
+                return Result::failure([IdentityErrors::socialIdentityAlreadyLinked()]);
+            }
         }
 
         return Result::success(true);

@@ -15,6 +15,8 @@ use App\Shared\Domain\Functional\ValidationResult;
  */
 final readonly class Email
 {
+    public const int MAX_LENGTH = 255;
+
     private function __construct(
         private string $value,
     ) {
@@ -28,6 +30,12 @@ final readonly class Email
     public static function fromString(string $email): ValidationResult
     {
         $normalized = strtolower(trim($email));
+
+        if (mb_strlen($normalized) > self::MAX_LENGTH) {
+            return ValidationResult::invalid([
+                SharedErrors::emailTooLong(self::MAX_LENGTH),
+            ]);
+        }
 
         if (!filter_var($normalized, FILTER_VALIDATE_EMAIL)) {
             return ValidationResult::invalid([

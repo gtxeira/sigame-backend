@@ -9,6 +9,7 @@ use App\Identity\Application\Service\SocialIdentityProviderRegistry;
 use App\Identity\Application\UseCase\Social\LinkSocialIdentity\LinkWithFlowCommand;
 use App\Identity\Application\UseCase\Social\LinkSocialIdentity\LinkWithFlowHandler;
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
@@ -94,6 +95,29 @@ it('links the identity when the flow belongs to the authenticated user', functio
 
     expect($result->isSuccess())->toBeTrue()
         ->and($user->identities())->toHaveCount(2);
+});
+
+it('returns a conflict when the identity is linked concurrently', function () {
+    $user = linkFlowTestUser();
+    ['handler' => $handler, 'users' => $users, 'flows' => $flows] = linkFlowTestHandler();
+
+    $flows->shouldReceive('consume')->once()->andReturn(
+        linkFlowTestFlow(userId: $user->id()->value()),
+    );
+    $users->shouldReceive('findById')->once()->andReturn($user);
+    $users->shouldReceive('findByProviderSubject')->once()->andReturn(null);
+    $users->shouldReceive('save')->once()->andThrow(SocialIdentityAlreadyLinkedException::create());
+
+    $result = $handler(new LinkWithFlowCommand(
+        provider: 'google',
+        flowId: 'flow-id',
+        state: 'state',
+        authorizationCode: 'linked@example.com',
+        userId: $user->id(),
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('SOCIAL_IDENTITY_ALREADY_LINKED');
 });
 
 it('is idempotent when the identity is already linked to the same user', function () {

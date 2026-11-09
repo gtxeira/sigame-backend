@@ -527,7 +527,6 @@ it('does not leak internal or unreachable error codes', function (string $intern
 
     expect((string) json_encode($doc, JSON_THROW_ON_ERROR))->not->toContain($internalCode);
 })->with([
-    'INVALID_HASHED_PASSWORD',
     'USER_LEVEL_INVALID',
     'USER_ALREADY_ACTIVE',
     'USER_ALREADY_SUSPENDED',

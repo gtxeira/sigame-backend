@@ -48,6 +48,15 @@ final class SharedErrors
         );
     }
 
+    public static function emailTooLong(int $maxLength): DomainError
+    {
+        return self::error(
+            code: SharedErrorCode::EmailInvalid,
+            message: sprintf('O e-mail deve ter no máximo %d caracteres.', $maxLength),
+            field: 'email',
+        );
+    }
+
     public static function dateTimeInvalidFormat(): DomainError
     {
         return self::error(

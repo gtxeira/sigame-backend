@@ -7,6 +7,7 @@ use App\Identity\Application\UseCase\RegisterUser\RegisterUserCommand;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserHandler;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserRegistered;
+use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Shared\Application\Event\EventDispatcherInterface;
@@ -186,6 +187,33 @@ it('returns failure when email already exists', function () {
     $error = $result->errors()[0];
 
     expect($error->code)->toBe('EMAIL_ALREADY_EXISTS');
+});
+
+it('returns failure when the cpf constraint is violated on save', function () {
+    $cpf = '52998224725';
+    $email = 'cpf-race@example.com';
+
+    $this->userRepository->shouldReceive('findByCpf')->once()->andReturn(null);
+    $this->userRepository->shouldReceive('findByEmail')->once()->andReturn(null);
+    $this->passwordHasher
+        ->shouldReceive('hash')
+        ->once()
+        ->andReturn(HashedPassword::fromHash('hashed'));
+    $this->userRepository
+        ->shouldReceive('save')
+        ->once()
+        ->andThrow(CpfAlreadyExistsException::create());
+    $this->eventDispatcher->shouldNotReceive('dispatch');
+
+    $result = ($this->handler)(new RegisterUserCommand(
+        cpf: $cpf,
+        email: $email,
+        name: 'João Silva',
+        password: 'secret123',
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('USER_CPF_ALREADY_EXISTS');
 });
 
 it('does not save user on validation failure', function () {

@@ -6,6 +6,7 @@ namespace App\Identity\Application\UseCase\AssignCpf;
 
 use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\ValueObject\Cpf;
@@ -58,7 +59,12 @@ final readonly class AssignCpfHandler
         }
 
         $user->assignCpf($cpf);
-        $this->userRepository->save($user);
+
+        try {
+            $this->userRepository->save($user);
+        } catch (CpfAlreadyExistsException) {
+            return Result::failure([IdentityErrors::cpfAlreadyExists()]);
+        }
 
         return Result::success($user);
     }

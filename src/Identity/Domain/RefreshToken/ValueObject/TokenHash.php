@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\RefreshToken\ValueObject;
 
-use InvalidArgumentException;
+use LogicException;
 
 /**
  * Hash SHA-256 de um refresh token opaco.
@@ -28,7 +28,7 @@ final readonly class TokenHash
         $normalized = strtolower(trim($hash));
 
         if (1 !== preg_match('/^[a-f0-9]{64}$/', $normalized)) {
-            throw new InvalidArgumentException('O hash do refresh token deve ter 64 caracteres hexadecimais.');
+            throw new LogicException('O hash do refresh token deve ter 64 caracteres hexadecimais.');
         }
 
         return new self($normalized);

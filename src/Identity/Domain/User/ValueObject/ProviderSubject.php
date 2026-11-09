@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\ValueObject;
 
-use InvalidArgumentException;
+use LogicException;
 
 /**
  * Identificador do usuário no provedor de identidade.
@@ -24,11 +24,11 @@ final readonly class ProviderSubject
         $normalized = trim($value);
 
         if ('' === $normalized) {
-            throw new InvalidArgumentException('O identificador do provedor não pode ser vazio.');
+            throw new LogicException('O identificador do provedor não pode ser vazio.');
         }
 
         if (mb_strlen($normalized) > 255) {
-            throw new InvalidArgumentException('O identificador do provedor deve ter no máximo 255 caracteres.');
+            throw new LogicException('O identificador do provedor deve ter no máximo 255 caracteres.');
         }
 
         return new self($normalized);

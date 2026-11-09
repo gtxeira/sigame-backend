@@ -11,6 +11,7 @@ use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Shared\Domain\ValueObject\Email;
 use InvalidArgumentException;
+use LogicException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Throwable;
@@ -104,9 +105,15 @@ final readonly class GoogleIdentityProvider implements SocialIdentityProviderInt
             throw SocialAuthenticationException::providerRejected('google');
         }
 
+        try {
+            $providerSubject = ProviderSubject::fromString($subject);
+        } catch (LogicException $exception) {
+            throw new SocialAuthenticationException('Falha ao autenticar com o Google.', 0, $exception);
+        }
+
         return new SocialIdentity(
             provider: IdentityProvider::GOOGLE,
-            subject: ProviderSubject::fromString($subject),
+            subject: $providerSubject,
             email: $emailResult->value(),
             emailVerified: filter_var($claims['email_verified'] ?? false, FILTER_VALIDATE_BOOL),
             name: is_string($claims['name'] ?? null) ? mb_substr($claims['name'], 0, 255) : null,

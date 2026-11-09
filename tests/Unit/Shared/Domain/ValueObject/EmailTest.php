@@ -38,6 +38,18 @@ it('rejects invalid email', function (string $input) {
     'without local part' => '@example.com',
 ]);
 
+it('rejects an email longer than the maximum length', function () {
+    $result = Email::fromString(str_repeat('a', 244).'@example.com');
+
+    expect($result->isInvalid())->toBeTrue();
+
+    $error = $result->errors()[0];
+
+    expect($error->code)->toBe('EMAIL_INVALID')
+        ->and($error->field)->toBe('email')
+        ->and($error->message)->toBe('O e-mail deve ter no máximo 255 caracteres.');
+});
+
 it('reports invalid email with code and field', function () {
     $result = Email::fromString('not-an-email');
 

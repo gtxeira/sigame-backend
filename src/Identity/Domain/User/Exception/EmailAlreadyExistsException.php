@@ -6,8 +6,8 @@ namespace App\Identity\Domain\User\Exception;
 
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\Error\IdentityErrors;
+use App\Identity\Domain\Exception\IdentityException;
 use App\Shared\Domain\Error\ErrorKind;
-use App\Shared\Domain\Exception\DomainException;
 use Throwable;
 
 /**
@@ -16,7 +16,7 @@ use Throwable;
  * Existe para traduzir uma violação de constraint (corrida entre requisições)
  * em uma falha de negócio previsível, sem vazar detalhes do Doctrine.
  */
-final class EmailAlreadyExistsException extends DomainException
+final class EmailAlreadyExistsException extends IdentityException
 {
     public static function create(?Throwable $previous = null): self
     {

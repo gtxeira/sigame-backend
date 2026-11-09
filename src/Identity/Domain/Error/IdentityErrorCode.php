@@ -17,7 +17,6 @@ enum IdentityErrorCode: string
     case UserCpfAlreadyExists = 'USER_CPF_ALREADY_EXISTS';
     case UserCpfAlreadySet = 'USER_CPF_ALREADY_SET';
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
-    case InvalidHashedPassword = 'INVALID_HASHED_PASSWORD';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
     case UserHeightInvalid = 'USER_HEIGHT_INVALID';
     case UserWeightInvalid = 'USER_WEIGHT_INVALID';
@@ -65,7 +64,6 @@ enum IdentityErrorCode: string
             self::UserLevelInvalid,
             self::UserHeightInvalid,
             self::UserWeightInvalid,
-            self::InvalidHashedPassword,
             self::OnboardingInvalidPrimaryModality,
             self::OnboardingNoModalitySelected,
             self::SocialProviderUnsupported,

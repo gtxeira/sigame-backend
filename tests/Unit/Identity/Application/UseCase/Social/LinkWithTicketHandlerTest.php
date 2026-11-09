@@ -7,6 +7,7 @@ use App\Identity\Application\Service\SocialLinkTicketStoreInterface;
 use App\Identity\Application\UseCase\Social\LinkSocialIdentity\LinkWithTicketCommand;
 use App\Identity\Application\UseCase\Social\LinkSocialIdentity\LinkWithTicketHandler;
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
@@ -61,6 +62,25 @@ it('links the identity when the ticket email matches the authenticated account',
 
     expect($result->isSuccess())->toBeTrue()
         ->and($user->identities())->toHaveCount(2);
+});
+
+it('returns a conflict when the identity is linked concurrently', function () {
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('user@example.com')->value(),
+        password: HashedPassword::fromHash('hashed'),
+        name: 'User',
+    );
+    ['handler' => $handler, 'repository' => $repository] = linkTicketHandler();
+
+    $repository->shouldReceive('findById')->once()->andReturn($user);
+    $repository->shouldReceive('findByProviderSubject')->once()->andReturn(null);
+    $repository->shouldReceive('save')->once()->andThrow(SocialIdentityAlreadyLinkedException::create());
+
+    $result = $handler(new LinkWithTicketCommand('google', 'ticket', $user->id()));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('SOCIAL_IDENTITY_ALREADY_LINKED');
 });
 
 it('rejects a ticket issued for another email', function () {

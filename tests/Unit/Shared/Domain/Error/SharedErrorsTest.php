@@ -41,6 +41,15 @@ it('builds email error', function () {
         ->and($error->field)->toBe('email');
 });
 
+it('builds email too long error', function () {
+    $error = SharedErrors::emailTooLong(255);
+
+    expect($error->code)->toBe('EMAIL_INVALID')
+        ->and($error->message)->toBe('O e-mail deve ter no máximo 255 caracteres.')
+        ->and($error->kind)->toBe(ErrorKind::Validation)
+        ->and($error->field)->toBe('email');
+});
+
 it('builds datetime format error', function () {
     $error = SharedErrors::dateTimeInvalidFormat();
 

@@ -20,6 +20,7 @@ use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserRegistered;
 use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Shared\Application\Event\EventDispatcherInterface;
@@ -127,7 +128,12 @@ final readonly class CompleteSocialLoginHandler
                 email: $identity->email,
                 emailVerifiedAt: Instant::fromDateTime($this->clock->now()),
             );
-            $this->userRepository->save($user);
+
+            try {
+                $this->userRepository->save($user);
+            } catch (SocialIdentityAlreadyLinkedException) {
+                return Result::failure([IdentityErrors::socialIdentityAlreadyLinked()]);
+            }
 
             return Result::success(SocialLoginOutcome::authenticated(
                 $this->tokenPairIssuer->issueForNewSession($user),
@@ -148,6 +154,10 @@ final readonly class CompleteSocialLoginHandler
             // Corrida com outro cadastro: a conta passou a existir entre a
             // consulta e o flush. O vínculo agora exige autenticação.
             return Result::success(SocialLoginOutcome::linkRequired($this->issueLinkTicket($identity)));
+        } catch (SocialIdentityAlreadyLinkedException) {
+            // Corrida com outro vínculo do mesmo provedor: a identidade já
+            // pertence a outra conta.
+            return Result::failure([IdentityErrors::socialIdentityAlreadyLinked()]);
         }
 
         $this->eventDispatcher->dispatch(UserRegistered::now(

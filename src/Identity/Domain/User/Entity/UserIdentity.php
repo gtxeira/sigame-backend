@@ -11,7 +11,7 @@ use App\Identity\Domain\User\ValueObject\UserIdentityId;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
 use Doctrine\ORM\Mapping as ORM;
-use InvalidArgumentException;
+use LogicException;
 
 /**
  * Identidade de login de um usuário.
@@ -80,7 +80,7 @@ final class UserIdentity
         ?Instant $emailVerifiedAt = null,
     ): self {
         if ($provider->isLocal()) {
-            throw new InvalidArgumentException('Uma identidade social não pode usar o provedor local.');
+            throw new LogicException('Uma identidade social não pode usar o provedor local.');
         }
 
         return new self(

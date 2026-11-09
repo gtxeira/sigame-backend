@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\ValueObject;
 
-use App\Identity\Domain\User\Exception\InvalidHashedPasswordException;
+use LogicException;
 
 /**
  * Value Object imutável para senhas hasheadas.
@@ -21,7 +21,7 @@ final readonly class HashedPassword
     public static function fromHash(string $hash): self
     {
         if (empty($hash)) {
-            throw new InvalidHashedPasswordException();
+            throw new LogicException('O hash da senha não pode ser vazio.');
         }
 
         return new self($hash);

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Identity\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
 use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
@@ -37,11 +39,16 @@ final class DoctrineUserRepository extends AbstractRepository implements UserRep
         } catch (UniqueConstraintViolationException $exception) {
             $message = $exception->getMessage();
 
-            if (
-                str_contains($message, 'uniq_users_email')
-                || str_contains($message, 'uniq_user_identities_provider_subject')
-            ) {
+            if (str_contains($message, 'uniq_users_email')) {
                 throw EmailAlreadyExistsException::create($exception);
+            }
+
+            if (str_contains($message, 'uniq_users_cpf')) {
+                throw CpfAlreadyExistsException::create($exception);
+            }
+
+            if (str_contains($message, 'uniq_user_identities_provider_subject')) {
+                throw SocialIdentityAlreadyLinkedException::create($exception);
             }
 
             throw $exception;

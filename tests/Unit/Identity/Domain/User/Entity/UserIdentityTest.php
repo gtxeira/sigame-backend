@@ -50,6 +50,16 @@ it('creates a social identity without password', function () {
         ->and($identity->emailVerifiedAt())->not->toBeNull();
 });
 
+it('rejects a social identity with the local provider', function () {
+    $user = identityUser();
+
+    $user->linkSocialIdentity(
+        provider: IdentityProvider::LOCAL,
+        subject: ProviderSubject::fromString('local-sub'),
+        email: Email::fromString('local@example.com')->value(),
+    );
+})->throws(LogicException::class);
+
 it('does not duplicate the same social identity', function () {
     $user = identityUser();
     $subject = ProviderSubject::fromString('google-sub');

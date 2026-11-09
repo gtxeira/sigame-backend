@@ -57,6 +57,7 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode $code) 
 })->with([
     IdentityErrorCode::UserCpfAlreadyExists,
     IdentityErrorCode::EmailAlreadyExists,
+    IdentityErrorCode::SocialIdentityAlreadyLinked,
     IdentityErrorCode::OnboardingAlreadyCompleted,
     IdentityErrorCode::EmailAlreadyVerified,
     IdentityErrorCode::UserCpfAlreadySet,
@@ -70,7 +71,6 @@ it('classifies input problems as validation', function (SharedErrorCode|Identity
     SharedErrorCode::EmailInvalid,
     SharedErrorCode::DateTimeInvalid,
     SharedErrorCode::InvalidUuid,
-    IdentityErrorCode::InvalidHashedPassword,
     IdentityErrorCode::UserLevelInvalid,
     IdentityErrorCode::UserHeightInvalid,
     IdentityErrorCode::UserWeightInvalid,

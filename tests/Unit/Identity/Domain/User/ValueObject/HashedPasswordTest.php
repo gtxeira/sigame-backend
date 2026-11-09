@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\User\Exception\InvalidHashedPasswordException;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 
 it('creates a hashed password from a non-empty hash', function () {
@@ -14,4 +13,4 @@ it('creates a hashed password from a non-empty hash', function () {
 
 it('rejects an empty hash', function () {
     HashedPassword::fromHash('');
-})->throws(InvalidHashedPasswordException::class);
+})->throws(LogicException::class);

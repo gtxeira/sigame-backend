@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\Exception\IdentityException;
-use App\Identity\Domain\User\Exception\InvalidHashedPasswordException;
+use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
+use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
+use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 
 it('exposes a cataloged code, kind and public message', function (
@@ -19,6 +21,8 @@ it('exposes a cataloged code, kind and public message', function (
         ->and($exception->publicMessage())->not->toBeEmpty()
         ->and($exception->publicMessage())->not->toBe($exception->errorCode());
 })->with([
-    [InvalidHashedPasswordException::class, IdentityErrorCode::InvalidHashedPassword],
+    [CpfAlreadyExistsException::class, IdentityErrorCode::UserCpfAlreadyExists],
+    [EmailAlreadyExistsException::class, IdentityErrorCode::EmailAlreadyExists],
+    [SocialIdentityAlreadyLinkedException::class, IdentityErrorCode::SocialIdentityAlreadyLinked],
     [UserCpfAlreadySetException::class, IdentityErrorCode::UserCpfAlreadySet],
 ]);
