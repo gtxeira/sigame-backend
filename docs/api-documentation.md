@@ -176,7 +176,7 @@ O prefixo `/api/v1` é declarado na classe do controller; as rotas dos métodos 
 
 ## 9. Meta adicional em respostas
 
-O envelope padrão sempre inclui `meta.timestamp`. Quando um endpoint precisa devolver campos adicionais em `meta`, o atributo da resposta recebe um `ApiMeta`:
+O envelope padrão sempre inclui `meta.timestamp`. Em respostas de sucesso, `data` está sempre presente, inclusive como lista vazia (`[]`) ou `null`; apenas respostas de erro omitem `data`. Quando um endpoint precisa devolver campos adicionais em `meta`, o atributo da resposta recebe um `ApiMeta`:
 
 ```php
 use App\Shared\Presentation\Http\OpenApi\ApiMeta;

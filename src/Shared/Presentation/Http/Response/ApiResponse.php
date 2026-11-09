@@ -124,10 +124,12 @@ readonly class ApiResponse implements JsonSerializable
     public function jsonSerialize(): array
     {
         if ($this->isSuccess) {
-            return array_filter([
+            // `data` é obrigatório no envelope de sucesso e pode ser uma lista
+            // vazia, `false`, `0`, `''` ou `null`; `array_filter` os removeria.
+            return [
                 'data' => $this->data,
                 'meta' => $this->meta,
-            ]);
+            ];
         }
 
         return array_filter([

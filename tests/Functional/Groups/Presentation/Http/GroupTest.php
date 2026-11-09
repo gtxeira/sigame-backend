@@ -100,8 +100,23 @@ it('filters groups by status and availability', function () {
 
     $activeBody = authTestBody($active);
 
-    expect($activeBody['data'] ?? [])->toBe([])
+    expect($activeBody)->toHaveKey('data')
+        ->and($activeBody['data'])->toBe([])
         ->and($activeBody['meta']['pagination']['total'])->toBe(0);
+});
+
+it('returns an empty list of my groups', function () {
+    groupTestCreateUser($this, 'groups-mine-empty@example.com');
+    $token = groupTestAccessToken($this, 'groups-mine-empty@example.com');
+
+    $response = $this->api->get('app_group_mine', server: groupTestServer($token));
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+
+    $body = authTestBody($response);
+
+    expect($body)->toHaveKey('data')
+        ->and($body['data'])->toBe([]);
 });
 
 it('shows the communication link only to approved members', function () {
