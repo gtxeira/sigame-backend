@@ -112,6 +112,9 @@ it('follows the summary writing convention', function () {
         'Solicitar',
         'Redefinir',
         'Alterar',
+        'Aprovar',
+        'Rejeitar',
+        'Designar',
     ];
 
     $problems = [];
@@ -259,6 +262,16 @@ it('documents every public api operation', function () {
             '/api/v1/users/me/photo',
             '/api/v1/auth/email/verification/resend',
             '/api/v1/users/me/password',
+            '/api/v1/groups',
+            '/api/v1/groups/me',
+            '/api/v1/groups/{id}',
+            '/api/v1/groups/{id}/membership-requests',
+            '/api/v1/groups/{id}/memberships',
+            '/api/v1/groups/{id}/memberships/{membershipId}/approve',
+            '/api/v1/groups/{id}/memberships/{membershipId}/reject',
+            '/api/v1/groups/{id}/memberships/{membershipId}/remove',
+            '/api/v1/groups/{id}/memberships/{membershipId}/role',
+            '/api/v1/groups/{id}/supervisor',
             '/api/health/liveness',
             '/api/health/readiness',
         ]);

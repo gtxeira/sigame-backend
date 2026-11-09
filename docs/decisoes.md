@@ -2,7 +2,7 @@
 
 > **Status:** registro vivo
 >
-> **Última atualização:** 2026-11-08
+> **Última atualização:** 2026-11-09
 >
 > **Finalidade:** preservar o contexto e o porquê das decisões já tomadas, para orientar mudanças futuras.
 
@@ -40,6 +40,11 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-016](#adr-016--upload-de-foto-de-perfil-com-chave-em-s3) | Upload de foto de perfil com chave em S3 | Vigente |
 | [ADR-017](#adr-017--perfil-parcial-e-onboarding-restrito-a-modalidades) | Perfil parcial e onboarding restrito a modalidades | Vigente |
 | [ADR-018](#adr-018--foto-de-perfil-quadrada-em-512-no-cliente) | Foto de perfil quadrada em 512 no cliente | Vigente |
+| [ADR-019](#adr-019--agregado-de-grupos-com-episódios-de-participação) | Agregado de grupos com episódios de participação | Vigente |
+| [ADR-020](#adr-020--consulta-síncrona-de-nível-entre-módulos) | Consulta síncrona de nível entre módulos | Vigente |
+| [ADR-021](#adr-021--campos-visibilidade-e-busca-de-grupos) | Campos, visibilidade e busca de grupos | Vigente |
+| [ADR-022](#adr-022--supervisor-sem-poderes-de-gestão-na-v1) | Supervisor sem poderes de gestão na V1 | Vigente |
+| [ADR-023](#adr-023--criador-e-administradores-independentes) | Criador e administradores independentes | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
 
@@ -599,3 +604,141 @@ Implementar **apenas Google**, pelo fluxo de authorization code. Apple fica como
 - O login usa `start` + `callback` com state e PKCE, conforme o [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend).
 - O vínculo automático por e-mail só ocorre para contas sem senha local; as demais exigem vínculo explícito, conforme o [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social).
 - A configuração do Google está em [autenticacao.md](autenticacao.md).
+
+---
+
+## ADR-019 — Agregado de grupos com episódios de participação
+
+### Contexto
+
+O módulo Groups precisa representar grupos pequenos, com no máximo cinco membros aprovados, solicitações pendentes, rejeições, remoções auditáveis e designação opcional de supervisor. Os requisitos exigem registrar autor, membro, grupo, data e motivo na remoção (`CA06.5`) e impedir solicitações duplicadas (`RN05.2`).
+
+### Decisão
+
+Modelar `Group` como raiz de agregado e `Membership` como entidade interna. Cada solicitação/entrada gera um **episódio próprio**, com estados `PENDING`, `APPROVED`, `REJECTED` e `REMOVED`. Rejeição e remoção preservam a linha; uma nova entrada cria outro episódio.
+
+- O estado do grupo (`FORMING`, `ACTIVE`, `FULL`) é **derivado** da contagem de membros aprovados, sem coluna persistida.
+- Os limites ficam em `GroupPolicy`: 3 aprovados para ativar, 5 para lotar e 3 grupos por usuário.
+- Índices parciais garantem no banco uma única participação ativa por par grupo/usuário e um único supervisor aprovado.
+- Aprovações e decisões usam transação e lock pessimista no grupo; o limite de grupos por usuário usa advisory lock por `user_id`.
+
+### Alternativas consideradas
+
+- Uma única linha por par grupo/usuário com sobrescrita de status: simples, mas perde o histórico exigido pela auditoria.
+- Tabela de auditoria separada: preserva histórico, porém duplica o ciclo de vida e adiciona escrita extra.
+- Persistir o estado do grupo: acelera filtros, mas cria risco de divergência com a contagem real.
+
+### Consequências
+
+- Reentrada após rejeição ou remoção cria um novo episódio e mantém os anteriores.
+- O histórico de membros removidos é consultável por administradores.
+- Filtros por estado usam subquery de contagem; se o volume crescer, avaliar coluna denormalizada.
+- Testes: `GroupTest`, `DoctrineGroupRepositoryTest`, `GroupMembershipTest`.
+
+---
+
+## ADR-020 — Consulta síncrona de nível entre módulos
+
+### Contexto
+
+Groups precisa validar que o usuário tem nível 2 ou superior para criar grupo (`RN04.1`). O módulo não pode importar `Identity\UserId` nem `UserRepositoryInterface`, porque as fronteiras são verificadas por `ModuleBoundariesTest`. O ADR-002 restringe a comunicação cross-module a Domain Events, mas eventos são assíncronos e não servem para uma validação que precisa acontecer na mesma requisição.
+
+### Decisão
+
+Declarar a porta `Shared\Application\User\UserLevelReaderInterface` (`levelOf(string $userId): ?int`) e implementá-la em `Identity\Infrastructure\User\DoctrineUserLevelReader`. Groups importa apenas a interface do kernel; Identity importa apenas Shared e seus próprios tipos.
+
+### Alternativas consideradas
+
+- Read model de nível em Groups atualizado por eventos: introduz consistência eventual e pode autorizar criação indevida com nível defasado.
+- Consulta direta à tabela `users`: acopla Groups ao schema de Identity e ignora as regras do agregado.
+- Enviar o nível no JWT: fica defasado e não reflete deleveling.
+
+### Consequências
+
+- Esta é uma **exceção documentada** ao “somente Domain Events”: vale para leituras síncronas de validação, não para efeitos colaterais.
+- Novas consultas cross-module devem seguir o mesmo padrão: interface no `Shared`, adapter no módulo dono do dado.
+- Testes: `CreateGroupHandlerTest` cobre nível 1, nível 2 e usuário inexistente.
+
+---
+
+## ADR-021 — Campos, visibilidade e busca de grupos
+
+### Contexto
+
+Os requisitos descrevem grupos esportivos e um link externo de comunicação (RF08), mas não detalham os campos do grupo nem como usuários descobrem grupos para solicitar entrada.
+
+### Decisão
+
+O grupo tem `name` (3–80), `description` opcional (até 500), `modality` (caminhada, corrida ou ciclismo) e `communicationLink` opcional (http/https, até 2048).
+
+- Qualquer usuário autenticado pode listar e detalhar grupos com nome, descrição, modalidade, estado e contagem.
+- O `communicationLink` só é retornado para membro aprovado (`RN08.2`).
+- A listagem é paginada (máximo 30 por página) e aceita filtros por modalidade, estado, nome e disponibilidade.
+- Não há chat próprio na V1 (`RN08.1`) nem exigência de telefone (`RN08.3`).
+
+### Alternativas consideradas
+
+- Exigir participação para ver o grupo: dificultaria a descoberta e o RF05.
+- Deixar o link visível a todos: violaria o RF08.2.
+- Não incluir modalidade no grupo: reduziria a utilidade dos filtros e a integração futura com Activities.
+
+### Consequências
+
+- A matriz de visibilidade de perfil (`DEC06`) segue aberta, mas a listagem não expõe dados pessoais.
+- A busca usa `LOWER(name) LIKE`; para volume maior, avaliar índice textual.
+- Testes: `GroupTest` cobre criação, listagem, filtros e visibilidade do link.
+
+---
+
+## ADR-022 — Supervisor sem poderes de gestão na V1
+
+### Contexto
+
+O `DEC11` deixava em aberto as permissões exatas do supervisor. A matriz inicial permite ao supervisor criar, remarcar e cancelar atividades e validar presença, mas não aprovar entrada nem remover membros.
+
+### Decisão
+
+Na Fase 4, supervisor é apenas um membro aprovado marcado com `is_supervisor`. Ele **não** aprova, rejeita, remove, promove ou rebaixa membros e não altera o grupo. Os poderes de atividade serão implementados e testados na Fase 5, quando Activities existir.
+
+- A designação é feita por qualquer administrador e é opcional.
+- Só um membro aprovado pode ser supervisor; apenas um supervisor por grupo.
+- A remoção do membro limpa automaticamente a designação.
+
+### Alternativas consideradas
+
+- Delegar aprovação e remoção ao supervisor: contraria a matriz de permissões e amplia o risco de abuso.
+- Fechar agora todos os poderes de atividade: anteciparia decisões de Activities sem o agregado existir.
+
+### Consequências
+
+- `DEC11` fica **parcialmente fechado** para Groups; a parte de Activities continua pendente.
+- Testes: `GroupTest`, `GroupMembershipTest` e `DoctrineGroupRepositoryTest` cobrem a designação e a ausência de poderes de gestão.
+
+---
+
+## ADR-023 — Criador e administradores independentes
+
+### Contexto
+
+O criador do grupo precisa continuar registrado mesmo que deixe de ser administrador. O produto exige mais de um administrador por grupo, e o papel de admin não pode ser derivado do campo de criador.
+
+### Decisão
+
+- `groups.created_by` registra o criador, é imutável e não concede autorização por si só.
+- O criador inicia como `ADMIN`, mas o papel vive em `Membership.role`.
+- O grupo pode ter vários administradores aprovados; qualquer admin pode promover ou rebaixar um membro aprovado.
+- O grupo nunca fica sem ao menos um admin: rebaixar ou remover o último admin retorna `GROUP_LAST_ADMIN_REQUIRED`.
+- A promoção/rebaixamento é exposta por `PATCH /groups/{id}/memberships/{membershipId}/role`.
+
+### Alternativas consideradas
+
+- Admin único derivado do criador: não permite delegação nem substituição.
+- Transferência de propriedade do grupo: adiciona um fluxo que os requisitos não pedem.
+- Permitir grupo sem admin: cria estado impossível para as operações de gestão.
+
+### Consequências
+
+- `createdBy` permanece no payload e no banco como referência histórica.
+- Um admin rebaixado perde imediatamente as operações de gestão.
+- A migration não cria índice único de administrador; a invariante é garantida pelo domínio e pelo lock.
+- Testes: `GroupTest`, `ChangeMembershipRoleHandlerTest` e `GroupMembershipTest`.

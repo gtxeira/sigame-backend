@@ -2,7 +2,7 @@
 
 > **Status:** documento de trabalho
 >
-> **Última atualização:** 2026-11-08
+> **Última atualização:** 2026-11-09
 >
 > **Finalidade:** registrar o estado da implementação, o roadmap, as decisões ainda abertas, o histórico de migrations e as dívidas técnicas.
 
@@ -26,7 +26,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | 1 | Identity: cadastro | Concluída |
 | 2 | Identity: autenticação | Concluída |
 | 3 | Identity: onboarding | Concluída |
-| 4 | Groups | Não iniciada |
+| 4 | Groups | Concluída |
 | 5 | Activities | Não iniciada |
 | 6 | Gamification | Não iniciada |
 | 7 | Notifications + Moderation | Não iniciada |
@@ -53,9 +53,15 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Onboarding de modalidades | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
 | Edição parcial de perfil | Implementado | `UpdateProfileHandler` e `PATCH /api/v1/users/me/profile` |
 | Upload e remoção de foto de perfil em S3 | Implementado | `ProfilePhotoStorageInterface`, `S3ProfilePhotoStorage` e `POST`/`DELETE /api/v1/users/me/photo` |
+| Criação e listagem de grupos | Implementado | `CreateGroupHandler`, `ListGroupsHandler`, `GET`/`POST /api/v1/groups` e `GET /api/v1/groups/me` |
+| Solicitação e decisão de entrada | Implementado | `RequestMembershipHandler`, `ApproveMembershipHandler`, `RejectMembershipHandler` e rotas de memberships |
+| Administração de membros e papéis | Implementado | `RemoveMemberHandler`, `ChangeMembershipRoleHandler` e `PATCH .../role` |
+| Criador independente e múltiplos admins | Implementado | `groups.created_by`, `Membership.role` e invariante do último admin |
+| Supervisor do grupo | Implementado | `DesignateSupervisorHandler`, `ClearSupervisorHandler` e `PUT`/`DELETE .../supervisor` |
+| Comunicação externa do grupo | Implementado | `communicationLink` visível apenas para membros aprovados |
 | CRUD administrativo de usuários | Não iniciado | Planejado |
 | Gamificação | Não iniciada | Eventos `UserRegistered` e `OnboardingCompleted` são publicados, mas não há listener |
-| Demais módulos de negócio | Não iniciados | Groups, Activities, Notifications, Moderation, Sponsorship, Reports |
+| Demais módulos de negócio | Não iniciados | Activities, Notifications, Moderation, Sponsorship, Reports |
 
 ### 1.3 O que existe hoje no HTTP
 
@@ -83,6 +89,19 @@ Rotas confirmadas por `bin/console debug:router`:
 | `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT |
+| `POST` | `/api/v1/groups` | Bearer JWT |
+| `GET` | `/api/v1/groups` | Bearer JWT |
+| `GET` | `/api/v1/groups/me` | Bearer JWT |
+| `GET` | `/api/v1/groups/{id}` | Bearer JWT |
+| `PATCH` | `/api/v1/groups/{id}` | Bearer JWT + admin do grupo |
+| `POST` | `/api/v1/groups/{id}/membership-requests` | Bearer JWT |
+| `GET` | `/api/v1/groups/{id}/memberships` | Bearer JWT + admin do grupo |
+| `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/approve` | Bearer JWT + admin do grupo |
+| `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/reject` | Bearer JWT + admin do grupo |
+| `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/remove` | Bearer JWT + admin do grupo |
+| `PATCH` | `/api/v1/groups/{id}/memberships/{membershipId}/role` | Bearer JWT + admin do grupo |
+| `PUT` | `/api/v1/groups/{id}/supervisor` | Bearer JWT + admin do grupo |
+| `DELETE` | `/api/v1/groups/{id}/supervisor` | Bearer JWT + admin do grupo |
 | `GET` | `/api/health/liveness` | Pública |
 | `GET` | `/api/health/readiness` | Pública |
 
@@ -148,9 +167,16 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 
 ### Fase 4 — Groups
 
-- [ ] Entidades `Group` e `Membership`.
-- [ ] Casos de uso `CreateGroup`, `RequestMembership`, `ApproveMembership`, `RemoveMember` e `DesignateSupervisor`.
-- [ ] Controllers, autorização e testes de limites, estados e permissões.
+- [x] Entidades `Group` e `Membership`, com episódios append-only e estados `PENDING`, `APPROVED`, `REJECTED` e `REMOVED`.
+- [x] Campos do grupo: nome, descrição, modalidade e link externo de comunicação.
+- [x] Criador registrado em `createdBy`, independente do papel de administrador.
+- [x] Múltiplos administradores, com proteção do último admin.
+- [x] Casos de uso `CreateGroup`, `UpdateGroup`, `RequestMembership`, `ApproveMembership`, `RejectMembership`, `RemoveMember`, `ChangeMembershipRole`, `DesignateSupervisor`, `ClearSupervisor`, `ListGroups`, `ListMyGroups`, `GetGroup` e `ListMemberships`.
+- [x] Limites de 3 grupos por usuário, 5 membros aprovados e ativação com 3 aprovados.
+- [x] Autorização por administrador do grupo e supervisor sem poderes de gestão de membros.
+- [x] Endpoints HTTP, rate limiting e documentação OpenAPI na tag `Grupos`.
+- [x] Migration `Version20261109120000` com índices parciais de duplicidade e supervisor.
+- [x] Testes de domínio, handlers, repositório e HTTP.
 
 ### Fase 5 — Activities
 
@@ -196,10 +222,9 @@ As decisões abaixo ainda precisam ser fechadas antes da implementação do mód
 | `DEC07` | Público, distribuição e limites de vouchers | Vouchers | Alta | Pendente |
 | `DEC08` | Fórmula e periodicidade do indicador mensal | Indicadores | Média | Pendente |
 | `DEC10` | Janela operacional de check-in, início e finalização | Atividades | Alta | Pendente |
-| `DEC11` | Permissões exatas do supervisor | Autorização | Alta | Pendente |
 | `DEC12` | Regra de atividade válida e mínimo de participantes | Atividades/XP | Alta | Pendente |
 
-Decisões já fechadas (`DEC09`, `DEC13` e `DEC14`) estão registradas em [decisoes.md](decisoes.md).
+Decisões já fechadas (`DEC09`, `DEC11`, `DEC13` e `DEC14`) estão registradas em [decisoes.md](decisoes.md). O `DEC11` foi fechado parcialmente: na V1 o supervisor não possui poderes de gestão de membros; os poderes de atividade serão definidos na Fase 5.
 
 ### Decisões técnicas em aberto
 
@@ -228,6 +253,7 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261106090200` | 2026-11-06 | Cria `identity_tokens` para verificação de e-mail e reset de senha. |
 | `Version20261106100000` | 2026-11-06 | Cria `messenger_messages` para o transporte Doctrine do Messenger. |
 | `Version20261108120000` | 2026-11-08 | Renomeia `users.photo_url` para `photo_key`, limpa URLs antigas e reduz a coluna para 255 caracteres. |
+| `Version20261109120000` | 2026-11-09 | Cria `groups` (com `created_by`) e `group_memberships` (episódios, índices parciais de duplicidade e supervisor). |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou de URL para chave de objeto em `Version20261108120000`.
 
@@ -256,6 +282,9 @@ A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `
 | Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
+| Notificações de grupo sem consumidor | Eventos `GroupCreated`, `MembershipApproved`, `MemberRemoved` etc. são publicados, mas Notifications só existe na Fase 7 | Implementar listeners quando o módulo existir. |
+| Busca de grupos com `LIKE` | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE` | Avaliar índice textual ou busca por trigramas se o volume crescer. |
+| Sem exclusão ou transferência de grupo | O grupo não é excluído e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro | Abrir `DEC15` se o produto exigir esses fluxos. |
 
 ### 5.1 Processamento de imagem
 
@@ -279,7 +308,8 @@ O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento 
 - [ ] Definir estados e janela operacional da atividade.
 - [ ] Definir XP por evento e por nível.
 - [ ] Definir fórmula exata de deleveling.
-- [ ] Definir permissões completas do supervisor.
+- [x] Definir permissões de gestão do supervisor na V1 (sem poderes de membros).
+- [ ] Definir poderes de atividade do supervisor na Fase 5.
 - [ ] Definir efeito do bloqueio entre usuários.
 - [ ] Definir visibilidade de cada campo de perfil.
 - [ ] Definir regras de geração e resgate de vouchers.

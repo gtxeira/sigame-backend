@@ -27,6 +27,11 @@ it('maps conflict kind to 409', function () {
         ->toBe(Response::HTTP_CONFLICT);
 });
 
+it('maps not found kind to 404', function () {
+    expect((new ErrorStatusResolver())->fromKind(ErrorKind::NotFound))
+        ->toBe(Response::HTTP_NOT_FOUND);
+});
+
 it('resolves an empty error list as validation', function () {
     expect((new ErrorStatusResolver())->fromErrors([]))
         ->toBe(Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -80,4 +85,15 @@ it('prefers forbidden over validation and conflict', function () {
 
     expect((new ErrorStatusResolver())->fromErrors($errors))
         ->toBe(Response::HTTP_FORBIDDEN);
+});
+
+it('prefers not found over validation and conflict', function () {
+    $errors = [
+        new DomainError(code: 'RESOURCE_CONFLICT', message: 'Recurso já cadastrado.', kind: ErrorKind::Conflict),
+        new DomainError(code: 'EMAIL_INVALID', message: 'E-mail inválido.', kind: ErrorKind::Validation),
+        new DomainError(code: 'GROUP_NOT_FOUND', message: 'Grupo não encontrado.', kind: ErrorKind::NotFound),
+    ];
+
+    expect((new ErrorStatusResolver())->fromErrors($errors))
+        ->toBe(Response::HTTP_NOT_FOUND);
 });

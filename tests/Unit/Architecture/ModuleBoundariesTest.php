@@ -110,7 +110,7 @@ function moduleBoundaryViolations(): array
 }
 
 it('discovers the current source modules', function () {
-    expect(sourceModules())->toContain('Shared', 'Identity', 'Monitoring');
+    expect(sourceModules())->toContain('Shared', 'Identity', 'Groups', 'Monitoring');
 });
 
 it('classifies imports according to the module boundary rules', function (

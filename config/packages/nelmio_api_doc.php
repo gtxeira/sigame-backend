@@ -42,9 +42,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'description' => 'Conclusão do onboarding inicial e definição do perfil esportivo.',
                 ],
                 [
+                    'name' => 'Grupos',
+                    'description' => 'Criação, busca e administração de grupos esportivos e seus membros.',
+                ],
+                [
                     'name' => 'Saúde',
                     'description' => 'Endpoints operacionais de saúde e diagnóstico da aplicação.',
-                ],
+                ], // Sempre em último, pois é utilitário do sistema
             ],
             'x-tagGroups' => [
                 [
@@ -65,11 +69,17 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     ],
                 ],
                 [
+                    'name' => 'Comunidade',
+                    'tags' => [
+                        'Grupos',
+                    ],
+                ],
+                [
                     'name' => 'Sistema',
                     'tags' => [
                         'Saúde',
                     ],
-                ],
+                ], // Sempre em último, pois é utilitário do sistema
             ],
             'components' => [
                 'schemas' => [

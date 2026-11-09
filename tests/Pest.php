@@ -28,6 +28,7 @@ use Tests\TestCase;
 use function Zenstruck\Foundry\faker as foundryFaker;
 
 require_once __DIR__.'/Functional/Identity/Presentation/Http/AuthHelpers.php';
+require_once __DIR__.'/Functional/Groups/Presentation/Http/GroupHelpers.php';
 
 pest()
     ->extend(TestCase::class)

@@ -27,11 +27,18 @@ final class SuccessResponse extends OA\Response
         array $dataProperties = [],
         array $examples = [],
         ?ApiMeta $meta = null,
+        ?OA\Items $dataItems = null,
     ) {
         $dataProperty = match (true) {
             null !== $dataModel => new OA\Property(
                 property: 'data',
                 ref: new Model(type: $dataModel),
+            ),
+
+            null !== $dataItems => new OA\Property(
+                property: 'data',
+                type: 'array',
+                items: $dataItems,
             ),
 
             [] !== $dataProperties => new OA\Property(

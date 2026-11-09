@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Groups\Infrastructure\Persistence\ORM\Type\CommunicationLinkType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\GroupDescriptionType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\GroupIdType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\GroupNameType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\MembershipIdType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\MemberUserIdType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\RemovalReasonType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\IdentityTokenIdType;
@@ -44,6 +51,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'refresh_token_id' => RefreshTokenIdType::class,
                 'token_family_id' => TokenFamilyIdType::class,
                 'token_hash' => TokenHashType::class,
+                'group_id' => GroupIdType::class,
+                'membership_id' => MembershipIdType::class,
+                'member_user_id' => MemberUserIdType::class,
+                'group_name' => GroupNameType::class,
+                'group_description' => GroupDescriptionType::class,
+                'group_communication_link' => CommunicationLinkType::class,
+                'removal_reason' => RemovalReasonType::class,
             ],
         ],
         'orm' => [
@@ -60,6 +74,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'dir' => '%kernel.project_dir%/src/Identity/Domain',
                     'prefix' => 'App\Identity\Domain',
                     'alias' => 'Identity',
+                ],
+                'Groups' => [
+                    'type' => 'attribute',
+                    'is_bundle' => false,
+                    'dir' => '%kernel.project_dir%/src/Groups/Domain',
+                    'prefix' => 'App\Groups\Domain',
+                    'alias' => 'Groups',
                 ],
             ],
         ],

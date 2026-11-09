@@ -1,10 +1,10 @@
 # SIGAME — Arquitetura do Sistema
 
-> **Status:** implementado para o módulo Identity; módulos de negócio planejados
+> **Status:** implementado para os módulos Identity e Groups; demais módulos de negócio planejados
 >
-> **Versão:** 0.2
+> **Versão:** 0.3
 >
-> **Última atualização:** 2026-11-08
+> **Última atualização:** 2026-11-09
 >
 > **Autor:** Gustavo Teixeira de Sousa
 
@@ -18,7 +18,7 @@ O SIGAME é um **monolito modular** estruturado com **Clean Architecture**. Cada
 
 O módulo `Shared` funciona como kernel: concentra value objects, catálogo de erros, eventos, persistência base e a infraestrutura HTTP comum. Módulos funcionais importam apenas a si próprios e `Shared`.
 
-Hoje o único módulo de negócio implementado é **Identity**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
+Hoje os módulos de negócio implementados são **Identity** e **Groups**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
 
 ### 1.1 Stack tecnológica
 
@@ -64,8 +64,9 @@ Os pacotes principais já estão instalados e declarados em `composer.json`. A l
 - **Todo código de erro nasce em um catálogo** (`*ErrorCode`) do módulo: `SharedErrorCode`, `IdentityErrorCode`, e assim por diante. Alterar o *valor* de um caso é breaking change de contrato com o cliente; renomear o caso não é.
 - **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
 - **Todo `DomainError` carrega um `ErrorKind`** (`Authentication`, `Forbidden`, `Validation` ou `Conflict`), derivado do catálogo de códigos. O `kind` não é serializado: é insumo interno para a presentation.
-- **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia `Authentication` → 401, `Forbidden` → 403, `Validation` → 422 e `Conflict` → 409. A precedência é `Authentication` > `Forbidden` > `Validation` > `Conflict`; o corpo continua trazendo todos os erros.
+- **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia `Authentication` → 401, `Forbidden` → 403, `NotFound` → 404, `Validation` → 422 e `Conflict` → 409. A precedência é `Authentication` > `Forbidden` > `NotFound` > `Validation` > `Conflict`; o corpo continua trazendo todos os erros.
 - **`DomainException` também declara `kind()`**, de modo que os dois caminhos (exceção e `Result`) usam a mesma regra de status.
+- **`ErrorKind` tem cinco valores**: `Authentication`, `Forbidden`, `NotFound`, `Validation` e `Conflict`. A precedência é `Authentication` > `Forbidden` > `NotFound` > `Validation` > `Conflict`.
 - Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`BAD_REQUEST`, `UNAUTHORIZED`, `ACCESS_TOKEN_MISSING`, `ACCESS_TOKEN_INVALID`, `ACCESS_TOKEN_EXPIRED`, `FORBIDDEN`, `ORIGIN_NOT_ALLOWED`, `NOT_FOUND`, `VALIDATION_ERROR`, `TOO_MANY_REQUESTS`, `INTERNAL_ERROR`, etc.) e não são erros de domínio.
 - **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os `message` de `errorDetails()` são exibidos ao cliente da API.
 
@@ -160,13 +161,49 @@ src/
                                              # RefreshTokenCookieFactory
 ```
 
-### 3.1 Módulos planejados
+### 3.1 Estrutura do módulo Groups
+
+```text
+src/Groups/
+├── Domain/
+│   ├── Group/
+│   │   ├── Entity/                        # Group, Membership
+│   │   ├── ValueObject/                   # GroupId, MembershipId, MemberUserId, GroupName,
+│   │   │                                  # GroupDescription, CommunicationLink, RemovalReason,
+│   │   │                                  # GroupStatus, MembershipStatus, MembershipRole
+│   │   ├── Policy/GroupPolicy.php         # limites de membros e de grupos por usuário
+│   │   ├── Repository/                    # GroupRepositoryInterface, GroupSearchCriteria, GroupPage
+│   │   └── Event/                         # GroupCreated, GroupUpdated, MembershipRequested,
+│   │                                      # MembershipApproved, MembershipRejected, MemberRemoved,
+│   │                                      # MembershipPromoted, MembershipDemoted,
+│   │                                      # SupervisorDesignated, SupervisorRemoved, GroupActivated
+│   └── Error/                             # GroupErrorCode, GroupErrors
+├── Application/
+│   └── UseCase/                           # CreateGroup, UpdateGroup, RequestMembership,
+│                                          # ApproveMembership, RejectMembership, RemoveMember,
+│                                          # ChangeMembershipRole, DesignateSupervisor,
+│                                          # ClearSupervisor, ListGroups, ListMyGroups,
+│                                          # GetGroup, ListMemberships
+├── Infrastructure/
+│   └── Persistence/
+│       ├── Doctrine/Repository/           # DoctrineGroupRepository
+│       └── ORM/Type/                      # tipos dos VOs de Groups
+└── Presentation/Http/
+    ├── Controller/                        # GroupController, GroupMembershipController,
+    │                                      # GroupSupervisorController
+    ├── Request/                           # CreateGroupRequest, UpdateGroupRequest, GroupListQuery,
+    │                                      # RemoveMemberRequest, DesignateSupervisorRequest,
+    │                                      # ChangeMembershipRoleRequest
+    └── Response/                          # GroupResponse, GroupSummaryResponse,
+                                           # MembershipResponse, ViewerMembershipResponse
+```
+
+### 3.2 Módulos planejados
 
 Quando implementados, devem seguir o mesmo padrão:
 
 | Módulo | Responsabilidade |
 |---|---|
-| `Groups` | Grupos, membros, supervisores e comunicação externa |
 | `Activities` | Atividades, check-in, presença e conflito de horário |
 | `Gamification` | XP, níveis, deleveling e recompensas |
 | `Moderation` | Denúncias, bloqueios e suspensão global |
@@ -233,6 +270,35 @@ O CPF é opcional no cadastro local e social. Quando informado, é único (índi
 
 A decisão completa está em [decisoes.md](decisoes.md#adr-005--cpf-opcional-e-write-once).
 
+### 4.6 Agregado `Group` (módulo Groups)
+
+A raiz do agregado mantém os dados do grupo, o criador e as participações. O criador é registrado em `created_by`, independente do papel de administrador, e o grupo pode ter vários admins.
+
+| Componente | Responsabilidade | Colunas / tabela |
+|---|---|---|
+| `Group` | Raiz do agregado | `id`, `created_by`, `name`, `description`, `modality`, `communication_link`, `created_at`, `updated_at` |
+| `Membership` | Episódio de participação | tabela `group_memberships` |
+
+Comportamentos principais de `Group`:
+
+- `create()` — cria o grupo e registra o criador como primeiro administrador.
+- `requestMembership()` — cria um episódio `PENDING`, recusando duplicidade ativa.
+- `approveMembership()` — exige admin, respeita 5 membros e 3 grupos por usuário.
+- `rejectMembership()` — encerra um episódio `PENDING` como `REJECTED`.
+- `removeMembership()` — registra autor, data e motivo; impede remover o último admin.
+- `promoteToAdmin()` / `demoteToMember()` — gerenciam múltiplos admins; o último admin é protegido.
+- `designateSupervisor()` / `clearSupervisor()` — supervisor opcional, sempre membro aprovado.
+- `changeDetails()` — atualiza nome, descrição, modalidade e link.
+- `status()` — deriva `FORMING`, `ACTIVE` ou `FULL` da contagem de aprovados.
+
+Regras:
+
+- `GroupPolicy` fixa 3 aprovados para ativar, 5 para lotar e 3 grupos por usuário.
+- `Membership` é append-only: rejeição e remoção preservam o episódio; reentrada cria outro.
+- Índices parciais garantem uma única participação ativa por par grupo/usuário e um único supervisor aprovado.
+- O `communicationLink` só é retornado para membro aprovado.
+- A leitura de nível do usuário usa a porta `UserLevelReaderInterface` do `Shared` (ADR-020).
+
 ---
 
 ## 5. Casos de uso e eventos
@@ -248,6 +314,19 @@ A decisão completa está em [decisoes.md](decisoes.md#adr-005--cpf-opcional-e-w
 | Logout | `LogoutCommand` | `LogoutHandler` | Revoga a família do cookie ou todas as famílias |
 | Definir CPF | `AssignCpfCommand` | `AssignCpfHandler` | Valida CPF → verifica unicidade → define (write-once) |
 | Concluir onboarding | `CompleteOnboardingCommand` | `CompleteOnboardingHandler` | Carrega o usuário → conclui no agregado → persiste → publica `OnboardingCompleted` |
+| Criar grupo | `CreateGroupCommand` | `CreateGroupHandler` | Valida nível 2 e limite de 3 grupos → cria o grupo com o criador admin → publica `GroupCreated` |
+| Atualizar grupo | `UpdateGroupCommand` | `UpdateGroupHandler` | Exige admin → aplica JSON Merge Patch → publica `GroupUpdated` |
+| Solicitar entrada | `RequestMembershipCommand` | `RequestMembershipHandler` | Cria episódio `PENDING`, recusando duplicidade → publica `MembershipRequested` |
+| Aprovar solicitação | `ApproveMembershipCommand` | `ApproveMembershipHandler` | Exige admin → valida 5 membros e 3 grupos → publica `MembershipApproved` e, se ativou, `GroupActivated` |
+| Rejeitar solicitação | `RejectMembershipCommand` | `RejectMembershipHandler` | Exige admin → encerra `PENDING` como `REJECTED` → publica `MembershipRejected` |
+| Remover membro | `RemoveMemberCommand` | `RemoveMemberHandler` | Exige admin, motivo e não remove o último admin → publica `MemberRemoved` |
+| Alterar papel | `ChangeMembershipRoleCommand` | `ChangeMembershipRoleHandler` | Promove/rebaixa membro aprovado, protegendo o último admin → publica `MembershipPromoted`/`MembershipDemoted` |
+| Designar supervisor | `DesignateSupervisorCommand` | `DesignateSupervisorHandler` | Exige admin e membro aprovado → publica `SupervisorDesignated` |
+| Remover supervisor | `ClearSupervisorCommand` | `ClearSupervisorHandler` | Idempotente → publica `SupervisorRemoved` quando havia supervisor |
+| Listar grupos | `ListGroupsQuery` | `ListGroupsHandler` | Busca paginada com filtros de modalidade, estado, nome e disponibilidade |
+| Listar meus grupos | `ListMyGroupsQuery` | `ListMyGroupsHandler` | Lista grupos com participação aprovada do usuário |
+| Obter grupo | `GetGroupQuery` | `GetGroupHandler` | Carrega o grupo; o link só é exposto na resposta para membro aprovado |
+| Listar membros | `ListMembershipsQuery` | `ListMembershipsHandler` | Exige admin → lista pendentes, aprovados e histórico |
 
 A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado está em [implementacao.md](implementacao.md).
 
@@ -257,6 +336,17 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 |---|---|---|
 | `UserRegistered` | Após cadastro local ou social | Nenhum implementado; previsto para Gamification |
 | `OnboardingCompleted` | Após onboarding válido | Nenhum implementado; previsto para Gamification |
+| `GroupCreated` | Após criar um grupo | Nenhum implementado; previsto para Notifications |
+| `GroupUpdated` | Após atualizar dados do grupo | Nenhum implementado |
+| `MembershipRequested` | Após solicitação pendente | Nenhum implementado; previsto para Notifications |
+| `MembershipApproved` | Após aprovar solicitação | Nenhum implementado; previsto para Notifications |
+| `MembershipRejected` | Após rejeitar solicitação | Nenhum implementado |
+| `MemberRemoved` | Após remover membro | Nenhum implementado; previsto para Notifications |
+| `MembershipPromoted` | Após promover membro a admin | Nenhum implementado |
+| `MembershipDemoted` | Após rebaixar admin | Nenhum implementado |
+| `SupervisorDesignated` | Após designar supervisor | Nenhum implementado |
+| `SupervisorRemoved` | Após remover designação | Nenhum implementado |
+| `GroupActivated` | Ao atingir 3 membros aprovados | Nenhum implementado; previsto para Activities |
 
 ### 5.3 Fluxos planejados
 
@@ -266,6 +356,9 @@ Identity  --OnboardingCompleted---> Gamification   (concede nível 2)
 Activities --AttendanceValidated--> Gamification   (awards XP)
 Activities --ActivityCreated------> Notifications  (alerta participantes)
 Groups    --GroupCreated----------> Notifications
+Groups    --MembershipApproved----> Notifications  (aviso ao membro aprovado)
+Groups    --MemberRemoved---------> Notifications  (aviso ao membro removido)
+Groups    --GroupActivated--------> Activities     (grupo apto a receber atividades)
 Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 ```
 
@@ -295,6 +388,8 @@ Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 | `IdentityMailerInterface` | `SymfonyIdentityMailer` | `symfony/mailer` |
 | `FileStorageInterface` | `FlysystemFileStorage` | `league/flysystem` + `aws/aws-sdk-php` |
 | `ProfilePhotoStorageInterface` | `S3ProfilePhotoStorage` | `league/flysystem` + `symfony/uid` |
+| `UserLevelReaderInterface` | `DoctrineUserLevelReader` | `doctrine/orm` (adapter em Identity) |
+| `GroupRepositoryInterface` | `DoctrineGroupRepository` | `doctrine/orm` |
 
 O storage usa o mesmo contrato S3 em desenvolvimento (Garage) e produção. A decisão de upload e o formato da chave estão no [ADR-016](decisoes.md#adr-016--upload-de-foto-de-perfil-com-chave-em-s3); a escolha do adapter está no [ADR-010](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
 
@@ -365,6 +460,19 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `POST` | `/api/v1/users/me/onboarding` | `OnboardingController::complete` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | `MePasswordController::change` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | `MeIdentityController::link` | Bearer JWT |
+| `POST` | `/api/v1/groups` | `GroupController::create` | Bearer JWT |
+| `GET` | `/api/v1/groups` | `GroupController::list` | Bearer JWT |
+| `GET` | `/api/v1/groups/me` | `GroupController::mine` | Bearer JWT |
+| `GET` | `/api/v1/groups/{id}` | `GroupController::show` | Bearer JWT |
+| `PATCH` | `/api/v1/groups/{id}` | `GroupController::update` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/membership-requests` | `GroupMembershipController::request` | Bearer JWT |
+| `GET` | `/api/v1/groups/{id}/memberships` | `GroupMembershipController::list` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/approve` | `GroupMembershipController::approve` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/reject` | `GroupMembershipController::reject` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/remove` | `GroupMembershipController::remove` | Bearer JWT + admin |
+| `PATCH` | `/api/v1/groups/{id}/memberships/{membershipId}/role` | `GroupMembershipController::changeRole` | Bearer JWT + admin |
+| `PUT` | `/api/v1/groups/{id}/supervisor` | `GroupSupervisorController::designate` | Bearer JWT + admin |
+| `DELETE` | `/api/v1/groups/{id}/supervisor` | `GroupSupervisorController::clear` | Bearer JWT + admin |
 | `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |
 | `GET` | `/api/health/readiness` | `HealthController::index` | Pública |
 
@@ -402,6 +510,16 @@ tests/
 │   │       ├── Persistence/ORM/Type/
 │   │       ├── Security/
 │   │       └── Social/GoogleIdentityProviderTest.php
+│   ├── Groups/
+│   │   ├── Domain/
+│   │   │   ├── Error/GroupErrorsTest.php
+│   │   │   └── Group/
+│   │   │       ├── Entity/GroupTest.php
+│   │   │       └── ValueObject/GroupValueObjectsTest.php
+│   │   └── Application/UseCase/
+│   │       ├── CreateGroup/CreateGroupHandlerTest.php
+│   │       ├── ApproveMembership/ApproveMembershipHandlerTest.php
+│   │       └── ChangeMembershipRole/ChangeMembershipRoleHandlerTest.php
 │   └── Shared/
 │       ├── Domain/{Error,Exception,Functional,ValueObject}
 │       ├── Infrastructure/{OpenApi,Persistence/ORM/Type}
@@ -413,14 +531,18 @@ tests/
 │   │   ├── MeTest.php
 │   │   └── RegistrationTest.php
 │   ├── Monitoring/Presentation/Http/HealthTest.php
+│   ├── Groups/Presentation/Http/
+│   │   ├── GroupTest.php
+│   │   └── GroupMembershipTest.php
 │   └── Shared/Presentation/Http/
 │       ├── ApiDocumentationTest.php
 │       └── HttpErrorHandlingTest.php
 │
 ├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
-│   └── Identity/Infrastructure/Persistence/
-│       ├── DoctrineUserRepositoryTest.php
-│       └── DoctrineRefreshTokenRepositoryTest.php
+│   ├── Identity/Infrastructure/Persistence/
+│   │   ├── DoctrineUserRepositoryTest.php
+│   │   └── DoctrineRefreshTokenRepositoryTest.php
+│   └── Groups/Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
 │
 └── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php

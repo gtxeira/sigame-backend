@@ -82,6 +82,21 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:USER_PROFILE_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
+            'group_create' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:GROUP_CREATE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'group_membership_request' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:GROUP_MEMBERSHIP_REQUEST_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'group_manage' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:GROUP_MANAGE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
         ],
     ]);
 

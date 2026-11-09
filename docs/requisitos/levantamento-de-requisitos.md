@@ -2,9 +2,9 @@
 
 > **Status:** Em revisão
 >
-> **Versão:** 0.3
+> **Versão:** 0.4
 >
-> **Última atualização:** 2026-11-05
+> **Última atualização:** 2026-11-09
 >
 > **Fonte:** levantamento inicial, especificação de requisitos e proposta arquitetural do SIGAME.
 
@@ -114,6 +114,7 @@ administrativos globais.
 | Solicitar entrada em grupo            |           Sim |             Sim |                         Sim |                  Sim |
 | Aprovar entrada                       |           Não |             Sim | Não, salvo delegação futura |                  Sim |
 | Remover membro do grupo               |           Não |             Sim |                         Não |                  Sim |
+| Promover/rebaixar administrador       |           Não |             Sim |                         Não |                  Sim |
 | Criar atividade                       |           Não |             Sim |          Conforme delegação |                  Sim |
 | Remarcar/cancelar atividade           |           Não |             Sim |          Conforme delegação |                  Sim |
 | Check-in próprio                      |           Sim |             Sim |                         Sim |                  Sim |
@@ -227,15 +228,27 @@ O sistema deve executar o onboarding inicial e controlar sua conclusão.
 
 Usuários habilitados devem poder criar grupos esportivos.
 
+#### Campos do grupo
+
+| Campo | Obrigatório | Regra |
+|---|---|---|
+| `name` | Sim | 3 a 80 caracteres, com espaços removidos das pontas |
+| `description` | Não | até 500 caracteres |
+| `modality` | Sim | `caminhada`, `corrida` ou `ciclismo` |
+| `communicationLink` | Não | URL `http` ou `https`, até 2048 caracteres, visível apenas para membros aprovados |
+
 #### Regras
 
 - `RN04.1` Apenas usuário a partir do nível 2 pode criar grupo.
-- `RN04.2` O criador do grupo assume o papel de administrador.
+- `RN04.2` O criador do grupo assume o papel de administrador no momento da criação.
 - `RN04.3` Cada usuário pode participar de no máximo 3 grupos na V1, conforme a interpretação adotada para o limite de
   grupos.
 - `RN04.4` O grupo possui limite inicial de 5 membros aprovados.
 - `RN04.5` Um grupo torna-se ativo ao atingir no mínimo 3 membros aprovados.
 - `RN04.6` O grupo pode existir em formação com menos de 3 membros.
+- `RN04.7` O grupo registra o criador em campo próprio (`createdBy`), independente do papel de administrador.
+- `RN04.8` O criador inicia como administrador, mas o grupo pode ter mais de um administrador aprovado.
+- `RN04.9` O papel de administrador é atributo da participação (`Membership.role`), não do criador.
 
 #### Critérios de aceitação
 
@@ -245,6 +258,8 @@ Usuários habilitados devem poder criar grupos esportivos.
 - `CA04.4` Grupo com menos de 3 membros aprovados permanece em formação.
 - `CA04.5` Grupo com 3 ou mais membros aprovados fica ativo.
 - `CA04.6` Grupo não aceita mais de 5 membros aprovados.
+- `CA04.7` O `createdBy` permanece registrado mesmo se o criador for rebaixado ou removido.
+- `CA04.8` Um grupo pode ter dois ou mais administradores aprovados.
 
 ### RF05 — Solicitar entrada em grupo
 
@@ -266,16 +281,20 @@ O sistema deve permitir que usuários habilitados solicitem entrada em grupos.
 
 ### RF06 — Administrar membros do grupo
 
-O administrador deve poder aprovar, rejeitar e remover membros, registrando os motivos quando aplicável.
+O administrador deve poder aprovar, rejeitar e remover membros, registrar os motivos quando aplicável e gerenciar os
+papéis de administrador.
 
 #### Regras
 
-- `RN06.1` Somente o administrador do grupo pode aprovar ou rejeitar solicitações, salvo mudança futura de delegação.
-- `RN06.2` O administrador pode remover membro do grupo.
-- `RN06.3` A remoção deve registrar o motivo.
+- `RN06.1` Qualquer administrador do grupo pode aprovar ou rejeitar solicitações.
+- `RN06.2` Qualquer administrador pode remover membro do grupo.
+- `RN06.3` A remoção deve registrar autor, data e motivo.
 - `RN06.4` Administrador de grupo não pode suspender globalmente uma conta.
 - `RN06.5` A aprovação deve respeitar o limite máximo de 5 membros.
 - `RN06.6` A aprovação deve respeitar o limite máximo de grupos do usuário.
+- `RN06.7` O grupo deve manter ao menos um administrador aprovado.
+- `RN06.8` Qualquer administrador pode promover ou rebaixar um membro aprovado.
+- `RN06.9` O último administrador não pode ser rebaixado nem removido.
 
 #### Critérios de aceitação
 
@@ -285,6 +304,10 @@ O administrador deve poder aprovar, rejeitar e remover membros, registrando os m
 - `CA06.4` Usuário não administrador não consegue aprovar solicitação.
 - `CA06.5` Remoção registra autor, membro removido, grupo, data e motivo.
 - `CA06.6` Remoção não provoca suspensão global.
+- `CA06.7` Dois administradores conseguem aprovar e remover membros.
+- `CA06.8` Rebaixar o último administrador é recusado.
+- `CA06.9` Remover o último administrador é recusado.
+- `CA06.10` Administrador rebaixado perde imediatamente as operações de gestão.
 
 #### Matriz de exemplos — estado do grupo
 
@@ -304,15 +327,18 @@ O administrador deve poder designar um supervisor para o grupo.
 #### Regras
 
 - `RN07.1` A existência de supervisor é opcional.
-- `RN07.2` O supervisor deve ser membro aprovado do grupo, salvo decisão futura.
+- `RN07.2` O supervisor deve ser membro aprovado do grupo.
 - `RN07.3` O supervisor não recebe poderes globais.
-- `RN07.4` Os poderes operacionais exatos do supervisor ainda precisam ser definidos.
+- `RN07.4` Na V1, o supervisor não aprova, rejeita, remove, promove nem rebaixa membros. Os poderes de atividade
+  (criar, remarcar, cancelar e validar presença) serão definidos na implementação de Activities.
 
 #### Critérios de aceitação
 
 - `CA07.1` Administrador consegue designar membro aprovado como supervisor.
-- `CA07.2` Usuário externo ao grupo não pode ser designado sem regra explícita que permita isso.
+- `CA07.2` Usuário externo ao grupo não pode ser designado.
 - `CA07.3` Supervisor consegue executar somente as operações delegadas.
+- `CA07.4` Supervisor não consegue aprovar, rejeitar ou remover membros.
+- `CA07.5` A remoção do membro limpa automaticamente a designação de supervisor.
 
 ### RF08 — Comunicação externa do grupo
 
@@ -330,6 +356,7 @@ O administrador pode cadastrar um link externo de comunicação do grupo.
 - `CA08.2` Membro aprovado visualiza o link quando cadastrado.
 - `CA08.3` Administrador consegue alterar ou remover o link.
 - `CA08.4` O sistema não exige a publicação de telefone pessoal.
+- `CA08.5` O link só aceita URL `http` ou `https` válida.
 
 ---
 
@@ -827,6 +854,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | 0.1    | 2026-09-19 | Consolidação inicial dos PDFs                                                      | Felipe do Nascimento Magalhães |
 | 0.2    | 2026-09-19 | Organização por capacidades, critérios de aceitação, matrizes e decisões pendentes | Gustavo Teixeira de Sousa      |
 | 0.3    | 2026-11-05 | Extração de decisões e acompanhamento para `implementacao.md` e `decisoes.md`      | Gustavo Teixeira de Sousa      |
+| 0.4    | 2026-11-09 | Fase 4: campos do grupo, criador independente, múltiplos admins e poderes do supervisor | Gustavo Teixeira de Sousa      |
 
 ---
 

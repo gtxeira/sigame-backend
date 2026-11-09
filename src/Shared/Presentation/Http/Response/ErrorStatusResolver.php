@@ -12,9 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
  * Resolve o status HTTP a partir da natureza dos erros de domínio.
  *
  * Regra de precedência: `Authentication` vence `Forbidden`, que vence
- * `Validation`, que vence `Conflict`. Quando um Result acumula mais de um tipo,
- * o cliente precisa resolver primeiro a barreira mais forte; o corpo continua
- * trazendo todos os erros.
+ * `NotFound`, que vence `Validation`, que vence `Conflict`. Quando um Result
+ * acumula mais de um tipo, o cliente precisa resolver primeiro a barreira mais
+ * forte; o corpo continua trazendo todos os erros.
  */
 final class ErrorStatusResolver
 {
@@ -43,6 +43,7 @@ final class ErrorStatusResolver
         return match ($kind) {
             ErrorKind::Authentication => Response::HTTP_UNAUTHORIZED,
             ErrorKind::Forbidden => Response::HTTP_FORBIDDEN,
+            ErrorKind::NotFound => Response::HTTP_NOT_FOUND,
             ErrorKind::Validation => Response::HTTP_UNPROCESSABLE_ENTITY,
             ErrorKind::Conflict => Response::HTTP_CONFLICT,
         };
@@ -51,8 +52,9 @@ final class ErrorStatusResolver
     private function priority(ErrorKind $kind): int
     {
         return match ($kind) {
-            ErrorKind::Authentication => 30,
-            ErrorKind::Forbidden => 20,
+            ErrorKind::Authentication => 40,
+            ErrorKind::Forbidden => 30,
+            ErrorKind::NotFound => 20,
             ErrorKind::Validation => 10,
             ErrorKind::Conflict => 0,
         };

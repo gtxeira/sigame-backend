@@ -1,6 +1,6 @@
 # SIGAME — Documentação da API (OpenAPI)
 
-> **Última atualização:** 2026-11-08
+> **Última atualização:** 2026-11-09
 >
 > **Implementação:** `config/packages/nelmio_api_doc.php`, `src/Shared/Presentation/Http/OpenApi/` e atributos `OpenApi\Attributes` nos controllers.
 
@@ -30,6 +30,7 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Senha` | `/auth/password/forgot`, `/auth/password/reset`, `/users/me/password` | Ciclo de vida do recurso | Recuperação pública, redefinição por token e troca autenticada. |
 | `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo` | Responsabilidade/intenção (self-service) | Dados e foto do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
+| `Grupos` | `/groups`, `/groups/{id}`, `/groups/{id}/memberships`, `/groups/{id}/supervisor` | Recurso/entidade de domínio (REST) | Ciclo de vida do grupo, das participações e do supervisor. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |
 | `Usuários` (planejado) | `/users`, `/users/{id}` | Recurso/entidade de domínio (REST) | Mesmo agregado e ciclo de vida: coleção e item. Gestão global/administrativa. |
 | `Webhooks` (futuro) | `/webhooks/*` | Mecanismo de autenticação | Assinatura HMAC, não Bearer JWT; não deve se misturar com `Autenticação`. |
@@ -45,6 +46,14 @@ A tag `Usuários` ainda não aparece no documento gerado porque não existe endp
 - Se no futuro a coleção e o item tiverem públicos ou ciclos de vida diferentes (por exemplo, `/users` restrito a administradores e `/users/{id}` self-service), a separação passa a ser justificada.
 - A rota `/users/me` precisa continuar sendo declarada antes de `/users/{id}` ou, preferencialmente, `{id}` deve ter um requirement que não aceite o literal `me`.
 
+### 3.1 Decisão sobre `/groups`
+
+- `/groups`, `/groups/me`, `/groups/{id}`, memberships e supervisor compartilham a tag `Grupos`.
+- `/groups/me` é declarado antes de `/groups/{id}` e `{id}` tem requirement de UUID, para que o literal `me` não seja capturado.
+- A listagem não expõe o `communicationLink`; o detalhe só o inclui para membro aprovado.
+- O papel de administrador é documentado em `viewerMembership.role`; a alteração usa `PATCH .../memberships/{membershipId}/role`.
+- O criador aparece em `createdBy` e não é a fonte de autorização.
+
 ## 4. Grupos do Scalar (`x-tagGroups`)
 
 Os grupos organizam as tags na navegação do Scalar. Os nomes dos grupos são intencionalmente diferentes dos nomes das tags para evitar cabeçalhos duplicados.
@@ -53,6 +62,7 @@ Os grupos organizam as tags na navegação do Scalar. Os nomes dos grupos são i
 |---|---|
 | `Acesso` | `Autenticação`, `Sessão`, `Autenticação social`, `Verificação de e-mail`, `Senha` |
 | `Conta` | `Minha conta`, `Onboarding` |
+| `Comunidade` | `Grupos` |
 | `Sistema` | `Saúde` |
 | `Administração` | `Usuários` (quando o CRUD administrativo existir) |
 | `Integrações` | `Webhooks` (futuro) |
@@ -118,6 +128,19 @@ Summaries atuais, usados como referência:
 | `PATCH /users/me/profile` | `Atualizar o perfil` |
 | `POST /users/me/photo` | `Alterar a foto de perfil` |
 | `DELETE /users/me/photo` | `Remover a foto de perfil` |
+| `POST /groups` | `Criar grupo` |
+| `GET /groups` | `Listar grupos` |
+| `GET /groups/me` | `Listar meus grupos` |
+| `GET /groups/{id}` | `Obter grupo` |
+| `PATCH /groups/{id}` | `Atualizar grupo` |
+| `POST /groups/{id}/membership-requests` | `Solicitar entrada no grupo` |
+| `GET /groups/{id}/memberships` | `Listar membros do grupo` |
+| `POST /groups/{id}/memberships/{membershipId}/approve` | `Aprovar solicitação` |
+| `POST /groups/{id}/memberships/{membershipId}/reject` | `Rejeitar solicitação` |
+| `POST /groups/{id}/memberships/{membershipId}/remove` | `Remover membro do grupo` |
+| `PATCH /groups/{id}/memberships/{membershipId}/role` | `Alterar papel do membro` |
+| `PUT /groups/{id}/supervisor` | `Designar supervisor` |
+| `DELETE /groups/{id}/supervisor` | `Remover supervisor` |
 | `GET /api/health/liveness` | `Verificar a execução da aplicação` |
 | `GET /api/health/readiness` | `Verificar a prontidão da aplicação` |
 

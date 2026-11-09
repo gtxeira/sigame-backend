@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Groups\Domain\Error\GroupErrorCode;
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Error\SharedErrorCode;
@@ -24,13 +25,14 @@ function allErrorCodes(): array
 }
 
 /**
- * @return list<class-string<SharedErrorCode|IdentityErrorCode|ApiErrorCode>>
+ * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ApiErrorCode>>
  */
 function errorCodeCatalogs(): array
 {
     return [
         SharedErrorCode::class,
         IdentityErrorCode::class,
+        GroupErrorCode::class,
         ApiErrorCode::class,
     ];
 }
@@ -45,11 +47,12 @@ it('uses screaming snake case for every error code', function (string $code) {
     expect($code)->toMatch('/^[A-Z][A-Z0-9_]*$/');
 })->with(fn (): array => allErrorCodes());
 
-it('classifies every domain error code', function (SharedErrorCode|IdentityErrorCode $code) {
+it('classifies every domain error code', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode $code) {
     expect(ErrorKind::cases())->toContain($code->kind());
 })->with(fn (): array => [
     ...SharedErrorCode::cases(),
     ...IdentityErrorCode::cases(),
+    ...GroupErrorCode::cases(),
 ]);
 
 it('classifies state conflicts as conflict', function (IdentityErrorCode $code) {
