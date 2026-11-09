@@ -634,3 +634,39 @@ it('does not leak the link meta into other conflicts', function () {
 
     expect($example['value']['meta'])->not->toHaveKey('link');
 });
+
+it('documents the paginated group list with pagination meta', function () {
+    $doc = readApiDoc($this);
+
+    $properties = apiDocValue(
+        $doc,
+        'paths', '/api/v1/groups', 'get', 'responses',
+        '200', 'content', 'application/json', 'schema', 'allOf', 1, 'properties',
+    );
+
+    expect($properties['data']['type'])->toBe('array')
+        ->and($properties['data']['items']['$ref'])->toBe('#/components/schemas/GroupSummaryResponse')
+        ->and($properties['meta']['$ref'])->toBe('#/components/schemas/ApiResponsePaginatedMeta');
+});
+
+it('does not document pagination on plain lists', function () {
+    $doc = readApiDoc($this);
+
+    $paths = [
+        '/api/v1/users/me/groups' => '#/components/schemas/GroupSummaryResponse',
+        '/api/v1/groups/{id}/memberships' => '#/components/schemas/MembershipResponse',
+    ];
+
+    foreach ($paths as $path => $itemRef) {
+        $properties = apiDocValue(
+            $doc,
+            'paths', $path, 'get', 'responses',
+            '200', 'content', 'application/json', 'schema', 'allOf', 1, 'properties',
+        );
+
+        expect($properties)->toHaveKey('data')
+            ->and($properties)->not->toHaveKey('meta')
+            ->and($properties['data']['type'])->toBe('array')
+            ->and($properties['data']['items']['$ref'])->toBe($itemRef);
+    }
+});

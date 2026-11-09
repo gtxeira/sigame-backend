@@ -192,26 +192,6 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                             'meta',
                         ],
                     ],
-                    'ApiResponsePaginatedSuccess' => [
-                        'type' => 'object',
-                        'description' => 'Resposta de sucesso com lista paginada.',
-                        'properties' => [
-                            'data' => [
-                                'type' => 'array',
-                                'items' => [
-                                    'type' => 'object',
-                                ],
-                                'description' => 'Lista de itens paginados.',
-                            ],
-                            'meta' => [
-                                '$ref' => '#/components/schemas/ApiResponsePaginatedMeta',
-                            ],
-                        ],
-                        'required' => [
-                            'data',
-                            'meta',
-                        ],
-                    ],
                     'ApiResponseError' => [
                         'type' => 'object',
                         'description' => 'Resposta de erro padrão.',

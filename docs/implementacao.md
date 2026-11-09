@@ -194,6 +194,7 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 - [ ] Listener `AttendanceValidated → AwardXp`.
 - [ ] Comando de deleveling (cron/scheduler).
 - [ ] Testes de progressão, deleveling e idempotência.
+- [ ] Pensar em permitir que a estratégia de XP seja mudada futuramente, sem que penalize os usuários mais antigos. A progressão deve ser ajustada em acaso de atualização futura, de forma que os usuários existentes sejam recalculados e colocados em seus devidos locais e com bônus pela fidelidade conquistada.
 
 ### Fase 7 — Notifications + Moderation
 

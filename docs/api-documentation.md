@@ -209,6 +209,27 @@ use OpenApi\Attributes as OA;
 
 O `ApiMeta` é composto com `ApiResponseMeta` via `allOf`, então o `timestamp` continua obrigatório e o schema não duplica a definição. O exemplo nomeado é derivado do schema; se o `value` do exemplo trouxer um `meta` explícito, o `FillNamedExampleValues` mescla os campos derivados sem sobrescrever os explícitos.
 
+### 9.1 Formas da resposta de sucesso
+
+Cada formato de `data` tem um atributo próprio. Não use um atributo de lista para documentar um recurso único, nem o contrário.
+
+| Atributo | Formato de `data` | Uso |
+|---|---|---|
+| `SuccessResponse` | objeto único (`dataModel`) ou objeto inline (`dataProperties`/`dataRequired`) | Recurso único, como `/groups/{id}` ou `/users/me`. |
+| `ListSuccessResponse` | array de `itemModel` | Lista sem paginação. |
+| `PaginatedSuccessResponse` | array de `itemModel` + `meta.pagination` | Lista paginada, obrigatoriamente quando o controller usa `ApiResponse::withPagination()`. |
+
+`SuccessResponse` rejeita combinações ambíguas no construtor: `dataModel` com `dataProperties` e `dataRequired` sem `dataProperties` lançam `InvalidArgumentException`. A lista de nomes em `dataRequired` também precisa estar declarada em `dataProperties`.
+
+Os atributos de lista recebem `itemModel` como `class-string`; o `OA\Items` e o `Model` do Nelmio são montados internamente. Exemplo:
+
+```php
+#[PaginatedSuccessResponse(
+    itemModel: GroupSummaryResponse::class,
+    description: 'Lista paginada de grupos.',
+)]
+```
+
 ## 10. Relação com outros documentos
 
 - Contrato de autenticação e exemplos: [autenticacao.md](autenticacao.md)

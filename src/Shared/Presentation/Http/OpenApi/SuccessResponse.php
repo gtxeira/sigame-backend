@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Presentation\Http\OpenApi;
 
 use Attribute;
+use InvalidArgumentException;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use OpenApi\Attributes as OA;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,18 +28,13 @@ final class SuccessResponse extends OA\Response
         array $dataProperties = [],
         array $examples = [],
         ?ApiMeta $meta = null,
-        ?OA\Items $dataItems = null,
     ) {
+        self::assertDataShape($dataModel, $dataRequired, $dataProperties);
+
         $dataProperty = match (true) {
             null !== $dataModel => new OA\Property(
                 property: 'data',
                 ref: new Model(type: $dataModel),
-            ),
-
-            null !== $dataItems => new OA\Property(
-                property: 'data',
-                type: 'array',
-                items: $dataItems,
             ),
 
             [] !== $dataProperties => new OA\Property(
@@ -54,38 +50,48 @@ final class SuccessResponse extends OA\Response
             ),
         };
 
-        $properties = [$dataProperty];
-
-        if (null !== $meta && !$meta->isEmpty()) {
-            $properties[] = $meta->toProperty();
-        }
-
-        $allOf = [
-            new OA\Schema(
-                ref: '#/components/schemas/ApiResponseSuccess',
-            ),
-            new OA\Schema(
-                properties: $properties,
-            ),
-        ];
-
-        $schema = new OA\Schema(allOf: $allOf);
-
-        $content = [] === $examples
-            ? new OA\MediaType(
-                mediaType: 'application/json',
-                schema: $schema,
-            )
-            : new OA\MediaType(
-                mediaType: 'application/json',
-                schema: $schema,
-                examples: ApiExamples::build($examples),
-            );
-
         parent::__construct(
             response: $response,
             description: $description,
-            content: $content,
+            content: SuccessResponseContent::build(
+                dataProperty: $dataProperty,
+                metaProperty: null !== $meta && !$meta->isEmpty() ? $meta->toProperty() : null,
+                examples: $examples,
+            ),
         );
+    }
+
+    /**
+     * @param list<string>      $dataRequired
+     * @param list<OA\Property> $dataProperties
+     */
+    private static function assertDataShape(?string $dataModel, array $dataRequired, array $dataProperties): void
+    {
+        if (null !== $dataModel && [] !== $dataProperties) {
+            throw new InvalidArgumentException('Use apenas um entre $dataModel e $dataProperties.');
+        }
+
+        if ([] !== $dataRequired && [] === $dataProperties) {
+            throw new InvalidArgumentException('$dataRequired só pode ser usado com $dataProperties.');
+        }
+
+        if ([] === $dataRequired) {
+            return;
+        }
+
+        $declared = [];
+
+        foreach ($dataProperties as $property) {
+            $declared[] = $property->property;
+        }
+
+        foreach ($dataRequired as $name) {
+            if (!in_array($name, $declared, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'O campo "%s" de $dataRequired não está declarado em $dataProperties.',
+                    $name,
+                ));
+            }
+        }
     }
 }

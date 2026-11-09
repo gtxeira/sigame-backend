@@ -29,6 +29,7 @@ use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\ForbiddenResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
 use App\Shared\Presentation\Http\OpenApi\NotFoundResponse;
+use App\Shared\Presentation\Http\OpenApi\PaginatedSuccessResponse;
 use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
 use App\Shared\Presentation\Http\OpenApi\TooManyRequestsResponse;
@@ -40,7 +41,6 @@ use App\Shared\Presentation\Http\Response\ApiResponse;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use App\Shared\Presentation\Http\Validation\RequestViolationFactory;
 use LogicException;
-use Nelmio\ApiDocBundle\Attribute\Model;
 use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -162,8 +162,8 @@ final class GroupController extends AbstractController
     #[Route('/groups', name: 'app_group_list', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
-    #[SuccessResponse(
-        dataItems: new OA\Items(ref: new Model(type: GroupSummaryResponse::class)),
+    #[PaginatedSuccessResponse(
+        itemModel: GroupSummaryResponse::class,
         description: 'Lista paginada de grupos.',
     )]
     #[UnauthorizedResponse]

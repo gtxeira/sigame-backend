@@ -10,16 +10,6 @@ use OpenApi\Attributes as OA;
 use OpenApi\Undefined;
 use Symfony\Component\HttpFoundation\Response;
 
-function successMediaType(SuccessResponse $response): OA\MediaType
-{
-    expect($response->content)->toBeArray()->not->toBeEmpty();
-
-    $content = $response->content[0];
-    expect($content)->toBeInstanceOf(OA\MediaType::class);
-
-    return $content;
-}
-
 it('attaches named examples with title and description', function () {
     $value = [
         'data' => ['id' => '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f'],
@@ -97,4 +87,28 @@ it('adds custom meta properties to the success schema', function () {
         ->and($properties[1]->property)->toBe('meta')
         ->and($properties[1]->allOf[0]->ref)->toBe('#/components/schemas/ApiResponseMeta')
         ->and($properties[1]->allOf[1]->properties[0]->property)->toBe('requestId');
+});
+
+it('rejects combining a data model with inline properties', function () {
+    expect(fn () => new SuccessResponse(
+        dataModel: RegisterUserResponse::class,
+        dataProperties: [
+            new OA\Property(property: 'status', type: 'string'),
+        ],
+    ))->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects required fields without inline properties', function () {
+    expect(fn () => new SuccessResponse(
+        dataRequired: ['status'],
+    ))->toThrow(InvalidArgumentException::class);
+});
+
+it('rejects a required field that is not declared in inline properties', function () {
+    expect(fn () => new SuccessResponse(
+        dataRequired: ['status'],
+        dataProperties: [
+            new OA\Property(property: 'checks', type: 'object'),
+        ],
+    ))->toThrow(InvalidArgumentException::class);
 });

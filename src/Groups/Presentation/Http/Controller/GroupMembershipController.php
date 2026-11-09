@@ -29,6 +29,7 @@ use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\ForbiddenResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
+use App\Shared\Presentation\Http\OpenApi\ListSuccessResponse;
 use App\Shared\Presentation\Http\OpenApi\NotFoundResponse;
 use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
@@ -39,7 +40,6 @@ use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
 use App\Shared\Presentation\Http\RateLimit\RateLimitGuard;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use LogicException;
-use Nelmio\ApiDocBundle\Attribute\Model;
 use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -143,8 +143,8 @@ final class GroupMembershipController extends AbstractController
     )]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
-    #[SuccessResponse(
-        dataItems: new OA\Items(ref: new Model(type: MembershipResponse::class)),
+    #[ListSuccessResponse(
+        itemModel: MembershipResponse::class,
         description: 'Participações do grupo.',
     )]
     #[UnauthorizedResponse]

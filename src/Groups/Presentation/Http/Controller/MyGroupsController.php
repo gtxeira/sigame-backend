@@ -11,11 +11,10 @@ use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Groups\Presentation\Http\Response\GroupSummaryResponse;
 use App\Shared\Presentation\Http\OpenApi\ForbiddenResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
-use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
+use App\Shared\Presentation\Http\OpenApi\ListSuccessResponse;
 use App\Shared\Presentation\Http\OpenApi\UnauthorizedResponse;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use LogicException;
-use Nelmio\ApiDocBundle\Attribute\Model;
 use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -45,8 +44,8 @@ final class MyGroupsController extends AbstractController
     #[Route('/users/me/groups', name: 'app_me_groups', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
     #[Security(name: 'bearerAuth')]
-    #[SuccessResponse(
-        dataItems: new OA\Items(ref: new Model(type: GroupSummaryResponse::class)),
+    #[ListSuccessResponse(
+        itemModel: GroupSummaryResponse::class,
         description: 'Grupos do usuário autenticado.',
     )]
     #[UnauthorizedResponse]
