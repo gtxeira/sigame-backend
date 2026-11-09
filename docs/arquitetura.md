@@ -190,7 +190,7 @@ src/Groups/
 │       └── ORM/Type/                      # tipos dos VOs de Groups
 └── Presentation/Http/
     ├── Controller/                        # GroupController, GroupMembershipController,
-    │                                      # GroupSupervisorController
+    │                                      # GroupSupervisorController, MyGroupsController
     ├── Request/                           # CreateGroupRequest, UpdateGroupRequest, GroupListQuery,
     │                                      # RemoveMemberRequest, DesignateSupervisorRequest,
     │                                      # ChangeMembershipRoleRequest
@@ -462,7 +462,7 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `POST` | `/api/v1/users/me/identities/{provider}` | `MeIdentityController::link` | Bearer JWT |
 | `POST` | `/api/v1/groups` | `GroupController::create` | Bearer JWT |
 | `GET` | `/api/v1/groups` | `GroupController::list` | Bearer JWT |
-| `GET` | `/api/v1/groups/me` | `GroupController::mine` | Bearer JWT |
+| `GET` | `/api/v1/users/me/groups` | `MyGroupsController::list` | Bearer JWT |
 | `GET` | `/api/v1/groups/{id}` | `GroupController::show` | Bearer JWT |
 | `PATCH` | `/api/v1/groups/{id}` | `GroupController::update` | Bearer JWT + admin |
 | `POST` | `/api/v1/groups/{id}/membership-requests` | `GroupMembershipController::request` | Bearer JWT |

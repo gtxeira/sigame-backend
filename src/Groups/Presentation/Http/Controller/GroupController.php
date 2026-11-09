@@ -10,8 +10,6 @@ use App\Groups\Application\UseCase\GetGroup\GetGroupHandler;
 use App\Groups\Application\UseCase\GetGroup\GetGroupQuery;
 use App\Groups\Application\UseCase\ListGroups\ListGroupsHandler;
 use App\Groups\Application\UseCase\ListGroups\ListGroupsQuery;
-use App\Groups\Application\UseCase\ListMyGroups\ListMyGroupsHandler;
-use App\Groups\Application\UseCase\ListMyGroups\ListMyGroupsQuery;
 use App\Groups\Application\UseCase\UpdateGroup\UpdateGroupCommand;
 use App\Groups\Application\UseCase\UpdateGroup\UpdateGroupHandler;
 use App\Groups\Domain\Group\Entity\Group;
@@ -68,7 +66,6 @@ final class GroupController extends AbstractController
         private readonly UpdateGroupHandler $updateGroupHandler,
         private readonly GetGroupHandler $getGroupHandler,
         private readonly ListGroupsHandler $listGroupsHandler,
-        private readonly ListMyGroupsHandler $listMyGroupsHandler,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.group_create')]
@@ -220,39 +217,6 @@ final class GroupController extends AbstractController
         return ApiResponse::ok($items)
             ->withPagination($criteria->page, $criteria->perPage, $page->total)
             ->toJsonResponse();
-    }
-
-    /**
-     * Listar meus grupos
-     *
-     * Lista os grupos em que o usuário autenticado possui participação
-     * aprovada.
-     */
-    #[Route('/groups/me', name: 'app_group_mine', methods: ['GET'])]
-    #[IsGranted('ROLE_USER')]
-    #[Security(name: 'bearerAuth')]
-    #[SuccessResponse(
-        dataItems: new OA\Items(ref: new Model(type: GroupSummaryResponse::class)),
-        description: 'Grupos do usuário autenticado.',
-    )]
-    #[UnauthorizedResponse]
-    #[ForbiddenResponse]
-    #[InternalErrorResponse]
-    public function mine(): JsonResponse
-    {
-        $actor = $this->actorId();
-        $result = ($this->listMyGroupsHandler)(new ListMyGroupsQuery($actor));
-
-        if ($result->isFailure()) {
-            return $this->resultResponder->failure($result);
-        }
-
-        return $this->resultResponder->success(
-            $result->map(static fn (array $groups): array => array_map(
-                static fn (Group $group): GroupSummaryResponse => GroupSummaryResponse::fromEntity($group, $actor),
-                $groups,
-            )),
-        );
     }
 
     /**

@@ -53,7 +53,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Onboarding de modalidades | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
 | Edição parcial de perfil | Implementado | `UpdateProfileHandler` e `PATCH /api/v1/users/me/profile` |
 | Upload e remoção de foto de perfil em S3 | Implementado | `ProfilePhotoStorageInterface`, `S3ProfilePhotoStorage` e `POST`/`DELETE /api/v1/users/me/photo` |
-| Criação e listagem de grupos | Implementado | `CreateGroupHandler`, `ListGroupsHandler`, `GET`/`POST /api/v1/groups` e `GET /api/v1/groups/me` |
+| Criação e listagem de grupos | Implementado | `CreateGroupHandler`, `ListGroupsHandler`, `GET`/`POST /api/v1/groups` e `GET /api/v1/users/me/groups` |
 | Solicitação e decisão de entrada | Implementado | `RequestMembershipHandler`, `ApproveMembershipHandler`, `RejectMembershipHandler` e rotas de memberships |
 | Administração de membros e papéis | Implementado | `RemoveMemberHandler`, `ChangeMembershipRoleHandler` e `PATCH .../role` |
 | Criador independente e múltiplos admins | Implementado | `groups.created_by`, `Membership.role` e invariante do último admin |
@@ -91,7 +91,7 @@ Rotas confirmadas por `bin/console debug:router`:
 | `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT |
 | `POST` | `/api/v1/groups` | Bearer JWT |
 | `GET` | `/api/v1/groups` | Bearer JWT |
-| `GET` | `/api/v1/groups/me` | Bearer JWT |
+| `GET` | `/api/v1/users/me/groups` | Bearer JWT |
 | `GET` | `/api/v1/groups/{id}` | Bearer JWT |
 | `PATCH` | `/api/v1/groups/{id}` | Bearer JWT + admin do grupo |
 | `POST` | `/api/v1/groups/{id}/membership-requests` | Bearer JWT |

@@ -35,7 +35,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 ],
                 [
                     'name' => 'Minha conta',
-                    'description' => 'Dados do usuário autenticado sobre a própria conta.',
+                    'description' => 'Dados e recursos do usuário autenticado sobre a própria conta.',
                 ],
                 [
                     'name' => 'Onboarding',

@@ -109,7 +109,7 @@ it('returns an empty list of my groups', function () {
     groupTestCreateUser($this, 'groups-mine-empty@example.com');
     $token = groupTestAccessToken($this, 'groups-mine-empty@example.com');
 
-    $response = $this->api->get('app_group_mine', server: groupTestServer($token));
+    $response = $this->api->get('app_me_groups', server: groupTestServer($token));
 
     expect($response->getStatusCode())->toBe(Response::HTTP_OK);
 
@@ -117,6 +117,25 @@ it('returns an empty list of my groups', function () {
 
     expect($body)->toHaveKey('data')
         ->and($body['data'])->toBe([]);
+});
+
+it('lists only the groups of the authenticated user', function () {
+    groupTestCreateUser($this, 'groups-mine-owner@example.com');
+    $ownerToken = groupTestAccessToken($this, 'groups-mine-owner@example.com');
+    $ownGroup = groupTestCreate($this, $ownerToken);
+
+    groupTestCreateUser($this, 'groups-mine-other@example.com');
+    $otherToken = groupTestAccessToken($this, 'groups-mine-other@example.com');
+    groupTestCreate($this, $otherToken, ['name' => 'Pedal da Serra', 'modality' => Modality::CYCLING->value]);
+
+    $response = $this->api->get('app_me_groups', server: groupTestServer($ownerToken));
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+
+    $body = authTestBody($response);
+
+    expect($body['data'])->toHaveCount(1)
+        ->and($body['data'][0]['id'])->toBe($ownGroup['id']);
 });
 
 it('shows the communication link only to approved members', function () {

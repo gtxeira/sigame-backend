@@ -28,7 +28,7 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Autenticação social` | `/auth/social/{provider}/start`, `/auth/social/{provider}/callback`, `/auth/social/{provider}/link`, `/users/me/identities/{provider}` | Mecanismo de autenticação | Ciclo OAuth e vínculo de identidades sociais. |
 | `Verificação de e-mail` | `/auth/email/verify`, `/auth/email/verification/resend` | Ciclo de vida do recurso | Confirmação pública e reenvio autenticado do e-mail canônico. |
 | `Senha` | `/auth/password/forgot`, `/auth/password/reset`, `/users/me/password` | Ciclo de vida do recurso | Recuperação pública, redefinição por token e troca autenticada. |
-| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo` | Responsabilidade/intenção (self-service) | Dados e foto do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
+| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo`, `/users/me/groups` | Responsabilidade/intenção (self-service) | Dados, foto e grupos do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
 | `Grupos` | `/groups`, `/groups/{id}`, `/groups/{id}/memberships`, `/groups/{id}/supervisor` | Recurso/entidade de domínio (REST) | Ciclo de vida do grupo, das participações e do supervisor. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |
@@ -40,7 +40,7 @@ A tag `Usuários` ainda não aparece no documento gerado porque não existe endp
 ## 3. Decisão sobre `/users`
 
 - `/users` e `/users/{id}` compartilham a tag `Usuários`, pelo critério de recurso.
-- `/users/me`, `/users/me/cpf`, `/users/me/profile` e `/users/me/photo` ficam em `Minha conta`, pelo critério de intenção self-service.
+- `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo` e `/users/me/groups` ficam em `Minha conta`, pelo critério de intenção self-service.
 - As demais rotas `/users/me/*` ficam na tag do respectivo ciclo de vida: `POST /users/me/password` em `Senha`, `POST /users/me/identities/{provider}` em `Autenticação social` e `POST /users/me/onboarding` em `Onboarding`. O perfil e a foto permanecem em `Minha conta`.
 - A separação entre a coleção e o item não é feita por tag; as operações aparecem como entradas distintas dentro de `Usuários`.
 - Se no futuro a coleção e o item tiverem públicos ou ciclos de vida diferentes (por exemplo, `/users` restrito a administradores e `/users/{id}` self-service), a separação passa a ser justificada.
@@ -48,8 +48,9 @@ A tag `Usuários` ainda não aparece no documento gerado porque não existe endp
 
 ### 3.1 Decisão sobre `/groups`
 
-- `/groups`, `/groups/me`, `/groups/{id}`, memberships e supervisor compartilham a tag `Grupos`.
-- `/groups/me` é declarado antes de `/groups/{id}` e `{id}` tem requirement de UUID, para que o literal `me` não seja capturado.
+- `/groups`, `/groups/{id}`, memberships e supervisor compartilham a tag `Grupos`.
+- A listagem dos grupos do usuário autenticado fica em `GET /users/me/groups`, na tag `Minha conta`: é um sub-recurso do usuário, sem pseudo-ID `me` e sem colisão com `/groups/{id}`.
+- `{id}` continua com requirement de UUID, para que identificadores inválidos não sejam confundidos com rotas literais.
 - A listagem não expõe o `communicationLink`; o detalhe só o inclui para membro aprovado.
 - O papel de administrador é documentado em `viewerMembership.role`; a alteração usa `PATCH .../memberships/{membershipId}/role`.
 - O criador aparece em `createdBy` e não é a fonte de autorização.
@@ -128,9 +129,9 @@ Summaries atuais, usados como referência:
 | `PATCH /users/me/profile` | `Atualizar o perfil` |
 | `POST /users/me/photo` | `Alterar a foto de perfil` |
 | `DELETE /users/me/photo` | `Remover a foto de perfil` |
+| `GET /users/me/groups` | `Listar meus grupos` |
 | `POST /groups` | `Criar grupo` |
 | `GET /groups` | `Listar grupos` |
-| `GET /groups/me` | `Listar meus grupos` |
 | `GET /groups/{id}` | `Obter grupo` |
 | `PATCH /groups/{id}` | `Atualizar grupo` |
 | `POST /groups/{id}/membership-requests` | `Solicitar entrada no grupo` |
