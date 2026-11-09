@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\ValueObject;
 
-use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
-use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -39,7 +37,7 @@ final readonly class AccessState
     public function suspend(): self
     {
         if (UserStatus::SUSPENDED === $this->status) {
-            throw new UserAlreadySuspendedException();
+            return $this;
         }
 
         return new self($this->role, UserStatus::SUSPENDED);
@@ -48,7 +46,7 @@ final readonly class AccessState
     public function reactivate(): self
     {
         if (UserStatus::ACTIVE === $this->status) {
-            throw new UserAlreadyActiveException();
+            return $this;
         }
 
         return new self($this->role, UserStatus::ACTIVE);

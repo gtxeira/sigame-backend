@@ -15,8 +15,8 @@ use RuntimeException;
  * Conclui o onboarding do usuário autenticado.
  *
  * RN03.2: ao concluir os dados mínimos, o usuário alcança o nível 2.
- * As violações de regra de negócio são lançadas pelo agregado e convertidas
- * em respostas HTTP pelo listener de exceções de domínio.
+ * As violações de regra de negócio são devolvidas pelo agregado como `Result`
+ * e propagadas sem efeitos colaterais.
  */
 final readonly class CompleteOnboardingHandler
 {
@@ -37,10 +37,14 @@ final readonly class CompleteOnboardingHandler
             throw new RuntimeException('Usuário autenticado não encontrado.');
         }
 
-        $user->completeOnboarding(
+        $onboarding = $user->completeOnboarding(
             modalities: $command->modalities(),
             primaryModality: $command->primaryModality(),
         );
+
+        if ($onboarding->isFailure()) {
+            return Result::failure($onboarding->errors());
+        }
 
         $this->userRepository->save($user);
 

@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
-use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
 use App\Identity\Domain\User\ValueObject\AccessState;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
@@ -44,10 +42,20 @@ it('reactivates a suspended account', function () {
         ->and($access->canAuthenticate())->toBeTrue();
 });
 
-it('throws when suspending an already suspended account', function () {
-    AccessState::initial()->suspend()->suspend();
-})->throws(UserAlreadySuspendedException::class);
+it('keeps the suspended state when suspending twice', function () {
+    $suspended = AccessState::initial()->suspend();
+    $again = $suspended->suspend();
 
-it('throws when reactivating an already active account', function () {
-    AccessState::initial()->reactivate();
-})->throws(UserAlreadyActiveException::class);
+    expect($again)->toBe($suspended)
+        ->and($again->isSuspended())->toBeTrue()
+        ->and($again->isActive())->toBeFalse();
+});
+
+it('keeps the active state when reactivating an already active account', function () {
+    $active = AccessState::initial();
+    $again = $active->reactivate();
+
+    expect($again)->toBe($active)
+        ->and($again->isActive())->toBeTrue()
+        ->and($again->isSuspended())->toBeFalse();
+});

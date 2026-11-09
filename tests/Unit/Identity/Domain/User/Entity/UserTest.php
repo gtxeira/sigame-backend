@@ -2,12 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\User\Entity\User;
-use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
-use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
-use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
-use App\Identity\Domain\User\Exception\UserAlreadyActiveException;
-use App\Identity\Domain\User\Exception\UserAlreadySuspendedException;
 use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
@@ -141,23 +137,34 @@ it('deduplicates modalities and keeps a deterministic order', function () {
     expect($user->modalities())->toBe([Modality::WALKING, Modality::RUNNING]);
 });
 
-it('throws exception when completing onboarding without modalities', function () {
+it('rejects completing onboarding without modalities', function () {
     $user = makeUser();
 
-    $user->completeOnboarding(
+    $result = $user->completeOnboarding(
         modalities: [],
         primaryModality: null,
     );
-})->throws(OnboardingNoModalitySelectedException::class);
 
-it('throws exception when the primary modality is not selected', function () {
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::OnboardingNoModalitySelected->value)
+        ->and($user->onboardingStatus())->toBe(OnboardingStatus::PENDING)
+        ->and($user->level()->value())->toBe(1)
+        ->and($user->modalities())->toBe([]);
+});
+
+it('rejects a primary modality that is not selected', function () {
     $user = makeUser();
 
-    $user->completeOnboarding(
+    $result = $user->completeOnboarding(
         modalities: [Modality::WALKING],
         primaryModality: Modality::RUNNING,
     );
-})->throws(OnboardingInvalidPrimaryModalityException::class);
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::OnboardingInvalidPrimaryModality->value)
+        ->and($user->onboardingStatus())->toBe(OnboardingStatus::PENDING)
+        ->and($user->modalities())->toBe([]);
+});
 
 it('updates profile data while preserving the photo key', function () {
     $user = makeUser();
@@ -185,7 +192,7 @@ it('removes the photo key', function () {
     expect($user->photoKey())->toBeNull();
 });
 
-it('throws exception when completing onboarding twice', function () {
+it('rejects completing onboarding twice', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
@@ -193,11 +200,17 @@ it('throws exception when completing onboarding twice', function () {
         primaryModality: null,
     );
 
-    $user->completeOnboarding(
+    $result = $user->completeOnboarding(
         modalities: [Modality::RUNNING],
         primaryModality: null,
     );
-})->throws(OnboardingAlreadyCompletedException::class);
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::OnboardingAlreadyCompleted->value)
+        ->and($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
+        ->and($user->level()->value())->toBe(2)
+        ->and($user->modalities())->toBe([Modality::WALKING]);
+});
 
 it('can create group after completing onboarding (level 2)', function () {
     $user = makeUser();
@@ -215,30 +228,36 @@ it('can create group after completing onboarding (level 2)', function () {
 it('suspends and reactivates user', function () {
     $user = makeUser();
 
-    $user->suspend('Violation of terms');
+    expect($user->suspend('Violation of terms'))->toBeTrue();
 
     expect($user->isSuspended())->toBeTrue()
         ->and($user->isActive())->toBeFalse()
         ->and($user->canCreateGroup())->toBeFalse();
 
-    $user->reactivate();
+    expect($user->reactivate())->toBeTrue();
 
     expect($user->isActive())->toBeTrue()
         ->and($user->isSuspended())->toBeFalse();
 });
 
-it('throws exception when suspending already suspended user', function () {
+it('keeps the suspended state when suspending twice', function () {
     $user = makeUser();
-
     $user->suspend('Violation of terms');
-    $user->suspend('Another violation');
-})->throws(UserAlreadySuspendedException::class);
+    $updatedAt = $user->updatedAt();
 
-it('throws exception when reactivating already active user', function () {
+    expect($user->suspend('Another violation'))->toBeFalse()
+        ->and($user->isSuspended())->toBeTrue()
+        ->and($user->updatedAt()->equals($updatedAt))->toBeTrue();
+});
+
+it('keeps the active state when reactivating an active user', function () {
     $user = makeUser();
+    $updatedAt = $user->updatedAt();
 
-    $user->reactivate();
-})->throws(UserAlreadyActiveException::class);
+    expect($user->reactivate())->toBeFalse()
+        ->and($user->isActive())->toBeTrue()
+        ->and($user->updatedAt()->equals($updatedAt))->toBeTrue();
+});
 
 it('registers a user without cpf', function () {
     $user = User::register(

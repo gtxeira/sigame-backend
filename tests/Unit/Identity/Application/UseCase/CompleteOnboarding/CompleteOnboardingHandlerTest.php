@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 use App\Identity\Application\UseCase\CompleteOnboarding\CompleteOnboardingCommand;
 use App\Identity\Application\UseCase\CompleteOnboarding\CompleteOnboardingHandler;
+use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\OnboardingCompleted;
-use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
-use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
-use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
@@ -118,7 +116,7 @@ it('throws when the authenticated user does not exist', function () {
     ));
 })->throws(RuntimeException::class, 'Usuário autenticado não encontrado.');
 
-it('rejects onboarding data violating domain rules', function (array $overrides, string $exception) {
+it('rejects onboarding data violating domain rules', function (array $overrides, IdentityErrorCode $code) {
     $user = completeOnboardingTestUser();
 
     if (true === ($overrides['preCompleted'] ?? false)) {
@@ -144,18 +142,21 @@ it('rejects onboarding data violating domain rules', function (array $overrides,
         primaryModality: $primaryModality,
     );
 
-    expect(fn () => ($this->handler)($command))->toThrow($exception);
+    $result = ($this->handler)($command);
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe($code->value);
 })->with([
     'no modality selected' => [
         ['modalities' => []],
-        OnboardingNoModalitySelectedException::class,
+        IdentityErrorCode::OnboardingNoModalitySelected,
     ],
     'primary modality not selected' => [
         ['modalities' => [Modality::WALKING], 'primaryModality' => Modality::RUNNING],
-        OnboardingInvalidPrimaryModalityException::class,
+        IdentityErrorCode::OnboardingInvalidPrimaryModality,
     ],
     'onboarding already completed' => [
         ['preCompleted' => true],
-        OnboardingAlreadyCompletedException::class,
+        IdentityErrorCode::OnboardingAlreadyCompleted,
     ],
 ]);

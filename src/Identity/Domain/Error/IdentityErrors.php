@@ -41,6 +41,32 @@ final class IdentityErrors
         );
     }
 
+    public static function onboardingAlreadyCompleted(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::OnboardingAlreadyCompleted,
+            message: 'O onboarding já foi concluído.',
+        );
+    }
+
+    public static function onboardingNoModalitySelected(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::OnboardingNoModalitySelected,
+            message: 'Pelo menos uma modalidade deve ser selecionada.',
+            field: 'modalities',
+        );
+    }
+
+    public static function onboardingInvalidPrimaryModality(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::OnboardingInvalidPrimaryModality,
+            message: 'A modalidade principal deve ser uma das modalidades selecionadas.',
+            field: 'primaryModality',
+        );
+    }
+
     public static function userLevelBelowMinimum(int $minimum): DomainError
     {
         return self::error(

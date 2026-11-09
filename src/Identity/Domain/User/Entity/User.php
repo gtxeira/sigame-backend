@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\Entity;
 
-use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
-use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
-use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
+use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\AccessState;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
@@ -20,6 +18,7 @@ use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Identity\Domain\User\ValueObject\Weight;
+use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
@@ -229,23 +228,30 @@ final class User
      * pelo perfil, sem reabrir o onboarding.
      *
      * @param list<Modality> $modalities
+     *
+     * @return Result<$this>
      */
     public function completeOnboarding(
         array $modalities,
         ?Modality $primaryModality,
-    ): void {
+    ): Result {
         if (OnboardingStatus::COMPLETED === $this->onboardingStatus) {
-            throw new OnboardingAlreadyCompletedException();
+            return Result::failure([IdentityErrors::onboardingAlreadyCompleted()]);
         }
 
         $modalities = self::uniqueModalities($modalities);
+        $errors = [];
 
         if ([] === $modalities) {
-            throw new OnboardingNoModalitySelectedException();
+            $errors[] = IdentityErrors::onboardingNoModalitySelected();
         }
 
         if (null !== $primaryModality && !in_array($primaryModality, $modalities, true)) {
-            throw new OnboardingInvalidPrimaryModalityException();
+            $errors[] = IdentityErrors::onboardingInvalidPrimaryModality();
+        }
+
+        if ([] !== $errors) {
+            return Result::failure($errors);
         }
 
         $this->modalities->clear();
@@ -261,6 +267,8 @@ final class User
         $this->onboardingStatus = OnboardingStatus::COMPLETED;
         $this->level = $this->level->next();
         $this->touch();
+
+        return Result::success($this);
     }
 
     /**
@@ -293,19 +301,31 @@ final class User
      * O motivo ainda não é persistido; o registro dele é tratado em
      * mudança separada, junto do histórico de suspensões.
      */
-    public function suspend(string $reason): void
+    public function suspend(string $reason): bool
     {
+        if ($this->isSuspended()) {
+            return false;
+        }
+
         $this->access = $this->access->suspend();
         $this->touch();
+
+        return true;
     }
 
     /**
      * Reativa a conta do usuário.
      */
-    public function reactivate(): void
+    public function reactivate(): bool
     {
+        if ($this->isActive()) {
+            return false;
+        }
+
         $this->access = $this->access->reactivate();
         $this->touch();
+
+        return true;
     }
 
     /**

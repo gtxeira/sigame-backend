@@ -24,8 +24,6 @@ enum IdentityErrorCode: string
     case OnboardingAlreadyCompleted = 'ONBOARDING_ALREADY_COMPLETED';
     case OnboardingInvalidPrimaryModality = 'ONBOARDING_INVALID_PRIMARY_MODALITY';
     case OnboardingNoModalitySelected = 'ONBOARDING_NO_MODALITY_SELECTED';
-    case UserAlreadyActive = 'USER_ALREADY_ACTIVE';
-    case UserAlreadySuspended = 'USER_ALREADY_SUSPENDED';
 
     case InvalidCredentials = 'INVALID_CREDENTIALS';
     case AccountSuspended = 'ACCOUNT_SUSPENDED';
@@ -58,8 +56,6 @@ enum IdentityErrorCode: string
             self::UserCpfAlreadySet,
             self::EmailAlreadyExists,
             self::OnboardingAlreadyCompleted,
-            self::UserAlreadyActive,
-            self::UserAlreadySuspended,
             self::EmailAlreadyVerified,
             self::RefreshInProgress,
             self::SocialAccountLinkRequired,

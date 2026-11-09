@@ -89,13 +89,13 @@ final class OnboardingController extends AbstractController
             ),
             'ONBOARDING_NO_MODALITY_SELECTED' => new ApiErrorExample(
                 message: 'Pelo menos uma modalidade deve ser selecionada.',
-                details: ['modalities' => 'É necessário selecionar ao menos uma modalidade.'],
+                details: ['modalities'],
                 summary: 'Nenhuma modalidade',
                 description: 'O onboarding exige ao menos uma modalidade ativa.',
             ),
             'ONBOARDING_INVALID_PRIMARY_MODALITY' => new ApiErrorExample(
                 message: 'A modalidade principal deve ser uma das modalidades selecionadas.',
-                details: ['primaryModality' => 'A modalidade principal deve ser uma das modalidades ativas.'],
+                details: ['primaryModality'],
                 summary: 'Modalidade principal inválida',
                 description: 'A modalidade principal informada não está entre as modalidades selecionadas.',
             ),
