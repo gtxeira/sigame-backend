@@ -30,6 +30,9 @@
 	encode zstd br gzip
 
 	mercure {
+		# O hub atual exige opt-in para aceitar publisher_jwt/subscriber_jwt
+		# (formato 0.x). A aplicação continua assinando com MERCURE_JWT_SECRET.
+		protocol_version_compatibility 8
 		# Publisher JWT key
 		publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} {env.MERCURE_PUBLISHER_JWT_ALG}
 		# Subscriber JWT key

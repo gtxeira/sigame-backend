@@ -10,7 +10,7 @@ use Tests\FunctionalTestCase;
 /**
  * Gera um PNG válido sem depender da extensão GD.
  */
-function mePhotoPng(int $width = 200, int $height = 200, bool $withPixels = true): string
+function mePhotoPng(int $width = 512, int $height = 512, bool $withPixels = true): string
 {
     $chunk = static function (string $type, string $data): string {
         return pack('N', strlen($data)).$type.$data.pack('N', crc32($type.$data));
@@ -63,6 +63,25 @@ function mePhotoKeyFromUrl(string $url): string
     return substr($url, strlen('http://cdn.test/'));
 }
 
+/**
+ * Mensagens de detalhe da última resposta de validação.
+ *
+ * @return list<string>
+ */
+function mePhotoErrorMessages(Response $response): array
+{
+    $details = authTestBody($response)['errors'][0]['details'] ?? [];
+
+    if (!is_array($details)) {
+        return [];
+    }
+
+    return array_values(array_map(
+        static fn (mixed $detail): string => is_array($detail) ? (string) ($detail['message'] ?? '') : '',
+        $details,
+    ));
+}
+
 it('uploads a valid png and exposes its public url', function () {
     $server = mePhotoTestServer($this);
     $contents = mePhotoPng();
@@ -103,7 +122,7 @@ it('replaces the previous photo and removes the old object', function () {
 
     $second = $this->api->postMultipart(
         'app_me_photo_update',
-        ['photo' => mePhotoUpload(mePhotoPng(220, 220))],
+        ['photo' => mePhotoUpload(mePhotoPng(515, 515))],
         server: $server,
     );
     $secondKey = mePhotoKeyFromUrl((string) authTestBody($second)['data']['photoUrl']);
@@ -172,17 +191,36 @@ it('rejects a corrupted image', function () {
         ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
 });
 
+it('accepts a square image within the 512 pixel tolerance', function (int $side) {
+    $server = mePhotoTestServer($this);
+
+    $response = $this->api->postMultipart(
+        'app_me_photo_update',
+        ['photo' => mePhotoUpload(mePhotoPng($side, $side))],
+        server: $server,
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK)
+        ->and(authTestBody($response)['data']['photoUrl'])->toStartWith('http://cdn.test/users/');
+})->with([
+    'lower bound' => [507],
+    'target size' => [512],
+    'upper bound' => [517],
+]);
+
 it('rejects an image below the minimum dimensions', function () {
     $server = mePhotoTestServer($this);
 
     $response = $this->api->postMultipart(
         'app_me_photo_update',
-        ['photo' => mePhotoUpload(mePhotoPng(100, 100))],
+        ['photo' => mePhotoUpload(mePhotoPng(506, 506))],
         server: $server,
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and(mePhotoErrorMessages($response))
+        ->toContain('A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).');
 });
 
 it('rejects an image above the maximum dimensions', function () {
@@ -190,13 +228,33 @@ it('rejects an image above the maximum dimensions', function () {
 
     $response = $this->api->postMultipart(
         'app_me_photo_update',
-        ['photo' => mePhotoUpload(mePhotoPng(4097, 4097, withPixels: false))],
+        ['photo' => mePhotoUpload(mePhotoPng(518, 518))],
         server: $server,
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and(mePhotoErrorMessages($response))
+        ->toContain('A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).');
 });
+
+it('rejects a non square image even within the size range', function (int $width, int $height) {
+    $server = mePhotoTestServer($this);
+
+    $response = $this->api->postMultipart(
+        'app_me_photo_update',
+        ['photo' => mePhotoUpload(mePhotoPng($width, $height))],
+        server: $server,
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and(mePhotoErrorMessages($response))
+        ->toContain('A foto de perfil deve ser quadrada (proporção 1:1).');
+})->with([
+    'landscape' => [517, 507],
+    'portrait' => [507, 517],
+]);
 
 it('rejects an image above the maximum file size', function () {
     $server = mePhotoTestServer($this);
@@ -210,7 +268,8 @@ it('rejects an image above the maximum file size', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and(mePhotoErrorMessages($response))->toContain('A foto de perfil deve ter no máximo 2 MB.');
 });
 
 it('rejects an upload without a bearer token', function () {

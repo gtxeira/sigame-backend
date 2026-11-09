@@ -125,7 +125,7 @@ A convenção vale apenas para summaries de operação. Descrição de operaçã
 
 O teste `ApiDocumentationTest` verifica o formato do summary e a primeira palavra contra a lista de verbos aprovados.
 
-O upload de foto é documentado como `requestBody` `multipart/form-data`, com o campo `photo` no formato `binary`. O `PATCH /users/me/profile` documenta `422` para corpo vazio, nome inválido, tipo inválido e faixas de altura/peso.
+O upload de foto é documentado como `requestBody` `multipart/form-data`, com o campo `photo` no formato `binary`. A descrição do campo fixa o contrato: imagem **quadrada em 512×512, com tolerância de 5 px por lado**, JPEG/PNG/WebP e até 2 MB, já enquadrada pelo cliente. Os exemplos de `422` usam o código real `VALIDATION_ERROR`; a descrição cobre arquivo ausente, formato inválido, dimensão fora da faixa e proporção diferente de 1:1. O `PATCH /users/me/profile` documenta `422` para corpo vazio, nome inválido, tipo inválido e faixas de altura/peso.
 
 ## 7. Segurança na documentação
 

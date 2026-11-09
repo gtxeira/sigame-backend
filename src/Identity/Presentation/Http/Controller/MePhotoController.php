@@ -72,7 +72,12 @@ final class MePhotoController extends AbstractController
             schema: new OA\Schema(
                 required: ['photo'],
                 properties: [
-                    new OA\Property(property: 'photo', description: 'Imagem JPEG, PNG ou WebP.', type: 'string', format: 'binary'),
+                    new OA\Property(
+                        property: 'photo',
+                        description: 'Imagem quadrada já enquadrada em 512×512 (tolerância de 5 pixels por lado), JPEG, PNG ou WebP, de até 2 MB.',
+                        type: 'string',
+                        format: 'binary',
+                    ),
                 ],
             ),
         ),
@@ -86,7 +91,7 @@ final class MePhotoController extends AbstractController
                 message: 'Um ou mais erros de validação foram encontrados.',
                 details: ['photo' => 'A foto de perfil deve ser uma imagem JPEG, PNG ou WebP.'],
                 summary: 'Foto inválida',
-                description: 'O arquivo não foi enviado, excede o limite ou não é uma imagem aceita.',
+                description: 'O arquivo não foi enviado, excede 2 MB, não é uma imagem aceita, está fora de 507 a 517 px por lado ou não é quadrada (1:1).',
             ),
         ],
         fields: ['photo' => 'Arquivo da foto de perfil.'],
@@ -96,24 +101,30 @@ final class MePhotoController extends AbstractController
     #[InternalErrorResponse]
     public function update(
         #[MapUploadedFile(
-            name: 'photo',
             constraints: [
                 new Assert\Image(
                     maxSize: '2M',
                     mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-                    minWidth: 200,
-                    minHeight: 200,
-                    maxWidth: 4096,
-                    maxHeight: 4096,
+                    minWidth: 507,
+                    maxWidth: 517,
+                    maxHeight: 517,
+                    minHeight: 507,
+                    allowLandscape: false,
+                    allowPortrait: false,
                     maxSizeMessage: 'A foto de perfil deve ter no máximo 2 MB.',
                     mimeTypesMessage: 'A foto de perfil deve ser uma imagem JPEG, PNG ou WebP.',
-                    minWidthMessage: 'A foto de perfil deve ter no mínimo 200 pixels de largura.',
-                    minHeightMessage: 'A foto de perfil deve ter no mínimo 200 pixels de altura.',
-                    maxWidthMessage: 'A foto de perfil deve ter no máximo 4096 pixels de largura.',
-                    maxHeightMessage: 'A foto de perfil deve ter no máximo 4096 pixels de altura.',
+                    uploadIniSizeErrorMessage: 'A foto de perfil deve ter no máximo 2 MB.',
+                    uploadFormSizeErrorMessage: 'A foto de perfil deve ter no máximo 2 MB.',
                     sizeNotDetectedMessage: 'Não foi possível ler as dimensões da foto de perfil.',
+                    maxWidthMessage: 'A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).',
+                    minWidthMessage: 'A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).',
+                    maxHeightMessage: 'A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).',
+                    minHeightMessage: 'A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).',
+                    allowLandscapeMessage: 'A foto de perfil deve ser quadrada (proporção 1:1).',
+                    allowPortraitMessage: 'A foto de perfil deve ser quadrada (proporção 1:1).',
                 ),
             ],
+            name: 'photo',
         )]
         ?UploadedFile $photo = null,
     ): JsonResponse {

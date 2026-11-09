@@ -139,8 +139,10 @@ O comando executa `garage bucket website --allow profile-images`. O bucket conti
 Limites do upload:
 
 - **2 MB** por arquivo na aplicação (`Image(maxSize: '2M')`);
-- `upload_max_filesize=5M` e `post_max_size=10M` no `frankenphp/conf.d/10-app.ini`;
-- JPEG, PNG ou WebP, entre 200×200 e 4096×4096 pixels.
+- `upload_max_filesize=5M` e `post_max_size=10M` no `frankenphp/conf.d/10-app.ini` (exige rebuild da imagem, porque o arquivo é copiado no build);
+- JPEG, PNG ou WebP, **quadrado em 512×512 com tolerância de 5 px por lado** (507 a 517). O enquadramento é feito pelo cliente; o servidor não recorta nem reescreve o arquivo.
+
+> O envio deve chegar já re-encodado pelo cliente (o que também remove EXIF). O processamento no servidor — WebP, crop, metadados, compressão e derivadas — está registrado como dívida técnica em [implementacao.md §5.1](implementacao.md#51-processamento-de-imagem).
 
 > Em produção, troque `S3_PUBLIC_URL` pelo domínio/CDN do bucket e mantenha a credencial na variável `S3_*`. A matriz definitiva de visibilidade (`DEC06`) pode exigir bucket privado com proxy ou URL assinada; a URL não é persistida, só a chave.
 
@@ -215,6 +217,7 @@ Em produção:
 - O banco de produção deve ter backup e usuário com privilégios mínimos.
 - O rate limiter precisa de storage compartilhado quando houver mais de uma instância.
 - O hub Mercure e o Vulcain vêm do template, mas ainda não são usados pela aplicação.
+- O hub usa as diretivas `publisher_jwt`/`subscriber_jwt` (formato 0.x); o FrankenPHP atual exige `protocol_version_compatibility 8` no bloco `mercure` do `frankenphp/Caddyfile`. A tag `dunglas/frankenphp:1-php8.5` é flutuante, então um rebuild pode trazer mudanças de diretiva — fixe a versão se precisar de estabilidade.
 
 ## 8. Referências oficiais
 

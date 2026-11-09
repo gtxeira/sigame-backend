@@ -39,6 +39,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-015](#adr-015--onboarding-como-ação-única-e-evento-de-domínio) | Onboarding como ação única e evento de domínio | Vigente (emendada pelo ADR-017) |
 | [ADR-016](#adr-016--upload-de-foto-de-perfil-com-chave-em-s3) | Upload de foto de perfil com chave em S3 | Vigente |
 | [ADR-017](#adr-017--perfil-parcial-e-onboarding-restrito-a-modalidades) | Perfil parcial e onboarding restrito a modalidades | Vigente |
+| [ADR-018](#adr-018--foto-de-perfil-quadrada-em-512-no-cliente) | Foto de perfil quadrada em 512 no cliente | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
 
@@ -457,7 +458,7 @@ O onboarding aceitava `photoUrl` como string livre, o que permitia apontar para 
 ### Decisão
 
 - Expor `POST /api/v1/users/me/photo` com `multipart/form-data` e campo `photo`. PHP não popula `$_FILES` em `PUT` multipart, por isso o upload usa `POST` também para substituição.
-- Validar com `#[MapUploadedFile]` e `Image`: até 2 MB, JPEG/PNG/WebP, 200×200 a 4096×4096. O limite do PHP sobe para `upload_max_filesize=5M`/`post_max_size=10M` para o erro chegar como `422`.
+- Validar com `#[MapUploadedFile]` e `Image`: até 2 MB, JPEG/PNG/WebP e **quadrado em 512×512** (tolerância de 5 px por lado), conforme o [ADR-018](#adr-018--foto-de-perfil-quadrada-em-512-no-cliente). O limite do PHP sobe para `upload_max_filesize=5M`/`post_max_size=10M` para o erro chegar como `422`.
 - Persistir apenas a **chave do objeto** em `users.photo_key`, no formato `users/{userId}/{uuid}.{ext}`; a URL é derivada de `S3_PUBLIC_URL` na resposta.
 - Devolver `CurrentUserResponse` no upload e `204` no `DELETE /api/v1/users/me/photo`, que é idempotente.
 - Serializar uploads por usuário com `LockFactory`; se o save falhar, apagar o objeto recém-gravado. O objeto anterior é apagado em best-effort depois do sucesso.
@@ -477,6 +478,8 @@ O onboarding aceitava `photoUrl` como string livre, o que permitia apontar para 
 - Não há resize, thumbnail, leitura de EXIF nem validação de imagem corrompida no servidor; o arquivo original é armazenado.
 - A migration `Version20261108120000` renomeia a coluna e limpa URLs antigas, que não são chaves válidas.
 - Testes: `FlysystemFileStorageTest`, `S3ProfilePhotoStorageTest`, `UploadProfilePhotoHandlerTest`, `RemoveProfilePhotoHandlerTest` e `MePhotoTest`.
+
+> **Emenda (ADR-018):** o limite aceito deixou de ser 200×200 a 4096×4096 e passou a ser **quadrado, 512×512 com tolerância de 5 px por lado (507 a 517)**. O arquivo continua sendo armazenado sem re-encode; a conversão para WebP, o crop no servidor, a remoção de EXIF, a compressão e as derivadas estão registradas como dívida técnica em [implementacao.md §5.1](implementacao.md#51-processamento-de-imagem).
 
 ---
 
@@ -511,6 +514,36 @@ O onboarding misturava progressão (modalidades e modalidade principal) com dado
 - A foto tem ciclo de vida próprio e nunca é alterada pelo PATCH de perfil.
 - Testes: `UpdateProfileHandlerTest` e `MeProfileTest` cobrem campo ausente, `null`, valor, corpo vazio e tipos inválidos.
 - A aceitação de `application/merge-patch+json` exige registrar o formato no `Request` e fica como dívida.
+
+---
+
+## ADR-018 — Foto de perfil quadrada em 512 no cliente
+
+### Contexto
+
+O upload aceitava qualquer imagem entre 200×200 e 4096×4096. Isso deixava a qualidade e o enquadramento a cargo de cada cliente, permitia originais grandes com metadados no bucket público e obrigava a interface a lidar com proporções diferentes em cada avatar. Como a UI de perfil terá um passo de enquadramento, o cliente consegue entregar uma imagem já normalizada.
+
+### Decisão
+
+- Exigir **quadrado, 512×512, com tolerância de 5 px por lado** (507 a 517), mantendo a proporção 1:1 exata.
+- Manter o teto de **2 MB** e os formatos JPEG, PNG e WebP.
+- O **enquadramento é escolhido na UI do cliente**; a API não recorta, redimensiona nem reescreve o arquivo.
+- Expressar a regra com `minWidth`/`minHeight: 507`, `maxWidth`/`maxHeight: 517` e `allowLandscape: false`/`allowPortrait: false`. Não usar `minRatio`/`maxRatio`: eles toleram diferença de proporção, e o validador arredonda a razão para 2 casas, o que produz uma janela confusa em 512 px.
+- Registrar a conversão para WebP, o crop no servidor, a remoção de EXIF/metadados, a compressão e a geração de múltiplos tamanhos como **dívida técnica** em [implementacao.md §5.1](implementacao.md#51-processamento-de-imagem).
+
+### Alternativas consideradas
+
+- **Aceitar originais e recortar/compactar no endpoint:** melhora a UX de quem envia de qualquer origem, mas exige GD/Imagick, consome memória (12 MP chega perto do `memory_limit` de 128M) e cria um caminho de erro novo para imagem corrompida.
+- **Pipeline assíncrono pelo worker:** só compensa para originais grandes ou geração de derivadas em volume; a 512 px o custo síncrono é de poucos milissegundos.
+- **Serviço de redimensionamento on-the-fly (imgproxy/Thumbor):** resolve derivadas sem código, mas adiciona infraestrutura e um ponto de falha na leitura.
+
+### Consequências
+
+- A API fica simples: valida cabeçalho de imagem e tamanho, sem decode e sem dependência de GD.
+- O contrato é explícito e testável; um cliente que envie 4:3 ou 1024×1024 recebe `422` com mensagem em PT-BR.
+- Um cliente fora do contrato ainda pode publicar EXIF no bucket público — risco residual aceito até a dívida do §5.1 ser paga.
+- O egress por avatar cai para ~100–300 KB, mas listas ainda servem o arquivo de 512 px; thumbnails continuam na dívida.
+- Testes: `MePhotoTest` cobre 507/512/517 aceitos, 506/518 rejeitados e 517×507 / 507×517 rejeitados por proporção.
 
 ---
 

@@ -184,7 +184,7 @@ As fotos de perfil ficam no bucket S3 `profile-images`, com escrita pela credenc
 just storage-setup   # habilita leitura website do bucket no Garage
 ```
 
-O upload aceita JPEG, PNG ou WebP de até 2 MB e 200×200 a 4096×4096. A referência persistida é a chave do objeto (`users/{id}/{uuid}.{ext}`), não a URL. Detalhes em [docs/infraestrutura.md](docs/infraestrutura.md#35-armazenamento-s3).
+O upload aceita JPEG, PNG ou WebP de até 2 MB, **quadrado em 512×512 com tolerância de 5 px por lado** (507 a 517). O enquadramento é escolhido na interface e a imagem deve chegar já re-encodada pelo cliente. A referência persistida é a chave do objeto (`users/{id}/{uuid}.{ext}`), não a URL. Detalhes em [docs/infraestrutura.md](docs/infraestrutura.md#35-armazenamento-s3).
 
 ## Banco de dados e migrations
 

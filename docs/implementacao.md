@@ -249,13 +249,27 @@ A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `
 | Troca de modalidade principal ausente | RN03.5/CA03.5 exigem alterar a principal preservando histórico, mas `completeOnboarding()` só aceita uma conclusão | Criar caso de uso e endpoint próprios, com teste de preservação de XP. |
 | `UserRegistered` sem consumidor | O evento é publicado no cadastro e no login social | Implementar listener de Gamification quando o módulo existir. |
 | Motivo da suspensão não é persistido | `User::suspend(string $reason)` ignora o argumento | Criar histórico de suspensões com autor, motivo e datas. |
-| Imagem sem pós-processamento | Sem GD/Imagick, o servidor aceita o arquivo original: não há resize, thumbnail, EXIF nem `detectCorrupted` | Adicionar processamento assíncrono (worker) ou validar com GD quando a extensão existir. |
+| Imagem sem pós-processamento | O endpoint só valida e armazena; o enquadramento em 512×512 é feito pelo cliente e o arquivo original é persistido | Ver [§5.1](#51-processamento-de-imagem). |
 | Objetos órfãos em falha abrupta | A compensação cobre falha de persistência, mas um processo morto entre o upload e o save deixa o objeto no bucket | Criar rotina de limpeza por referência/idade ou lifecycle policy no provedor. |
 | Leitura pública da foto | O bucket local usa website público com chave não adivinhável; a matriz definitiva do `DEC06` segue aberta | Reavaliar quando a visibilidade de perfil for fechada; a chave persistida permite migrar para proxy ou URL assinada sem migration. |
 | CI não roda testes | `.github/workflows/ci.yaml` tem os passos de migrations/PHPUnit comentados | Reativar migrations, testes e `doctrine:schema:validate` no CI. |
 | Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
+
+### 5.1 Processamento de imagem
+
+O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento em 512×512 é responsabilidade do cliente ([ADR-018](decisoes.md#adr-018--foto-de-perfil-quadrada-em-512-no-cliente)), e o servidor não reescreve o arquivo. Ficam como dívida técnica do backend:
+
+- [ ] Converter a imagem para **WebP**.
+- [ ] Garantir o **crop 512×512** no servidor, sem depender do cliente.
+- [ ] **Remover EXIF e demais metadados** (hoje um cliente fora do contrato ainda pode publicar GPS no bucket público).
+- [ ] Aplicar **compressão** com qualidade controlada.
+- [ ] Gerar **múltiplos tamanhos** (ex.: 512, 256, 64) para listas e rankings — ou adotar um serviço de redimensionamento on-the-fly (imgproxy, Thumbor, Cloudflare Images) na frente do bucket.
+
+**Gatilhos para pagar a dívida:** primeira tela que lista avatares, primeiro cliente fora do controle, ou primeiro relato de metadados vazando.
+
+**Forma de implementação:** a 512 px o custo é baixo (buffer de ~1 MiB, ~30–60 ms por imagem), então o processamento pode ser síncrono no próprio endpoint, sem passar pelo `worker`. A fila só volta a fazer sentido se o upload aceitar originais grandes de novo ou se a geração de derivadas crescer em volume.
 
 ---
 
