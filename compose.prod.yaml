@@ -29,3 +29,18 @@ services:
       php:
         condition: service_healthy
     restart: unless-stopped
+
+  scheduler:
+    image: ${IMAGES_PREFIX:-}app-php-prod
+    build:
+      context: .
+      target: frankenphp_prod
+    environment:
+      APP_SECRET: ${APP_SECRET}
+      MESSENGER_MAIL_ENCRYPTION_KEY: ${MESSENGER_MAIL_ENCRYPTION_KEY}
+    entrypoint: ["docker-php-entrypoint"]
+    command: ["php", "bin/console", "messenger:consume", "scheduler_activities", "--time-limit=3600", "--memory-limit=128M", "--no-interaction"]
+    depends_on:
+      php:
+        condition: service_healthy
+    restart: unless-stopped

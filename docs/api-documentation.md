@@ -28,9 +28,10 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Autenticação social` | `/auth/social/{provider}/start`, `/auth/social/{provider}/callback`, `/auth/social/{provider}/link`, `/users/me/identities/{provider}` | Mecanismo de autenticação | Ciclo OAuth e vínculo de identidades sociais. |
 | `Verificação de e-mail` | `/auth/email/verify`, `/auth/email/verification/resend` | Ciclo de vida do recurso | Confirmação pública e reenvio autenticado do e-mail canônico. |
 | `Senha` | `/auth/password/forgot`, `/auth/password/reset`, `/users/me/password` | Ciclo de vida do recurso | Recuperação pública, redefinição por token e troca autenticada. |
-| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo`, `/users/me/groups` | Responsabilidade/intenção (self-service) | Dados, foto e grupos do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
+| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo`, `/users/me/groups`, `/users/me/activities` | Responsabilidade/intenção (self-service) | Dados, foto, grupos e atividades do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
 | `Grupos` | `/groups`, `/groups/{id}`, `/groups/{id}/memberships`, `/groups/{id}/supervisor` | Recurso/entidade de domínio (REST) | Ciclo de vida do grupo, das participações e do supervisor. |
+| `Atividades` | `/groups/{groupId}/activities`, `/activities/{id}`, `/activities/{id}/enrollments`, `/activities/{id}/attendances` | Recurso/entidade de domínio (REST) | Ciclo de vida, inscrição, check-in e presença em atividades. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |
 | `Usuários` (planejado) | `/users`, `/users/{id}` | Recurso/entidade de domínio (REST) | Mesmo agregado e ciclo de vida: coleção e item. Gestão global/administrativa. |
 | `Webhooks` (futuro) | `/webhooks/*` | Mecanismo de autenticação | Assinatura HMAC, não Bearer JWT; não deve se misturar com `Autenticação`. |
@@ -63,7 +64,7 @@ Os grupos organizam as tags na navegação do Scalar. Os nomes dos grupos são i
 |---|---|
 | `Acesso` | `Autenticação`, `Sessão`, `Autenticação social`, `Verificação de e-mail`, `Senha` |
 | `Conta` | `Minha conta`, `Onboarding` |
-| `Comunidade` | `Grupos` |
+| `Comunidade` | `Grupos`, `Atividades` |
 | `Sistema` | `Saúde` |
 | `Administração` | `Usuários` (quando o CRUD administrativo existir) |
 | `Integrações` | `Webhooks` (futuro) |
@@ -142,6 +143,21 @@ Summaries atuais, usados como referência:
 | `PATCH /groups/{id}/memberships/{membershipId}/role` | `Alterar papel do membro` |
 | `PUT /groups/{id}/supervisor` | `Designar supervisor` |
 | `DELETE /groups/{id}/supervisor` | `Remover supervisor` |
+| `POST /groups/{groupId}/activities` | `Criar atividade` |
+| `GET /groups/{groupId}/activities` | `Listar atividades do grupo` |
+| `GET /activities/{id}` | `Obter atividade` |
+| `PATCH /activities/{id}` | `Atualizar atividade` |
+| `GET /activities/{id}/reschedules` | `Listar histórico de remarcações` |
+| `POST /activities/{id}/cancel` | `Cancelar atividade` |
+| `POST /activities/{id}/start` | `Iniciar atividade` |
+| `POST /activities/{id}/finish` | `Finalizar atividade` |
+| `POST /activities/{id}/invalidate` | `Invalidar atividade` |
+| `POST /activities/{id}/enrollments` | `Inscrever-se na atividade` |
+| `DELETE /activities/{id}/enrollments/me` | `Cancelar inscrição` |
+| `POST /activities/{id}/check-in` | `Fazer check-in` |
+| `GET /activities/{id}/attendances` | `Listar presenças` |
+| `POST /activities/{id}/attendances/{attendanceId}/validate` | `Validar presença` |
+| `GET /users/me/activities` | `Listar minhas atividades` |
 | `GET /api/health/liveness` | `Verificar a execução da aplicação` |
 | `GET /api/health/readiness` | `Verificar a prontidão da aplicação` |
 

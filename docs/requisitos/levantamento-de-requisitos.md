@@ -2,7 +2,7 @@
 
 > **Status:** Em revisão
 >
-> **Versão:** 0.4
+> **Versão:** 0.5
 >
 > **Última atualização:** 2026-11-09
 >
@@ -115,16 +115,25 @@ administrativos globais.
 | Aprovar entrada                       |           Não |             Sim | Não, salvo delegação futura |                  Sim |
 | Remover membro do grupo               |           Não |             Sim |                         Não |                  Sim |
 | Promover/rebaixar administrador       |           Não |             Sim |                         Não |                  Sim |
-| Criar atividade                       |           Não |             Sim |          Conforme delegação |                  Sim |
-| Remarcar/cancelar atividade           |           Não |             Sim |          Conforme delegação |                  Sim |
+| Criar atividade                       |           Não |             Sim |                         Não |                  Sim |
+| Editar/remarcar atividade             |           Não |             Sim |                         Não |                  Sim |
+| Cancelar atividade                    |           Não |             Sim |                         Não |                  Sim |
+| Iniciar/finalizar atividade           |           Não |             Sim |                         Sim |                  Sim |
+| Invalidar atividade                   |           Não |             Sim |                         Não |                  Sim |
+| Inscrever-se em atividade             |           Sim |             Sim |                         Sim |                  Sim |
 | Check-in próprio                      |           Sim |             Sim |                         Sim |                  Sim |
 | Validar presença                      |           Não |             Sim |                         Sim |                  Sim |
+| Listar presenças                      |           Não |             Sim |                         Sim |                  Sim |
+| Ver histórico de remarcações           |           Não |             Sim |                         Não |                  Sim |
 | Suspender conta globalmente           |           Não |             Não |                         Não |                  Sim |
 | Consultar denúncias globais           |           Não |             Não |                         Não |                  Sim |
 | Criar recompensa interna              |           Não |             Sim |                    Pendente |                  Sim |
 | Gerenciar patrocinadores e benefícios |           Não |             Não |                         Não |                  Sim |
 
-> A coluna “Conforme delegação” deverá ser detalhada antes da implementação final de atividades.
+> Os poderes de atividade do supervisor foram fechados no `ADR-027`: ele opera a atividade no dia
+> (check-in, validação/lista de presenças, início e finalização), mas não cria, edita, remarca, cancela,
+> invalida nem altera informações sensíveis. O criador do grupo só possui poderes enquanto estiver no papel
+> de administrador, conforme o `ADR-023`.
 
 ---
 
@@ -329,8 +338,9 @@ O administrador deve poder designar um supervisor para o grupo.
 - `RN07.1` A existência de supervisor é opcional.
 - `RN07.2` O supervisor deve ser membro aprovado do grupo.
 - `RN07.3` O supervisor não recebe poderes globais.
-- `RN07.4` Na V1, o supervisor não aprova, rejeita, remove, promove nem rebaixa membros. Os poderes de atividade
-  (criar, remarcar, cancelar e validar presença) serão definidos na implementação de Activities.
+- `RN07.4` Na V1, o supervisor não aprova, rejeita, remove, promove nem rebaixa membros. Na atividade, ele pode
+  fazer o próprio check-in, validar e listar presenças, iniciar e finalizar a atividade. Não pode criar, editar,
+  remarcar, cancelar, invalidar nem alterar informações sensíveis da atividade.
 
 #### Critérios de aceitação
 
@@ -366,31 +376,59 @@ O administrador pode cadastrar um link externo de comunicação do grupo.
 
 O sistema deve permitir criar e manter atividades vinculadas a grupos ativos.
 
-Cada atividade deve conter, no mínimo:
+#### Campos da atividade
 
-- data;
-- horário de início previsto;
-- ponto de encontro;
-- ponto final ou trajeto;
-- distância estimada;
-- grupo responsável.
+| Campo | Obrigatório | Regra |
+|---|---|---|
+| `title` | Sim | 3 a 100 caracteres, com espaços removidos das pontas |
+| `description` | Não | até 500 caracteres |
+| `startsAt` | Sim | data/hora de início em ISO 8601 com offset, no futuro |
+| `estimatedDurationMinutes` | Não | duração média estimada, de 15 a 1440 minutos |
+| `meetingPoint` | Sim | 3 a 255 caracteres |
+| `route` | Sim | ponto final ou trajeto, 3 a 500 caracteres |
+| `estimatedDistanceMeters` | Sim | inteiro entre 1 e 1.000.000 |
+| `group` | Sim | grupo `ACTIVE` ou `FULL` no momento da criação |
 
 #### Regras
 
-- `RN09.1` Apenas administrador ou supervisor autorizado pode criar atividade.
-- `RN09.2` A atividade deve pertencer a um grupo ativo.
-- `RN09.3` Administrador ou supervisor autorizado pode remarcar, cancelar, iniciar e finalizar atividade.
+- `RN09.1` Apenas administrador do grupo ou administrador SIGAME pode criar, editar, remarcar, cancelar e invalidar atividade.
+- `RN09.2` A atividade deve pertencer a um grupo com pelo menos 3 membros aprovados no momento da criação.
+- `RN09.3` Supervisor pode iniciar, finalizar, validar e listar presenças, mas não pode criar, editar, remarcar, cancelar nem invalidar.
 - `RN09.4` Alterações relevantes devem gerar alerta interno.
 - `RN09.5` GPS não é obrigatório na V1.
+- `RN09.6` Atividade cancelada não pode ser iniciada.
+- `RN09.7` Atividade finalizada não pode ser iniciada novamente.
+- `RN09.8` Atividade cancelada ou invalidada não gera XP.
+- `RN09.9` A janela operacional de início, check-in, finalização e validação segue o `ADR-025`.
+- `RN09.10` O criador não é inscrito automaticamente na atividade.
+- `RN09.11` Atividades e dados de encontro são visíveis apenas para membros aprovados do grupo; administradores SIGAME podem consultar para moderação.
+- `RN09.12` A remarcação só é permitida em atividade agendada e preserva a janela anterior em histórico append-only.
+- `RN09.13` O cancelamento só é permitido em atividade agendada, com motivo opcional.
+- `RN09.14` A invalidação só é permitida em atividade iniciada ou finalizada, por administrador, com motivo obrigatório.
+- `RN09.15` Quando `estimatedDurationMinutes` é omitido, a janela de planejamento usa 120 minutos.
+- `RN09.16` Atividade iniciada com duração informada fecha automaticamente após a duração somada a uma tolerância de 50%, com mínimo de 15 e máximo de 240 minutos.
+- `RN09.17` Atividade iniciada sem duração informada fecha automaticamente após 12 horas.
+- `RN09.18` Atividade não iniciada é cancelada automaticamente após 3 horas do início previsto.
+- `RN09.19` O fechamento automático é idempotente e não substitui a finalização explícita.
+- `RN09.20` Se o grupo cair para `FORMING`, atividades já criadas continuam válidas; apenas novas criações são bloqueadas.
 
 #### Critérios de aceitação
 
-- `CA09.1` Atividade sem dados obrigatórios é recusada.
-- `CA09.2` Usuário sem permissão não consegue criar atividade.
-- `CA09.3` Atividade de grupo em formação é recusada, salvo decisão futura.
-- `CA09.4` Remarcação preserva o histórico da alteração.
-- `CA09.5` Cancelamento impede novas operações incompatíveis.
-- `CA09.6` Criação, alteração e cancelamento geram alerta aos participantes relevantes.
+- `CA09.1` Atividade sem `title`, `startsAt`, `meetingPoint`, `route` ou `estimatedDistanceMeters` é recusada.
+- `CA09.2` Usuário sem permissão não consegue criar, editar, remarcar, cancelar ou invalidar atividade.
+- `CA09.3` Atividade de grupo em formação é recusada na criação.
+- `CA09.4` Remarcação preserva a janela anterior no histórico.
+- `CA09.5` Cancelamento impede início, check-in e validação.
+- `CA09.6` Criação, alteração, remarcação, cancelamento, início e finalização geram evento interno.
+- `CA09.7` Usuário não membro não visualiza a atividade.
+- `CA09.8` Invalidação exige administrador e motivo.
+- `CA09.9` Atividade existente continua operável se o grupo cair para formação.
+- `CA09.10` Início e finalização fora da janela operacional são recusados.
+- `CA09.11` Cancelada e invalidada são estados terminais.
+- `CA09.12` Duração omitida não impede a criação.
+- `CA09.13` Atividade iniciada com duração é fechada automaticamente no prazo calculado.
+- `CA09.14` Atividade não iniciada é cancelada automaticamente após 3 horas.
+- `CA09.15` Fechamento automático sem 2 check-ins não gera XP.
 
 ### Ciclo de vida da atividade
 
@@ -413,20 +451,32 @@ stateDiagram-v2
 - `RN09.6` Atividade cancelada não pode ser iniciada.
 - `RN09.7` Atividade finalizada não pode ser iniciada novamente.
 - `RN09.8` Atividade cancelada ou invalidada não gera XP.
-- `RN09.9` A definição final de janela operacional de início e finalização ainda está pendente.
+- `RN09.21` Início permitido de 15 minutos antes até 2 horas após o horário previsto.
+- `RN09.22` Finalização permitida até 24 horas após o início real.
+- `RN09.23` Invalidação permitida em até 48 horas após o encerramento previsto ou real.
+- `RN09.24` O fechamento automático usa o início real, não o horário previsto.
 
-### RF10 — Check-in e validação de presença
+### RF10 — Inscrever-se, fazer check-in e validar presença
 
-O participante deve poder registrar seu check-in, e administrador ou supervisor deve poder validar a presença.
+O participante deve poder se inscrever, registrar seu check-in e ter a presença validada por administrador ou supervisor.
 
 #### Regras
 
-- `RN10.1` O check-in é individual.
-- `RN10.2` Apenas participante inscrito pode realizar check-in.
-- `RN10.3` Somente administrador ou supervisor autorizado pode validar presença.
-- `RN10.4` GPS não é obrigatório.
-- `RN10.5` Somente presença validada gera XP.
-- `RN10.6` Uma presença validada não pode gerar XP novamente.
+- `RN10.1` A inscrição é individual e permitida apenas a membro aprovado do grupo.
+- `RN10.2` Há no máximo uma inscrição ativa por par usuário/atividade.
+- `RN10.3` A inscrição só é permitida em atividade agendada e antes do início.
+- `RN10.4` A inscrição respeita o conflito de horário do RF11.
+- `RN10.5` O cancelamento da inscrição só é permitido antes do início e é idempotente.
+- `RN10.6` O check-in é individual e só é permitido para participante inscrito.
+- `RN10.7` O check-in abre 30 minutos antes do início e fecha 30 minutos após o fim previsto.
+- `RN10.8` Somente administrador, supervisor ou administrador SIGAME pode validar presença.
+- `RN10.9` GPS não é obrigatório.
+- `RN10.10` Somente presença validada gera XP.
+- `RN10.11` Uma presença validada não pode gerar XP novamente.
+- `RN10.12` A validação exige check-in prévio.
+- `RN10.13` A validação só é permitida após a finalização e o fechamento do check-in, em até 48 horas após a finalização.
+- `RN10.14` A atividade só é elegível a XP com pelo menos 2 participantes com check-in.
+- `RN10.15` A validação pode ocorrer com menos de 2 check-ins, mas o evento indica `xpEligible=false`.
 
 #### Critérios de aceitação
 
@@ -436,14 +486,31 @@ O participante deve poder registrar seu check-in, e administrador ou supervisor 
 - `CA10.4` Validação autorizada altera o estado da presença.
 - `CA10.5` Tentativa de validar duas vezes não gera XP duplicado.
 - `CA10.6` Validação de atividade cancelada ou invalidada é recusada.
+- `CA10.7` Membro aprovado consegue se inscrever em atividade agendada.
+- `CA10.8` Não membro não consegue se inscrever.
+- `CA10.9` Inscrição repetida não cria segundo episódio ativo.
+- `CA10.10` Inscrição conflitante é recusada.
+- `CA10.11` Cancelamento de inscrição após o início é recusado.
+- `CA10.12` Validação sem check-in é recusada.
+- `CA10.13` Validação fora da janela é recusada.
+- `CA10.14` Atividade com menos de 2 check-ins valida presença com `xpEligible=false`.
 
 ### RF11 — Impedir conflitos de horário
 
 O sistema deve impedir que o mesmo usuário seja atribuído a atividades conflitantes.
 
-#### Definição provisória
+#### Definição
 
-Duas atividades conflitam quando seus intervalos de horário se sobrepõem, mesmo que parcialmente.
+Duas atividades conflitam quando seus intervalos de horário se sobrepõem, mesmo que parcialmente. Não há margem de
+deslocamento e não há exceção administrativa na V1.
+
+#### Regras
+
+- `RN11.1` A margem de conflito é de 0 minutos; atividades encostadas não conflitam.
+- `RN11.2` Não há override administrativo para inscrição conflitante.
+- `RN11.3` O conflito é verificado na inscrição e na remarcação para todos os inscritos ativos.
+- `RN11.4` A regra é aplicada no backend, em transação, com lock por usuário e por atividade.
+- `RN11.5` A atividade iniciada usa o horário de fechamento automático como fim efetivo para conflito.
 
 #### Critérios de aceitação
 
@@ -451,9 +518,8 @@ Duas atividades conflitam quando seus intervalos de horário se sobrepõem, mesm
 - `CA11.2` Atividades com sobreposição parcial não podem ser atribuídas ao mesmo usuário.
 - `CA11.3` Atividades com mesmo horário não podem ser atribuídas ao mesmo usuário.
 - `CA11.4` A regra deve ser aplicada no backend e protegida por transação.
-
-> `DEC01` — Definir se haverá margem de deslocamento, como 15 ou 30 minutos, e se administradores poderão forçar uma
-> inscrição conflitante.
+- `CA11.5` Atividades encostadas são aceitas.
+- `CA11.6` Remarcação que crie conflito para um inscrito é recusada.
 
 ---
 
@@ -471,6 +537,9 @@ O sistema deve calcular e apresentar o nível e o progresso de XP do usuário.
 - `RN12.4` Participação em atividade só gera XP após validação da presença.
 - `RN12.5` O sistema pode registrar XP por ofensiva/engajamento e outros eventos previstos.
 - `RN12.6` O histórico de XP não deve ser perdido ao trocar a modalidade principal.
+- `RN12.7` A atividade precisa estar finalizada, não cancelada/invalidada e ter pelo menos 2 check-ins para ser elegível a XP.
+- `RN12.8` O evento `AttendanceValidated` informa `xpEligible`; a Gamification não deve conceder XP quando for falso.
+- `RN12.9` Invalidação posterior de atividade com XP exige evento de reversão com os usuários validados.
 
 #### Critérios de aceitação
 
@@ -547,9 +616,13 @@ O sistema deve exibir alertas internos sobre eventos relevantes, especialmente a
 
 - criação de atividade;
 - alteração de atividade;
+- remarcação;
 - cancelamento;
 - início;
 - encerramento;
+- invalidação;
+- inscrição e cancelamento de inscrição;
+- check-in e validação de presença;
 - mudanças relevantes na participação do usuário.
 
 #### Critérios de aceitação
@@ -558,6 +631,7 @@ O sistema deve exibir alertas internos sobre eventos relevantes, especialmente a
 - `CA15.2` Alterações relevantes geram nova notificação ou atualizam a anterior conforme política definida.
 - `CA15.3` Usuário consegue consultar suas notificações.
 - `CA15.4` Usuário consegue distinguir notificações lidas e não lidas.
+- `CA15.5` Eventos automáticos de fechamento e cancelamento são identificados como automáticos.
 
 > `DEC04` — Definir se notificações podem ser apagadas, arquivadas e marcadas manualmente como lidas.
 
@@ -804,7 +878,7 @@ flowchart TD
 
 ## 14. Decisões e acompanhamento
 
-As decisões pendentes (`DEC01`–`DEC12`, exceto `DEC09`) e o estado de implementação de cada requisito estão em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões já tomadas (`DEC09`, `DEC13`, `DEC14` e as decisões arquiteturais) estão em [../decisoes.md](../decisoes.md).
+As decisões ainda pendentes (`DEC02`–`DEC08`) e o estado de implementação de cada requisito estão em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões da Fase 5 (`DEC01`, `DEC10`, `DEC11` e `DEC12`), as decisões anteriores (`DEC09`, `DEC13`, `DEC14`) e as decisões arquiteturais estão em [../decisoes.md](../decisoes.md).
 
 Ao fechar uma decisão:
 
@@ -831,7 +905,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 |----------------------------|-------------------|--------------------------------------------------|
 | `RF04` Criar grupo         | `CA04.1`–`CA04.6` | Teste de caso de uso + teste do agregado `Group` |
 | `RF06` Administrar membros | `CA06.1`–`CA06.6` | Testes de autorização, limite e auditoria        |
-| `RF10` Presença            | `CA10.1`–`CA10.6` | Testes de fluxo e idempotência de XP             |
+| `RF10` Inscrição/presença  | `CA10.1`–`CA10.14` | Testes de fluxo, conflito e idempotência de XP   |
 | `RF13` Deleveling          | `CA13.1`–`CA13.6` | Testes de datas, piso e idempotência             |
 | `RF20` Vouchers            | `CA21.1`–`CA21.5` | Testes de unicidade e concorrência               |
 
@@ -855,6 +929,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | 0.2    | 2026-09-19 | Organização por capacidades, critérios de aceitação, matrizes e decisões pendentes | Gustavo Teixeira de Sousa      |
 | 0.3    | 2026-11-05 | Extração de decisões e acompanhamento para `implementacao.md` e `decisoes.md`      | Gustavo Teixeira de Sousa      |
 | 0.4    | 2026-11-09 | Fase 4: campos do grupo, criador independente, múltiplos admins e poderes do supervisor | Gustavo Teixeira de Sousa      |
+| 0.5    | 2026-11-09 | Fase 5: atividades, inscrição, conflito, presença, duração opcional e fechamento automático | Gustavo Teixeira de Sousa      |
 
 ---
 

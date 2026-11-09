@@ -29,6 +29,7 @@ use function Zenstruck\Foundry\faker as foundryFaker;
 
 require_once __DIR__.'/Functional/Identity/Presentation/Http/AuthHelpers.php';
 require_once __DIR__.'/Functional/Groups/Presentation/Http/GroupHelpers.php';
+require_once __DIR__.'/Functional/Activities/Presentation/Http/ActivityHelpers.php';
 require_once __DIR__.'/Helpers/OpenApiHelpers.php';
 
 pest()

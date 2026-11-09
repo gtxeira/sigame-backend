@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityDescriptionType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityGroupIdType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityIdType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityRescheduleIdType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityRouteType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityTitleType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityUserIdType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\AttendanceIdType;
+use App\Activities\Infrastructure\Persistence\ORM\Type\MeetingPointType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\CommunicationLinkType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupDescriptionType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupIdType;
@@ -58,6 +67,15 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'group_description' => GroupDescriptionType::class,
                 'group_communication_link' => CommunicationLinkType::class,
                 'removal_reason' => RemovalReasonType::class,
+                'activity_id' => ActivityIdType::class,
+                'attendance_id' => AttendanceIdType::class,
+                'activity_reschedule_id' => ActivityRescheduleIdType::class,
+                'activity_group_id' => ActivityGroupIdType::class,
+                'activity_user_id' => ActivityUserIdType::class,
+                'activity_title' => ActivityTitleType::class,
+                'activity_description' => ActivityDescriptionType::class,
+                'meeting_point' => MeetingPointType::class,
+                'activity_route' => ActivityRouteType::class,
             ],
         ],
         'orm' => [
@@ -81,6 +99,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'dir' => '%kernel.project_dir%/src/Groups/Domain',
                     'prefix' => 'App\Groups\Domain',
                     'alias' => 'Groups',
+                ],
+                'Activities' => [
+                    'type' => 'attribute',
+                    'is_bundle' => false,
+                    'dir' => '%kernel.project_dir%/src/Activities/Domain',
+                    'prefix' => 'App\Activities\Domain',
+                    'alias' => 'Activities',
                 ],
             ],
         ],

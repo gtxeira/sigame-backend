@@ -97,6 +97,21 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:GROUP_MANAGE_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
+            'activity_create' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:ACTIVITY_CREATE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'activity_manage' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:ACTIVITY_MANAGE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'activity_enroll' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:ACTIVITY_ENROLL_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
         ],
     ]);
 

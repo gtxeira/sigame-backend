@@ -41,15 +41,28 @@ function moduleOfClass(string $className): ?string
  * Regra de importação entre módulos:
  * - um módulo pode importar a si próprio;
  * - qualquer módulo pode importar `Shared`;
- * - `Shared` não pode importar módulos funcionais.
+ * - `Shared` não pode importar módulos funcionais;
+ * - um módulo funcional pode importar apenas classes de evento de outro módulo.
  */
-function moduleImportIsAllowed(string $sourceModule, string $targetModule): bool
-{
+function moduleImportIsAllowed(
+    string $sourceModule,
+    string $targetModule,
+    ?string $importedClass = null,
+): bool {
     if ($targetModule === $sourceModule) {
         return true;
     }
 
-    return 'Shared' === $targetModule && 'Shared' !== $sourceModule;
+    if ('Shared' === $targetModule) {
+        return 'Shared' !== $sourceModule;
+    }
+
+    if ('Shared' === $sourceModule || null === $importedClass) {
+        return false;
+    }
+
+    return str_contains($importedClass, '\\Domain\\')
+        && str_contains($importedClass, '\\Event\\');
 }
 
 /**
@@ -92,7 +105,7 @@ function moduleBoundaryViolations(): array
                     continue;
                 }
 
-                if (moduleImportIsAllowed($module, $target)) {
+                if (moduleImportIsAllowed($module, $target, $imported)) {
                     continue;
                 }
 
@@ -110,21 +123,24 @@ function moduleBoundaryViolations(): array
 }
 
 it('discovers the current source modules', function () {
-    expect(sourceModules())->toContain('Shared', 'Identity', 'Groups', 'Monitoring');
+    expect(sourceModules())->toContain('Shared', 'Identity', 'Groups', 'Activities', 'Monitoring');
 });
 
 it('classifies imports according to the module boundary rules', function (
     string $sourceModule,
     string $targetModule,
+    ?string $importedClass,
     bool $allowed,
 ) {
-    expect(moduleImportIsAllowed($sourceModule, $targetModule))->toBe($allowed);
+    expect(moduleImportIsAllowed($sourceModule, $targetModule, $importedClass))->toBe($allowed);
 })->with([
-    'module imports itself' => ['Identity', 'Identity', true],
-    'module imports Shared' => ['Identity', 'Shared', true],
-    'Shared imports itself' => ['Shared', 'Shared', true],
-    'Shared imports feature module' => ['Shared', 'Identity', false],
-    'feature module imports another feature module' => ['Identity', 'Monitoring', false],
+    'module imports itself' => ['Identity', 'Identity', null, true],
+    'module imports Shared' => ['Identity', 'Shared', null, true],
+    'Shared imports itself' => ['Shared', 'Shared', null, true],
+    'Shared imports feature module' => ['Shared', 'Identity', null, false],
+    'feature module imports another feature module' => ['Identity', 'Monitoring', null, false],
+    'feature module imports another module event' => ['Identity', 'Activities', 'App\\Activities\\Domain\\Activity\\Event\\ActivityCreated', true],
+    'feature module imports another module entity' => ['Identity', 'Activities', 'App\\Activities\\Domain\\Activity\\Entity\\Activity', false],
 ]);
 
 it('keeps Shared independent from feature modules', function () {

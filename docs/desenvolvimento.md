@@ -1,6 +1,6 @@
 # SIGAME — Desenvolvimento
 
-> **Última atualização:** 2026-11-05
+> **Última atualização:** 2026-11-09
 >
 > **Público:** pessoas que vão rodar, testar ou alterar o backend localmente.
 
@@ -90,6 +90,8 @@ MESSENGER_MAIL_ENCRYPTION_KEY=<base64 de 32 bytes>
 
 O worker do Messenger sobe junto com `just up`. Se ele estiver parado, os e-mails de verificação e reset ficam na fila `messenger_messages` até o worker voltar. Para rodar um consumidor manual use `just worker`; para acompanhar o serviço, `just worker-logs`.
 
+O serviço `scheduler` consome `scheduler_activities` e executa o fechamento automático de atividades a cada 5 minutos. Se ele estiver parado, atividades vencidas permanecem abertas até a próxima execução. Use `just scheduler-logs` e `just scheduler` para acompanhar ou rodar manualmente.
+
 ## 4. Comandos do dia a dia
 
 ### 4.1 Just
@@ -104,6 +106,8 @@ O worker do Messenger sobe junto com `just up`. Se ele estiver parado, os e-mail
 | `just logs` | Acompanha os logs |
 | `just worker-logs` | Acompanha os logs do worker do Messenger |
 | `just worker` | Executa o worker manualmente no container `php` |
+| `just scheduler-logs` | Acompanha os logs do scheduler de atividades |
+| `just scheduler` | Executa o consumidor do scheduler manualmente no container `php` |
 | `just keygen` | Gera uma chave base64 de 32 bytes para `MESSENGER_MAIL_ENCRYPTION_KEY` |
 | `just messenger-failed` | Lista as mensagens da fila de falhas |
 | `just sh` / `just bash` | Abre shell no container `php` |

@@ -27,7 +27,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | 2 | Identity: autenticação | Concluída |
 | 3 | Identity: onboarding | Concluída |
 | 4 | Groups | Concluída |
-| 5 | Activities | Não iniciada |
+| 5 | Activities | Concluída |
 | 6 | Gamification | Não iniciada |
 | 7 | Notifications + Moderation | Não iniciada |
 | 8 | Sponsorship + Reports | Não iniciada |
@@ -48,7 +48,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Logout e logout de todos os dispositivos | Implementado | `src/Identity/Application/UseCase/Logout/` |
 | Dados do usuário autenticado | Implementado | `src/Identity/Presentation/Http/Controller/MeController.php` |
 | Definição de CPF write-once | Implementado | `AssignCpfHandler` e `PATCH /api/v1/users/me/cpf` |
-| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF, perfil e fotos | Implementado | `config/packages/rate_limiter.php` |
+| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF, perfil, fotos, grupos e atividades | Implementado | `config/packages/rate_limiter.php` |
 | Health checks | Implementado | `src/Monitoring/` |
 | Onboarding de modalidades | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
 | Edição parcial de perfil | Implementado | `UpdateProfileHandler` e `PATCH /api/v1/users/me/profile` |
@@ -60,8 +60,12 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Supervisor do grupo | Implementado | `DesignateSupervisorHandler`, `ClearSupervisorHandler` e `PUT`/`DELETE .../supervisor` |
 | Comunicação externa do grupo | Implementado | `communicationLink` visível apenas para membros aprovados |
 | CRUD administrativo de usuários | Não iniciado | Planejado |
-| Gamificação | Não iniciada | Eventos `UserRegistered` e `OnboardingCompleted` são publicados, mas não há listener |
-| Demais módulos de negócio | Não iniciados | Activities, Notifications, Moderation, Sponsorship, Reports |
+| Atividades e ciclo de vida | Implementado | `Activity`, `ActivityController`, `ActivityLifecycleController` e migration `Version20261109224939` |
+| Inscrição e conflito de horário | Implementado | `EnrollInActivityHandler`, `DoctrineActivityRepository::hasConflictingAttendance()` |
+| Check-in e validação de presença | Implementado | `CheckInHandler`, `ValidateAttendanceHandler` e `AttendanceValidated` |
+| Fechamento automático de atividades | Implementado | `ActivityClosingSchedule`, `CloseExpiredActivitiesHandler` e serviço `scheduler` |
+| Gamificação | Não iniciada | Eventos de Identity e Activities são publicados, mas não há listener |
+| Demais módulos de negócio | Não iniciados | Notifications, Moderation, Sponsorship, Reports |
 
 ### 1.3 O que existe hoje no HTTP
 
@@ -102,6 +106,21 @@ Rotas confirmadas por `bin/console debug:router`:
 | `PATCH` | `/api/v1/groups/{id}/memberships/{membershipId}/role` | Bearer JWT + admin do grupo |
 | `PUT` | `/api/v1/groups/{id}/supervisor` | Bearer JWT + admin do grupo |
 | `DELETE` | `/api/v1/groups/{id}/supervisor` | Bearer JWT + admin do grupo |
+| `POST` | `/api/v1/groups/{groupId}/activities` | Bearer JWT + admin do grupo/admin SIGAME |
+| `GET` | `/api/v1/groups/{groupId}/activities` | Bearer JWT + membro aprovado |
+| `GET` | `/api/v1/activities/{id}` | Bearer JWT + membro aprovado |
+| `PATCH` | `/api/v1/activities/{id}` | Bearer JWT + admin do grupo/admin SIGAME |
+| `GET` | `/api/v1/activities/{id}/reschedules` | Bearer JWT + admin do grupo/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/cancel` | Bearer JWT + admin do grupo/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/start` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/finish` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/invalidate` | Bearer JWT + admin do grupo/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/enrollments` | Bearer JWT + membro aprovado |
+| `DELETE` | `/api/v1/activities/{id}/enrollments/me` | Bearer JWT + inscrito |
+| `POST` | `/api/v1/activities/{id}/check-in` | Bearer JWT + inscrito |
+| `GET` | `/api/v1/activities/{id}/attendances` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/attendances/{attendanceId}/validate` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `GET` | `/api/v1/users/me/activities` | Bearer JWT |
 | `GET` | `/api/health/liveness` | Pública |
 | `GET` | `/api/health/readiness` | Pública |
 
@@ -180,11 +199,53 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 
 ### Fase 5 — Activities
 
-- [ ] Entidades `Activity` e `Attendance`.
-- [ ] Ciclo de vida da atividade (agendada → iniciada → finalizada).
-- [ ] Check-in e validação de presença.
-- [ ] Conflito de horário.
-- [ ] Testes de fluxo, conflito e idempotência.
+#### 5.1 Fundação e integração
+
+- [x] Porta `Shared\Application\Group\GroupAccessReaderInterface` e adapter `DoctrineGroupAccessReader`.
+- [x] VOs, enums, `ActivityPolicy` e catálogo `ActivityErrorCode`/`ActivityErrors`.
+- [x] Entidades `Activity`, `Attendance` e `ActivityReschedule`.
+- [x] Mapping Doctrine, tipos DBAL e migration `Version20261109224939`.
+- [x] Correção dos índices parciais de `group_memberships` para os valores reais dos enums (`Version20261109230000`).
+
+#### 5.2 Criação e consulta
+
+- [x] `CreateActivity`, `GetActivity`, `ListGroupActivities` e `ListMyActivities`.
+- [x] Endpoints, tag OpenAPI `Atividades`, rate limits e respostas.
+- [x] Visibilidade restrita a membros aprovados, com bypass para admin SIGAME.
+
+#### 5.3 Ciclo de vida e histórico
+
+- [x] `UpdateActivity` com remarcação e histórico append-only.
+- [x] `CancelActivity`, `StartActivity`, `FinishActivity` e `InvalidateActivity`.
+- [x] Janela de início, finalização e invalidação.
+- [x] Eventos de criação, alteração, remarcação, cancelamento, início, finalização e invalidação.
+
+#### 5.4 Inscrição e conflito
+
+- [x] `EnrollInActivity` e `CancelEnrollment`.
+- [x] Conflito sem margem, com lock por atividade/usuário.
+- [x] Remarcação recusada quando cria conflito para inscrito ativo.
+- [x] Índice único parcial de inscrição ativa.
+
+#### 5.5 Check-in e presença
+
+- [x] `CheckIn`, `ValidateAttendance` e `ListAttendances`.
+- [x] Idempotência de inscrição, check-in e validação.
+- [x] `xpEligible` com mínimo de 2 check-ins.
+- [x] Evento `AttendanceValidated` com `xpEligible` e evento de invalidação com usuários para reversão.
+
+#### 5.6 Fechamento automático
+
+- [x] `symfony/scheduler` e `ActivityClosingSchedule` a cada 5 minutos.
+- [x] `CloseExpiredActivitiesMessage` e `CloseExpiredActivitiesHandler`.
+- [x] Tolerância proporcional (`50%`, mínimo 15 min, máximo 240 min) e fallback de 12 horas.
+- [x] Cancelamento automático de atividade não iniciada após 3 horas.
+- [x] Serviço `scheduler` no Compose e receitas `just scheduler`/`just scheduler-logs`.
+
+#### 5.7 Testes e qualidade
+
+- [x] Testes de domínio, policy, handler de fechamento, repositório e HTTP.
+- [x] Executar `just composer quality` no fechamento da fase.
 
 ### Fase 6 — Gamification
 
@@ -214,7 +275,6 @@ As decisões abaixo ainda precisam ser fechadas antes da implementação do mód
 
 | ID | Questão | Impacto | Prioridade | Status |
 |---|---|---|---|---|
-| `DEC01` | Margem de conflito de horários e possibilidade de exceção | Atividades | Alta | Pendente |
 | `DEC02` | Tabela de XP por nível e evento | Gamificação | Alta | Pendente |
 | `DEC03` | Fórmula exata do deleveling | Gamificação | Alta | Pendente |
 | `DEC04` | Comportamento das notificações lidas/arquivadas | Notificações | Média | Pendente |
@@ -222,10 +282,24 @@ As decisões abaixo ainda precisam ser fechadas antes da implementação do mód
 | `DEC06` | Matriz final de visibilidade de dados | Privacidade | Alta | Pendente |
 | `DEC07` | Público, distribuição e limites de vouchers | Vouchers | Alta | Pendente |
 | `DEC08` | Fórmula e periodicidade do indicador mensal | Indicadores | Média | Pendente |
-| `DEC10` | Janela operacional de check-in, início e finalização | Atividades | Alta | Pendente |
-| `DEC12` | Regra de atividade válida e mínimo de participantes | Atividades/XP | Alta | Pendente |
 
-Decisões já fechadas (`DEC09`, `DEC11`, `DEC13` e `DEC14`) estão registradas em [decisoes.md](decisoes.md). O `DEC11` foi fechado parcialmente: na V1 o supervisor não possui poderes de gestão de membros; os poderes de atividade serão definidos na Fase 5.
+Decisões fechadas na Fase 5:
+
+| ID | Decisão | ADR |
+|---|---|---|
+| `DEC01` | Conflito sem margem e sem override | [ADR-024](decisoes.md#adr-024--conflito-de-horário-sem-margem-e-sem-exceção) |
+| `DEC10` | Janela operacional de atividade, check-in e validação | [ADR-025](decisoes.md#adr-025--janela-operacional-da-atividade-check-in-e-validação) |
+| `DEC11` | Supervisor como operador da atividade, sem gestão | [ADR-027](decisoes.md#adr-027--poderes-de-atividade-do-supervisor) |
+| `DEC12` | Atividade válida e mínimo de 2 check-ins | [ADR-026](decisoes.md#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes) |
+
+Decisões técnicas da Fase 5:
+
+- [ADR-028](decisoes.md#adr-028--modelo-de-activities-janela-inscrição-presença-e-histórico) — modelo de Activities;
+- [ADR-029](decisoes.md#adr-029--consulta-síncrona-de-grupo-por-activities) — porta síncrona de grupo;
+- [ADR-030](decisoes.md#adr-030--importação-de-eventos-entre-módulos) — importação de eventos entre módulos;
+- [ADR-031](decisoes.md#adr-031--duração-opcional-e-fechamento-automático-de-atividades) — duração opcional e fechamento automático.
+
+As demais decisões já fechadas (`DEC09`, `DEC13` e `DEC14`) e os ADRs arquiteturais estão em [decisoes.md](decisoes.md).
 
 ### Decisões técnicas em aberto
 
@@ -255,6 +329,8 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261106100000` | 2026-11-06 | Cria `messenger_messages` para o transporte Doctrine do Messenger. |
 | `Version20261108120000` | 2026-11-08 | Renomeia `users.photo_url` para `photo_key`, limpa URLs antigas e reduz a coluna para 255 caracteres. |
 | `Version20261109120000` | 2026-11-09 | Cria `groups` (com `created_by`) e `group_memberships` (episódios, índices parciais de duplicidade e supervisor). |
+| `Version20261109224939` | 2026-11-09 | Cria `activities`, `activity_attendances` e `activity_reschedules`; índice único parcial de inscrição ativa. |
+| `Version20261109230000` | 2026-11-09 | Corrige os índices parciais de `group_memberships` para os valores minúsculos dos enums. |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou de URL para chave de objeto em `Version20261108120000`.
 
@@ -284,6 +360,9 @@ A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
 | Notificações de grupo sem consumidor | Eventos `GroupCreated`, `MembershipApproved`, `MemberRemoved` etc. são publicados, mas Notifications só existe na Fase 7 | Implementar listeners quando o módulo existir. |
+| Eventos de Activities sem consumidor | `ActivityCreated`, `ActivityFinished`, `AttendanceValidated` etc. são publicados, mas Gamification/Notifications ainda não existem | Implementar listeners nas Fases 6 e 7. |
+| Scheduler de atividades depende do serviço | Se o serviço `scheduler` estiver parado, o fechamento automático atrasa até a próxima execução | Monitorar o serviço e documentar a operação em produção. |
+| Sem fechamento automático de validação | A janela de validação é validada na requisição; não há job para encerrar pendências de validação | Avaliar rotina de fechamento após 48 h. |
 | Busca de grupos com `LIKE` | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE` | Avaliar índice textual ou busca por trigramas se o volume crescer. |
 | Sem exclusão ou transferência de grupo | O grupo não é excluído e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro | Abrir `DEC15` se o produto exigir esses fluxos. |
 
@@ -305,12 +384,14 @@ O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento 
 
 ## 6. Checklist de revisão de requisitos
 
-- [ ] Definir o que é uma atividade válida.
-- [ ] Definir estados e janela operacional da atividade.
+- [x] Definir o que é uma atividade válida.
+- [x] Definir estados e janela operacional da atividade.
+- [x] Definir margem e exceção de conflito de horário.
+- [x] Definir duração opcional e fechamento automático.
 - [ ] Definir XP por evento e por nível.
 - [ ] Definir fórmula exata de deleveling.
 - [x] Definir permissões de gestão do supervisor na V1 (sem poderes de membros).
-- [ ] Definir poderes de atividade do supervisor na Fase 5.
+- [x] Definir poderes de atividade do supervisor na Fase 5.
 - [ ] Definir efeito do bloqueio entre usuários.
 - [ ] Definir visibilidade de cada campo de perfil.
 - [ ] Definir regras de geração e resgate de vouchers.

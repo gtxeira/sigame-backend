@@ -59,7 +59,8 @@
         "symfony/monolog-bundle": "^4.1",
         "symfony/mailer": "^8.1",
         "symfony/messenger": "^8.1",
-        "symfony/doctrine-messenger": "^8.1"
+        "symfony/doctrine-messenger": "^8.1",
+        "symfony/scheduler": "^8.1"
     },
     "config": {
         "allow-plugins": {

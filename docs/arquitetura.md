@@ -1,8 +1,8 @@
 # SIGAME — Arquitetura do Sistema
 
-> **Status:** implementado para os módulos Identity e Groups; demais módulos de negócio planejados
+> **Status:** implementado para os módulos Identity, Groups e Activities; demais módulos de negócio planejados
 >
-> **Versão:** 0.3
+> **Versão:** 0.4
 >
 > **Última atualização:** 2026-11-09
 >
@@ -18,7 +18,7 @@ O SIGAME é um **monolito modular** estruturado com **Clean Architecture**. Cada
 
 O módulo `Shared` funciona como kernel: concentra value objects, catálogo de erros, eventos, persistência base e a infraestrutura HTTP comum. Módulos funcionais importam apenas a si próprios e `Shared`.
 
-Hoje os módulos de negócio implementados são **Identity** e **Groups**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
+Hoje os módulos de negócio implementados são **Identity**, **Groups** e **Activities**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
 
 ### 1.1 Stack tecnológica
 
@@ -75,7 +75,7 @@ Os pacotes principais já estão instalados e declarados em `composer.json`. A l
 Estas regras são verificadas automaticamente por `tests/Unit/Architecture/ModuleBoundariesTest.php`:
 
 1. **`Shared` é o kernel, não um depósito** — não pode importar nenhum módulo funcional (`Identity`, `Monitoring`, futuros módulos). Tudo que é específico de um módulo fica dentro dele.
-2. **Módulo funcional importa apenas a si próprio e `Shared`** — um módulo não referencia classes concretas de outro módulo. A comunicação é feita por Domain Events.
+2. **Módulo funcional importa apenas a si próprio, `Shared` e classes de evento de outro módulo** — entidades, repositórios, serviços, DTOs e controllers de outro módulo continuam proibidos. A comunicação é feita por Domain Events, e o `ModuleBoundariesTest` aplica a exceção do ADR-030.
 3. **Adapters específicos ficam no módulo dono** — Doctrine Types, listeners, controllers, DTOs, policies e configurações de mapeamento de um módulo vivem sob o namespace desse módulo.
 4. **Cada camada tem um dono** — a Presentation só conhece Application; a Infrastructure implementa portas de Domain/Application; o Domain não conhece Infrastructure nem Presentation.
 5. **Domain agrupado por agregado** — dentro de cada módulo, `Domain/<Agregado>/{Entity,ValueObject,Repository,Event,Exception}`. Conceitos do módulo inteiro, como catálogo de erros e exceção base, ficam em `Domain/Error` e `Domain/Exception`.
@@ -198,13 +198,46 @@ src/Groups/
                                            # MembershipResponse, ViewerMembershipResponse
 ```
 
-### 3.2 Módulos planejados
+### 3.2 Estrutura do módulo Activities
+
+```text
+src/Activities/
+├── Domain/
+│   ├── Activity/
+│   │   ├── Entity/                        # Activity, Attendance, ActivityReschedule
+│   │   ├── ValueObject/                   # ActivityId, ActivityWindow, ActivityStatus,
+│   │   │                                  # AttendanceStatus, ActivityTitle, MeetingPoint, etc.
+│   │   ├── Policy/ActivityPolicy.php      # janelas, conflito, tolerância e XP
+│   │   ├── Repository/                    # ActivityRepositoryInterface, ActivitySearchCriteria, ActivityPage
+│   │   └── Event/                         # ActivityCreated, ActivityFinished, AttendanceValidated, etc.
+│   └── Error/                             # ActivityErrorCode, ActivityErrors
+├── Application/
+│   ├── Service/ActivityAccessPolicy.php
+│   └── UseCase/                           # CreateActivity, UpdateActivity, CancelActivity,
+│                                          # StartActivity, FinishActivity, InvalidateActivity,
+│                                          # EnrollInActivity, CancelEnrollment, CheckIn,
+│                                          # ValidateAttendance, ListAttendances, ListReschedules,
+│                                          # ListGroupActivities, ListMyActivities, CloseExpiredActivities
+├── Infrastructure/
+│   ├── Persistence/Doctrine/Repository/   # DoctrineActivityRepository
+│   ├── Persistence/ORM/Type/              # tipos dos VOs de Activities
+│   └── Scheduler/ActivityClosingSchedule.php
+└── Presentation/Http/
+    ├── Controller/                        # ActivityController, ActivityLifecycleController,
+    │                                      # ActivityParticipationController, MyActivitiesController
+    ├── Request/                           # CreateActivityRequest, UpdateActivityRequest,
+    │                                      # CancelActivityRequest, InvalidateActivityRequest, ActivityListQuery
+    └── Response/                          # ActivityResponse, ActivitySummaryResponse,
+                                           # AttendanceResponse, ViewerAttendanceResponse,
+                                           # ActivityRescheduleResponse
+```
+
+### 3.3 Módulos planejados
 
 Quando implementados, devem seguir o mesmo padrão:
 
 | Módulo | Responsabilidade |
 |---|---|
-| `Activities` | Atividades, check-in, presença e conflito de horário |
 | `Gamification` | XP, níveis, deleveling e recompensas |
 | `Moderation` | Denúncias, bloqueios e suspensão global |
 | `Sponsorship` | Patrocinadores, benefícios e vouchers |
@@ -299,6 +332,32 @@ Regras:
 - O `communicationLink` só é retornado para membro aprovado.
 - A leitura de nível do usuário usa a porta `UserLevelReaderInterface` do `Shared` (ADR-020).
 
+### 4.7 Agregado `Activity` (módulo Activities)
+
+A raiz do agregado mantém a janela planejada, o ciclo de vida, as inscrições e o histórico de remarcações.
+
+| Componente | Responsabilidade | Colunas / tabela |
+|---|---|---|
+| `Activity` | Raiz do agregado | `id`, `group_id`, `created_by`, `title`, `description`, `starts_at`, `ends_at`, `estimated_duration_minutes`, `meeting_point`, `route`, `estimated_distance_meters`, `status`, timestamps de ciclo de vida, `auto_close_at`, flags automáticas |
+| `Attendance` | Episódio de inscrição/presença | tabela `activity_attendances` |
+| `ActivityReschedule` | Histórico append-only de remarcação | tabela `activity_reschedules` |
+
+Comportamentos principais de `Activity`:
+
+- `create()` — cria a atividade agendada.
+- `updateDetails()` / `reschedule()` — alteram dados ou janela, com histórico.
+- `cancel()` / `start()` / `finish()` / `invalidate()` — ciclo de vida com janelas operacionais.
+- `enroll()` / `cancelEnrollment()` / `checkIn()` / `validateAttendance()` — inscrição e presença idempotentes.
+- `finishAutomatically()` / `cancelAutomatically()` — fechamento pelo scheduler.
+- `isXpEligible()` — exige `FINISHED` e pelo menos 2 check-ins.
+
+Regras:
+
+- `ActivityPolicy` centraliza janelas, conflito, tolerância e mínimo de XP.
+- O conflito é verificado na inscrição e na remarcação, com lock transacional.
+- O scheduler roda a cada 5 minutos e fecha/cancela atividades vencidas.
+- A autorização sobre o grupo usa `GroupAccessReaderInterface` do `Shared` (ADR-029).
+
 ---
 
 ## 5. Casos de uso e eventos
@@ -327,6 +386,20 @@ Regras:
 | Listar meus grupos | `ListMyGroupsQuery` | `ListMyGroupsHandler` | Lista grupos com participação aprovada do usuário |
 | Obter grupo | `GetGroupQuery` | `GetGroupHandler` | Carrega o grupo; o link só é exposto na resposta para membro aprovado |
 | Listar membros | `ListMembershipsQuery` | `ListMembershipsHandler` | Exige admin → lista pendentes, aprovados e histórico |
+| Criar atividade | `CreateActivityCommand` | `CreateActivityHandler` | Exige admin → valida grupo ativo → cria e publica `ActivityCreated` |
+| Atualizar/remarcar | `UpdateActivityCommand` | `UpdateActivityHandler` | Exige admin → atualiza dados/janela, grava histórico e publica eventos |
+| Cancelar | `CancelActivityCommand` | `CancelActivityHandler` | Exige admin → só `SCHEDULED` → publica `ActivityCancelled` |
+| Iniciar | `StartActivityCommand` | `StartActivityHandler` | Admin/supervisor → valida janela → publica `ActivityStarted` |
+| Finalizar | `FinishActivityCommand` | `FinishActivityHandler` | Admin/supervisor → valida janela → publica `ActivityFinished` |
+| Invalidar | `InvalidateActivityCommand` | `InvalidateActivityHandler` | Exige admin e motivo → publica `ActivityInvalidated` |
+| Inscrever-se | `EnrollInActivityCommand` | `EnrollInActivityHandler` | Membro aprovado → valida conflito → cria episódio |
+| Cancelar inscrição | `CancelEnrollmentCommand` | `CancelEnrollmentHandler` | Próprio inscrito → idempotente |
+| Check-in | `CheckInCommand` | `CheckInHandler` | Próprio inscrito → valida janela → publica `AttendanceCheckedIn` |
+| Validar presença | `ValidateAttendanceCommand` | `ValidateAttendanceHandler` | Admin/supervisor → exige check-in e janela → publica `AttendanceValidated` |
+| Listar presenças | `ListAttendancesQuery` | `ListAttendancesHandler` | Admin/supervisor lista episódios |
+| Listar atividades | `ListGroupActivitiesQuery` | `ListGroupActivitiesHandler` | Membro aprovado lista com filtros |
+| Listar minhas atividades | `ListMyActivitiesQuery` | `ListMyActivitiesHandler` | Lista atividades com inscrição ativa |
+| Fechar expiradas | `CloseExpiredActivitiesMessage` | `CloseExpiredActivitiesHandler` | Scheduler cancela não iniciadas e finaliza iniciadas vencidas |
 
 A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado está em [implementacao.md](implementacao.md).
 
@@ -347,6 +420,17 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 | `SupervisorDesignated` | Após designar supervisor | Nenhum implementado |
 | `SupervisorRemoved` | Após remover designação | Nenhum implementado |
 | `GroupActivated` | Ao atingir 3 membros aprovados | Nenhum implementado; previsto para Activities |
+| `ActivityCreated` | Após criar atividade | Nenhum implementado; previsto para Notifications |
+| `ActivityUpdated` | Após alterar dados da atividade | Nenhum implementado |
+| `ActivityRescheduled` | Após remarcar atividade | Nenhum implementado; previsto para Notifications |
+| `ActivityCancelled` | Após cancelamento manual ou automático | Nenhum implementado; previsto para Notifications |
+| `ActivityStarted` | Após iniciar atividade | Nenhum implementado |
+| `ActivityFinished` | Após finalização manual ou automática | Nenhum implementado; previsto para Gamification/Notifications |
+| `ActivityInvalidated` | Após invalidar atividade | Nenhum implementado; previsto para Gamification |
+| `ActivityEnrollmentCreated` | Após inscrição | Nenhum implementado |
+| `ActivityEnrollmentCancelled` | Após cancelar inscrição | Nenhum implementado |
+| `AttendanceCheckedIn` | Após check-in | Nenhum implementado |
+| `AttendanceValidated` | Após validar presença | Nenhum implementado; previsto para Gamification |
 
 ### 5.3 Fluxos planejados
 
@@ -390,6 +474,8 @@ Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 | `ProfilePhotoStorageInterface` | `S3ProfilePhotoStorage` | `league/flysystem` + `symfony/uid` |
 | `UserLevelReaderInterface` | `DoctrineUserLevelReader` | `doctrine/orm` (adapter em Identity) |
 | `GroupRepositoryInterface` | `DoctrineGroupRepository` | `doctrine/orm` |
+| `GroupAccessReaderInterface` | `DoctrineGroupAccessReader` | `doctrine/orm` (adapter em Groups) |
+| `ActivityRepositoryInterface` | `DoctrineActivityRepository` | `doctrine/orm` |
 
 O storage usa o mesmo contrato S3 em desenvolvimento (Garage) e produção. A decisão de upload e o formato da chave estão no [ADR-016](decisoes.md#adr-016--upload-de-foto-de-perfil-com-chave-em-s3); a escolha do adapter está no [ADR-010](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
 
@@ -411,6 +497,22 @@ Request -> token + hash no banco
 - O transporte usa `messenger_messages` e `failure_transport`; a decisão completa está no [ADR-014](decisoes.md#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado).
 - Retries reutilizam o mesmo token. Em falha definitiva, o listener consome o token de reset e mantém o de verificação válido para reenvio.
 - O envio real acontece no worker; `framework.mailer.message_bus` fica desativado para não enfileirar duas vezes.
+
+---
+
+### 6.2 Scheduler de atividades
+
+O módulo Activities usa `symfony/scheduler` para executar `CloseExpiredActivitiesMessage` a cada 5 minutos:
+
+```text
+scheduler_activities
+  -> CloseExpiredActivitiesHandler
+  -> findScheduledToAutoCancel / findStartedToAutoFinish
+  -> finishAutomatically / cancelAutomatically
+  -> ActivityFinished / ActivityCancelled (automatic=true)
+```
+
+O transporte `scheduler_activities` é consumido pelo serviço `scheduler` do Compose. Em produção, esse serviço precisa estar sempre ativo; se ele parar, o fechamento automático atrasa até a próxima execução.
 
 ---
 
@@ -473,6 +575,21 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `PATCH` | `/api/v1/groups/{id}/memberships/{membershipId}/role` | `GroupMembershipController::changeRole` | Bearer JWT + admin |
 | `PUT` | `/api/v1/groups/{id}/supervisor` | `GroupSupervisorController::designate` | Bearer JWT + admin |
 | `DELETE` | `/api/v1/groups/{id}/supervisor` | `GroupSupervisorController::clear` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{groupId}/activities` | `ActivityController::create` | Bearer JWT + admin/admin SIGAME |
+| `GET` | `/api/v1/groups/{groupId}/activities` | `ActivityController::listGroup` | Bearer JWT + membro aprovado |
+| `GET` | `/api/v1/activities/{id}` | `ActivityController::show` | Bearer JWT + membro aprovado |
+| `PATCH` | `/api/v1/activities/{id}` | `ActivityController::update` | Bearer JWT + admin/admin SIGAME |
+| `GET` | `/api/v1/activities/{id}/reschedules` | `ActivityController::listReschedules` | Bearer JWT + admin/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/cancel` | `ActivityLifecycleController::cancel` | Bearer JWT + admin/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/start` | `ActivityLifecycleController::start` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/finish` | `ActivityLifecycleController::finish` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/invalidate` | `ActivityLifecycleController::invalidate` | Bearer JWT + admin/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/enrollments` | `ActivityParticipationController::enroll` | Bearer JWT + membro aprovado |
+| `DELETE` | `/api/v1/activities/{id}/enrollments/me` | `ActivityParticipationController::cancelEnrollment` | Bearer JWT + inscrito |
+| `POST` | `/api/v1/activities/{id}/check-in` | `ActivityParticipationController::checkIn` | Bearer JWT + inscrito |
+| `GET` | `/api/v1/activities/{id}/attendances` | `ActivityParticipationController::listAttendances` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `POST` | `/api/v1/activities/{id}/attendances/{attendanceId}/validate` | `ActivityParticipationController::validateAttendance` | Bearer JWT + admin/supervisor/admin SIGAME |
+| `GET` | `/api/v1/users/me/activities` | `MyActivitiesController::list` | Bearer JWT |
 | `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |
 | `GET` | `/api/health/readiness` | `HealthController::index` | Pública |
 
@@ -520,6 +637,11 @@ tests/
 │   │       ├── CreateGroup/CreateGroupHandlerTest.php
 │   │       ├── ApproveMembership/ApproveMembershipHandlerTest.php
 │   │       └── ChangeMembershipRole/ChangeMembershipRoleHandlerTest.php
+│   ├── Activities/
+│   │   ├── Domain/Activity/
+│   │   │   ├── Entity/ActivityTest.php
+│   │   │   └── Policy/ActivityPolicyTest.php
+│   │   └── Application/UseCase/CloseExpiredActivities/CloseExpiredActivitiesHandlerTest.php
 │   └── Shared/
 │       ├── Domain/{Error,Exception,Functional,ValueObject}
 │       ├── Infrastructure/{OpenApi,Persistence/ORM/Type}
@@ -534,6 +656,7 @@ tests/
 │   ├── Groups/Presentation/Http/
 │   │   ├── GroupTest.php
 │   │   └── GroupMembershipTest.php
+│   ├── Activities/Presentation/Http/ActivityTest.php
 │   └── Shared/Presentation/Http/
 │       ├── ApiDocumentationTest.php
 │       └── HttpErrorHandlingTest.php
@@ -542,7 +665,8 @@ tests/
 │   ├── Identity/Infrastructure/Persistence/
 │   │   ├── DoctrineUserRepositoryTest.php
 │   │   └── DoctrineRefreshTokenRepositoryTest.php
-│   └── Groups/Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
+│   ├── Groups/Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
+│   └── Activities/Infrastructure/Persistence/DoctrineActivityRepositoryTest.php
 │
 └── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php

@@ -115,6 +115,12 @@ it('follows the summary writing convention', function () {
         'Aprovar',
         'Rejeitar',
         'Designar',
+        'Cancelar',
+        'Finalizar',
+        'Invalidar',
+        'Inscrever-se',
+        'Fazer',
+        'Validar',
     ];
 
     $problems = [];
@@ -272,6 +278,19 @@ it('documents every public api operation', function () {
             '/api/v1/groups/{id}/memberships/{membershipId}/remove',
             '/api/v1/groups/{id}/memberships/{membershipId}/role',
             '/api/v1/groups/{id}/supervisor',
+            '/api/v1/groups/{groupId}/activities',
+            '/api/v1/activities/{id}',
+            '/api/v1/activities/{id}/reschedules',
+            '/api/v1/activities/{id}/cancel',
+            '/api/v1/activities/{id}/start',
+            '/api/v1/activities/{id}/finish',
+            '/api/v1/activities/{id}/invalidate',
+            '/api/v1/activities/{id}/enrollments',
+            '/api/v1/activities/{id}/enrollments/me',
+            '/api/v1/activities/{id}/check-in',
+            '/api/v1/activities/{id}/attendances',
+            '/api/v1/activities/{id}/attendances/{attendanceId}/validate',
+            '/api/v1/users/me/activities',
             '/api/health/liveness',
             '/api/health/readiness',
         ]);

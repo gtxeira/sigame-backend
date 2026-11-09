@@ -24,12 +24,12 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(
     name: 'uniq_group_memberships_active',
     columns: ['group_id', 'user_id'],
-    options: ['where' => "(status IN ('PENDING', 'APPROVED'))"],
+    options: ['where' => "(status IN ('pending', 'approved'))"],
 )]
 #[ORM\UniqueConstraint(
     name: 'uniq_group_memberships_supervisor',
     columns: ['group_id'],
-    options: ['where' => "(is_supervisor = TRUE AND status = 'APPROVED')"],
+    options: ['where' => "(is_supervisor = TRUE AND status = 'approved')"],
 )]
 #[ORM\Index(name: 'idx_group_memberships_user_status', columns: ['user_id', 'status'])]
 #[ORM\Index(name: 'idx_group_memberships_group_status', columns: ['group_id', 'status'])]

@@ -23,7 +23,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | ID | Decisão | Status |
 |---|---|---|
 | [ADR-001](#adr-001--monolito-modular-com-clean-architecture) | Monolito modular com Clean Architecture | Vigente |
-| [ADR-002](#adr-002--comunicação-entre-módulos-por-domain-events) | Comunicação entre módulos por Domain Events | Vigente |
+| [ADR-002](#adr-002--comunicação-entre-módulos-por-domain-events) | Comunicação entre módulos por Domain Events | Vigente (emendado pelo ADR-030) |
 | [ADR-003](#adr-003--access-jwt--refresh-token-opaco-rotativo) | Access JWT + refresh token opaco rotativo | Vigente |
 | [ADR-004](#adr-004--users--user_identities-1n) | `users` + `user_identities` 1:N | Vigente |
 | [ADR-005](#adr-005--cpf-opcional-e-write-once) | CPF opcional e write-once | Vigente |
@@ -43,10 +43,18 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-019](#adr-019--agregado-de-grupos-com-episódios-de-participação) | Agregado de grupos com episódios de participação | Vigente |
 | [ADR-020](#adr-020--consulta-síncrona-de-nível-entre-módulos) | Consulta síncrona de nível entre módulos | Vigente |
 | [ADR-021](#adr-021--campos-visibilidade-e-busca-de-grupos) | Campos, visibilidade e busca de grupos | Vigente |
-| [ADR-022](#adr-022--supervisor-sem-poderes-de-gestão-na-v1) | Supervisor sem poderes de gestão na V1 | Vigente |
+| [ADR-022](#adr-022--supervisor-sem-poderes-de-gestão-na-v1) | Supervisor sem poderes de gestão na V1 | Vigente (emendado pelo ADR-027) |
 | [ADR-023](#adr-023--criador-e-administradores-independentes) | Criador e administradores independentes | Vigente |
+| [ADR-024](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção) | Conflito de horário sem margem e sem exceção | Vigente |
+| [ADR-025](#adr-025--janela-operacional-da-atividade-check-in-e-validação) | Janela operacional da atividade, check-in e validação | Vigente |
+| [ADR-026](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes) | Atividade válida para XP e mínimo de participantes | Vigente |
+| [ADR-027](#adr-027--poderes-de-atividade-do-supervisor) | Poderes de atividade do supervisor | Vigente |
+| [ADR-028](#adr-028--modelo-de-activities-janela-inscrição-presença-e-histórico) | Modelo de Activities | Vigente |
+| [ADR-029](#adr-029--consulta-síncrona-de-grupo-por-activities) | Consulta síncrona de grupo por Activities | Vigente |
+| [ADR-030](#adr-030--importação-de-eventos-entre-módulos) | Importação de eventos entre módulos | Vigente |
+| [ADR-031](#adr-031--duração-opcional-e-fechamento-automático-de-atividades) | Duração opcional e fechamento automático | Vigente |
 
-Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
+Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor) e [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes).
 
 ---
 
@@ -93,6 +101,8 @@ A comunicação _cross-module_ ocorre exclusivamente por **Domain Events**. Os e
 - Listeners são registrados com `#[AsEventListener]`.
 - O evento `UserRegistered` já é publicado; ainda não há listener de Gamification.
 - A integração assíncrona via Messenger pode ser adicionada depois sem mudar o contrato dos eventos.
+
+> **Emenda (ADR-030):** a importação de classes de evento entre módulos funcionais é a única exceção permitida às fronteiras, para viabilizar listeners tipados.
 
 ---
 
@@ -552,6 +562,237 @@ O upload aceitava qualquer imagem entre 200×200 e 4096×4096. Isso deixava a qu
 
 ---
 
+## ADR-024 — Conflito de horário sem margem e sem exceção
+
+### Contexto
+
+O RF11 define conflito como sobreposição de intervalos, mas o `DEC01` deixava em aberto margem de deslocamento e override administrativo.
+
+### Decisão
+
+- Conflito por sobreposição estrita: `existente.inicio < nova.fim && existente.fim > novo.inicio`.
+- Margem de **0 minutos**; atividades encostadas não conflitam.
+- **Sem override administrativo** na V1.
+- Verificação na inscrição e na remarcação, para todos os inscritos ativos.
+- Atividade iniciada usa `auto_close_at` como fim efetivo.
+- Transação + lock da atividade + advisory lock por usuário.
+
+### Alternativas consideradas
+
+- Margem de 15/30 min: útil para deslocamento, mas não prevista no RF11.
+- Override administrativo: contraria `CA11.4` e abre brecha para inscrições conflitantes.
+
+### Consequências
+
+- Atividades adjacentes são aceitas.
+- Uma remarcação pode ser recusada por conflito de um inscrito; o admin deve resolver a inscrição antes.
+- `ActivityPolicy::CONFLICT_MARGIN_MINUTES = 0` permite evolução futura.
+
+---
+
+## ADR-025 — Janela operacional da atividade, check-in e validação
+
+### Contexto
+
+O ciclo de vida tinha estados, mas não definia quando cada transição era permitida.
+
+### Decisão
+
+| Operação | Regra |
+|---|---|
+| Criar/remarcar | `SCHEDULED`; novo início no futuro |
+| Inscrever-se/cancelar inscrição | `SCHEDULED`, antes de `startsAt` |
+| Check-in | `SCHEDULED`/`STARTED`, de `startsAt - 30 min` até `endsAt + 30 min` |
+| Iniciar | `SCHEDULED`, de `startsAt - 15 min` até `startsAt + 2 h` |
+| Finalizar | `STARTED`, até `startedAt + 24 h` |
+| Validar presença | `FINISHED`, de `max(finishedAt, endsAt + 30 min)` até `finishedAt + 48 h` |
+| Cancelar | `SCHEDULED` |
+| Invalidar | `STARTED`/`FINISHED`, até 48 h após o encerramento; admin |
+
+Operações terminais são idempotentes no mesmo estado. As janelas ficam em `ActivityPolicy` e os métodos de domínio recebem `Instant $now` explícito.
+
+### Alternativas consideradas
+
+- Sem janelas: permitiria iniciar/finalizar a qualquer momento e fragilizaria XP.
+- Janela única de 24 h: simples, mas não protege o check-in nem a validação.
+
+### Consequências
+
+- Não é necessário scheduler para impor as janelas; elas são verificadas em cada operação.
+- Atividade não iniciada pode ser cancelada manualmente; o scheduler cobre o caso após 3 h.
+- Testes de domínio usam `Instant` fixo, sem depender do relógio real.
+
+---
+
+## ADR-026 — Atividade válida para XP e mínimo de participantes
+
+### Contexto
+
+O `DEC12` não definia o que é uma atividade válida nem o mínimo de participantes para XP.
+
+### Decisão
+
+- Atividade elegível: `FINISHED`, não cancelada/invalidada e com **pelo menos 2 check-ins**.
+- A validação abre depois do fechamento do check-in, tornando a contagem estável.
+- Cada presença validada gera XP uma única vez.
+- `AttendanceValidated` carrega `xpEligible`.
+- A validação pode ocorrer com menos de 2 check-ins, mas com `xpEligible=false`.
+- `ActivityInvalidated` carrega os usuários validados para reversão pela Gamification.
+
+### Alternativas consideradas
+
+- Mínimo de 1 check-in: mais simples, mas permite XP solo e enfraquece o caráter de grupo.
+- Mínimo de 2 validações: criaria problema de ordem, pois a primeira validação não saberia que a segunda ocorreria.
+
+### Consequências
+
+- A Gamification deve ignorar `xpEligible=false`.
+- Invalidação posterior exige compensação de XP.
+- `ActivityPolicy::MIN_CHECKED_IN_FOR_XP = 2`.
+
+---
+
+## ADR-027 — Poderes de atividade do supervisor
+
+### Contexto
+
+O ADR-022 deixou os poderes de atividade do supervisor para a Fase 5.
+
+### Decisão
+
+O supervisor é um **operador da atividade**, não um gestor:
+
+- pode fazer check-in próprio, validar e listar presenças, iniciar e finalizar;
+- não pode criar, editar, remarcar, cancelar, invalidar nem alterar informações sensíveis;
+- continua sem poderes de gestão de membros;
+- perde os poderes imediatamente ao ser removido ou rebaixado.
+
+Admin do grupo e admin SIGAME podem executar todas as operações. O criador só tem poderes enquanto for admin, conforme o ADR-023.
+
+### Alternativas consideradas
+
+- Supervisor com gestão completa: amplia o risco e contraria a decisão de que informações sensíveis são do admin.
+- Supervisor apenas com validação: impediria que ele conduzisse a atividade no dia.
+
+### Consequências
+
+- A matriz de permissões do levantamento foi atualizada.
+- Testes HTTP cobrem `403` do supervisor em criação e validação prematura.
+
+---
+
+## ADR-028 — Modelo de Activities: janela, inscrição, presença e histórico
+
+### Contexto
+
+Os requisitos listavam apenas campos mínimos e não detalhavam inscrição, visibilidade, histórico ou invalidação.
+
+### Decisão
+
+- Campos: `title` obrigatório, `description` opcional, `startsAt`, `estimatedDurationMinutes` opcional, `meetingPoint`, `route` e `estimatedDistanceMeters`.
+- `ActivityWindow` guarda `startsAt`/`endsAt`; sem duração, a janela de planejamento usa 120 min.
+- `Attendance` é um episódio append-only; o índice único parcial permite um episódio ativo por par atividade/usuário.
+- A inscrição é self-service, apenas para membro aprovado; o criador não é inscrito automaticamente.
+- Atividades são visíveis apenas para membros aprovados; admin SIGAME pode consultar.
+- Remarcações geram `activity_reschedules` append-only.
+- Invalidação é exclusiva de admin, com motivo obrigatório.
+- Sem recorrência, GPS obrigatório, capacidade por atividade ou status `ABSENT` na V1.
+- Grupo que cai para `FORMING` mantém atividades existentes; apenas novas criações são bloqueadas.
+
+### Alternativas consideradas
+
+- Uma linha de presença sobrescrita: mais simples, mas perde o histórico de cancelamento.
+- Inscrição automática do criador: criaria conflito e participação involuntária.
+- Atividades públicas: exporia ponto de encontro e trajeto.
+
+### Consequências
+
+- Novas tabelas `activities`, `activity_attendances` e `activity_reschedules`.
+- `ActivityAccessPolicy` centraliza a autorização sobre o grupo.
+- Testes cobrem conflito, idempotência, histórico e visibilidade.
+
+---
+
+## ADR-029 — Consulta síncrona de grupo por Activities
+
+### Contexto
+
+Activities precisa validar o estado do grupo e o papel do usuário na mesma requisição, mas não pode importar classes de Groups.
+
+### Decisão
+
+Declarar em `Shared`:
+
+- `GroupAccessReaderInterface::snapshot(string $groupId, string $userId): ?GroupAccessSnapshot`;
+- `GroupAccessReaderInterface::approvedGroupIds(string $userId): list<string>`.
+
+`GroupAccessSnapshot` expõe `acceptsActivities`, `isApprovedMember`, `isAdmin` e `isSupervisor`. O adapter `DoctrineGroupAccessReader` vive em Groups.
+
+### Alternativas consideradas
+
+- Read model atualizado por evento: consistência eventual inaceitável para autorização.
+- Consulta direta ao schema de Groups: acopla módulos e ignora o agregado.
+- Papéis no JWT: ficam defasados após remoção/rebaixamento.
+
+### Consequências
+
+- É uma extensão documentada do ADR-020.
+- A autorização é sempre atual e reflete remoção/rebaixamento imediatamente.
+
+---
+
+## ADR-030 — Importação de eventos entre módulos
+
+### Contexto
+
+O ADR-002 determina comunicação por Domain Events, mas o `ModuleBoundariesTest` proíbe qualquer import entre módulos funcionais. Sem uma exceção para eventos, Gamification e Notifications não conseguem registrar listeners tipados.
+
+### Decisão
+
+Permitir que um módulo funcional importe **somente** classes de evento de outro módulo, no caminho `App\<OutroMódulo>\Domain\...\Event\...`. Entidades, repositórios, serviços, DTOs e controllers continuam proibidos. `Shared` continua sem importar módulos funcionais.
+
+### Alternativas consideradas
+
+- Mover contratos de eventos para `Shared`: isola, mas esvazia o domínio dos módulos e cria um kernel instável.
+- Barramento por nome de evento: flexível, porém sem tipagem e mais difícil de testar.
+
+### Consequências
+
+- O `ModuleBoundariesTest` foi ajustado para permitir somente imports de classes de evento entre módulos funcionais.
+- A Fase 5 apenas publica eventos; não há listener novo.
+
+---
+
+## ADR-031 — Duração opcional e fechamento automático de atividades
+
+### Contexto
+
+Atividades podiam ficar abertas indefinidamente e a duração era obrigatória, o que não refletia a realidade de caminhadas, corridas e pedais com durações variadas.
+
+### Decisão
+
+- `estimatedDurationMinutes` é opcional (15–1440).
+- Sem duração, a janela de planejamento usa 120 min.
+- Atividade iniciada com duração fecha em `duração + 50%`, com tolerância mínima de 15 e máxima de 240 min.
+- Atividade iniciada sem duração fecha após 12 h.
+- Atividade não iniciada é cancelada após 3 h do início previsto.
+- O scheduler roda a cada 5 min e executa `CloseExpiredActivitiesMessage` de forma idempotente.
+- Fechamento automático grava flags `finishedAutomatically`/`cancelledAutomatically` e publica eventos com `automatic=true`.
+- O fechamento automático não cria XP por si só; a regra de 2 check-ins continua valendo.
+
+### Alternativas consideradas
+
+- Fechamento fixo de 12 h para todos: simples, mas ignora a duração informada.
+- Cron externo: funcional, porém menos integrado ao worker e ao ambiente Symfony.
+
+### Consequências
+
+- Novas colunas `auto_close_at`, `finished_automatically` e `cancelled_automatically`.
+- Novo serviço `scheduler` no Compose e receitas `just scheduler`/`just scheduler-logs`.
+- Se o scheduler estiver parado, o fechamento atrasa até a próxima execução.
+
+---
+
 ## DEC09 — Backend em Symfony
 
 ### Contexto
@@ -711,8 +952,10 @@ Na Fase 4, supervisor é apenas um membro aprovado marcado com `is_supervisor`. 
 
 ### Consequências
 
-- `DEC11` fica **parcialmente fechado** para Groups; a parte de Activities continua pendente.
+- `DEC11` fica **fechado**: o ADR-027 define os poderes de atividade do supervisor.
 - Testes: `GroupTest`, `GroupMembershipTest` e `DoctrineGroupRepositoryTest` cobrem a designação e a ausência de poderes de gestão.
+
+> **Emenda (ADR-027):** o supervisor pode iniciar, finalizar, validar e listar presenças, mas não cria, edita, remarca, cancela ou invalida atividades.
 
 ---
 
