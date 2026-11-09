@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Identity\Domain\User\Entity;
 
 use App\Identity\Domain\Error\IdentityErrors;
-use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\AccessState;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
@@ -201,19 +200,23 @@ final class User
      *
      * O CPF é write-once: depois de definido, só pode ser repetido (idempotência),
      * nunca alterado pelo próprio usuário.
+     *
+     * @return Result<$this>
      */
-    public function assignCpf(Cpf $cpf): void
+    public function assignCpf(Cpf $cpf): Result
     {
         if (null !== $this->cpf) {
             if ($this->cpf->equals($cpf)) {
-                return;
+                return Result::success($this);
             }
 
-            throw new UserCpfAlreadySetException();
+            return Result::failure([IdentityErrors::cpfAlreadySet()]);
         }
 
         $this->cpf = $cpf;
         $this->touch();
+
+        return Result::success($this);
     }
 
     /**

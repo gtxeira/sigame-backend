@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Identity\Domain\User\Entity\User;
-use App\Identity\Domain\User\Exception\UserCpfAlreadySetException;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
@@ -280,17 +279,24 @@ it('assigns the cpf once', function () {
     );
     $newCpf = Cpf::fromString('47705122014')->value();
 
-    $user->assignCpf($newCpf);
+    $first = $user->assignCpf($newCpf);
 
-    expect($user->cpf()?->value())->toBe('47705122014');
+    expect($first->isSuccess())->toBeTrue()
+        ->and($user->cpf()?->value())->toBe('47705122014');
 
-    $user->assignCpf($newCpf);
+    $second = $user->assignCpf($newCpf);
 
-    expect($user->cpf()?->value())->toBe('47705122014');
+    expect($second->isSuccess())->toBeTrue()
+        ->and($user->cpf()?->value())->toBe('47705122014');
 });
 
 it('rejects changing an already defined cpf', function () {
     $user = makeUser();
+    $originalCpf = $user->cpf()?->value();
 
-    $user->assignCpf(Cpf::fromString('47705122014')->value());
-})->throws(UserCpfAlreadySetException::class);
+    $result = $user->assignCpf(Cpf::fromString('47705122014')->value());
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::UserCpfAlreadySet->value)
+        ->and($user->cpf()?->value())->toBe($originalCpf);
+});

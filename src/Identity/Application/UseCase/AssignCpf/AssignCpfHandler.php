@@ -42,23 +42,17 @@ final readonly class AssignCpfHandler
             throw new RuntimeException('Usuário autenticado não encontrado.');
         }
 
-        $currentCpf = $user->cpf();
-
-        if (null !== $currentCpf) {
-            if ($currentCpf->equals($cpf)) {
-                return Result::success($user);
-            }
-
-            return Result::failure([IdentityErrors::cpfAlreadySet()]);
-        }
-
         $existing = $this->userRepository->findByCpf($cpf);
 
         if (null !== $existing && !$existing->id()->equals($user->id())) {
             return Result::failure([IdentityErrors::cpfAlreadyExists()]);
         }
 
-        $user->assignCpf($cpf);
+        $assignment = $user->assignCpf($cpf);
+
+        if ($assignment->isFailure()) {
+            return Result::failure($assignment->errors());
+        }
 
         try {
             $this->userRepository->save($user);
