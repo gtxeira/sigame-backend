@@ -107,17 +107,20 @@ src/
 │   │   ├── Exception/                       # DomainException, InvalidArgumentException, InvalidUuidException
 │   │   └── Functional/                      # Result, ValidationResult
 │   ├── Application/
-│   │   └── Event/                           # EventDispatcherInterface
+│   │   ├── Event/                           # EventDispatcherInterface
+│   │   └── Storage/                         # FileStorageInterface
 │   ├── Infrastructure/
 │   │   ├── Persistence/AbstractRepository.php
 │   │   ├── Persistence/ORM/Type/            # BaseIdType, CpfType, EmailType, InstantType
 │   │   ├── Event/SymfonyEventDispatcherAdapter.php
+│   │   ├── Storage/FlysystemFileStorage.php
 │   │   └── OpenApi/                         # ExampleValueResolver, FillNamedExampleValues
 │   └── Presentation/Http/
 │       ├── ExceptionListener/               # Api, Domain, Http e Validator
 │       ├── OpenApi/                         # respostas e exemplos reutilizáveis
 │       ├── RateLimit/RateLimitGuard.php
 │       ├── Response/                        # ApiResponse, ResultResponder, ErrorStatusResolver, etc.
+│       ├── Validation/RequestViolationFactory.php
 │       └── Security/ApiAccessDeniedHandler.php
 │
 ├── Monitoring/                              # liveness, readiness e saúde das dependências
@@ -184,7 +187,7 @@ A raiz do agregado mantém perfil, acesso e nível. Credenciais de login ficam e
 | Componente | Responsabilidade | Colunas / tabela |
 |---|---|---|
 | `User` | Raiz do agregado | `id`, `cpf`, `level`, `onboarding_status`, `created_at`, `updated_at` |
-| `Profile` | Dados de perfil e biometria | `name`, `height_cm`, `weight_kg`, `photo_url` |
+| `Profile` | Dados de perfil e biometria | `name`, `height_cm`, `weight_kg`, `photo_key` |
 | `AccessState` | Autenticação/autorização (RN18) | `role`, `status` |
 | `UserIdentity` | Login local ou social | tabela `user_identities` |
 | `UserModality` | Modalidades do usuário | tabela `user_modalities` |
@@ -290,9 +293,12 @@ Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 | `EventDispatcherInterface` | `SymfonyEventDispatcherAdapter` | `symfony/event-dispatcher` |
 | `IdentityMailDispatcherInterface` | `MessengerIdentityMailDispatcher` | `symfony/messenger` + `symfony/doctrine-messenger` |
 | `IdentityMailerInterface` | `SymfonyIdentityMailer` | `symfony/mailer` |
-| `FileStorageInterface` (planejado) | `FlysystemS3Adapter` (planejado) | `league/flysystem` |
+| `FileStorageInterface` | `FlysystemFileStorage` | `league/flysystem` + `aws/aws-sdk-php` |
+| `ProfilePhotoStorageInterface` | `S3ProfilePhotoStorage` | `league/flysystem` + `symfony/uid` |
 
-O adapter de storage ainda não foi implementado. A decisão está em [decisoes.md](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
+O storage usa o mesmo contrato S3 em desenvolvimento (Garage) e produção. A decisão de upload e o formato da chave estão no [ADR-016](decisoes.md#adr-016--upload-de-foto-de-perfil-com-chave-em-s3); a escolha do adapter está no [ADR-010](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
+
+A porta `FileStorageInterface` vive em `Shared/Application/Storage`, porque é infraestrutura genérica. `ProfilePhotoStorageInterface` fica em `Identity/Application/Storage` e traduz o caso de uso para chave/URL. Em teste, o adapter é local (`var/storage-test`), sem depender do Garage.
 
 ### 6.1 E-mail transacional assíncrono
 

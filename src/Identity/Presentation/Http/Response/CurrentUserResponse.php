@@ -21,7 +21,7 @@ final readonly class CurrentUserResponse
         #[OA\Property(format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
         public string $id,
 
-        #[OA\Property(description: 'CPF, quando definido.', nullable: true, example: '477.051.220-14')]
+        #[OA\Property(description: 'CPF, quando definido.', example: '477.051.220-14', nullable: true)]
         public ?string $cpf,
 
         #[OA\Property(format: 'email', example: 'user@example.com')]
@@ -33,13 +33,13 @@ final readonly class CurrentUserResponse
         #[OA\Property(example: 'John Doe')]
         public string $name,
 
-        #[OA\Property(description: 'Altura em centímetros, quando informada.', nullable: true, example: 178)]
+        #[OA\Property(description: 'Altura em centímetros, quando informada.', example: 178, nullable: true)]
         public ?int $heightCm,
 
-        #[OA\Property(description: 'Peso em quilogramas, quando informado.', nullable: true, example: 75.5)]
+        #[OA\Property(description: 'Peso em quilogramas, quando informado.', example: 75.5, nullable: true)]
         public ?float $weightKg,
 
-        #[OA\Property(description: 'URL da foto de perfil, quando informada.', nullable: true, example: 'https://example.com/photo.jpg')]
+        #[OA\Property(description: 'URL da foto de perfil, quando informada.', example: 'https://example.com/photo.jpg', nullable: true)]
         public ?string $photoUrl,
 
         #[OA\Property(
@@ -55,9 +55,9 @@ final readonly class CurrentUserResponse
 
         #[OA\Property(
             description: 'Modalidade principal, quando definida.',
+            example: 'corrida',
             nullable: true,
             enum: [Modality::WALKING->value, Modality::RUNNING->value, Modality::CYCLING->value],
-            example: 'corrida',
         )]
         public ?string $primaryModality,
 
@@ -78,7 +78,7 @@ final readonly class CurrentUserResponse
     ) {
     }
 
-    public static function fromEntity(User $user): self
+    public static function fromEntity(User $user, ?string $photoUrl): self
     {
         return new self(
             id: $user->id()->value(),
@@ -88,7 +88,7 @@ final readonly class CurrentUserResponse
             name: $user->name(),
             heightCm: $user->height()?->centimeters(),
             weightKg: $user->weight()?->kilograms(),
-            photoUrl: $user->photoUrl(),
+            photoUrl: $photoUrl,
             modalities: array_map(
                 static fn (Modality $modality): string => $modality->value,
                 $user->modalities(),

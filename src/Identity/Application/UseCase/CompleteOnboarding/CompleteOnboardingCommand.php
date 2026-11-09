@@ -9,6 +9,9 @@ use App\Shared\Domain\ValueObject\Modality;
 
 /**
  * Command para concluir o onboarding do usuário autenticado.
+ *
+ * O onboarding cobre apenas os dados que definem a progressão: modalidades e
+ * modalidade principal. Altura, peso e foto são atualizados pelo perfil.
  */
 final readonly class CompleteOnboardingCommand
 {
@@ -17,9 +20,6 @@ final readonly class CompleteOnboardingCommand
      */
     public function __construct(
         private UserId $userId,
-        private ?int $heightCm,
-        private ?float $weightKg,
-        private ?string $photoUrl,
         private array $modalities,
         private ?Modality $primaryModality,
     ) {
@@ -28,21 +28,6 @@ final readonly class CompleteOnboardingCommand
     public function userId(): UserId
     {
         return $this->userId;
-    }
-
-    public function heightCm(): ?int
-    {
-        return $this->heightCm;
-    }
-
-    public function weightKg(): ?float
-    {
-        return $this->weightKg;
-    }
-
-    public function photoUrl(): ?string
-    {
-        return $this->photoUrl;
     }
 
     /**

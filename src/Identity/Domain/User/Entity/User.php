@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\Entity;
 
-use App\Identity\Domain\User\Exception\InvalidHeightException;
-use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
 use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
@@ -222,46 +220,22 @@ final class User
     /**
      * Conclui o onboarding do usuário.
      *
-     * RN03.1: Define dados mínimos para progressão.
+     * RN03.1: Define os dados mínimos de progressão — as modalidades.
      * RN03.2: Ao concluir, alcança nível 2.
      * RN03.3: Pode selecionar uma ou mais modalidades.
      * RN03.4: Uma modalidade pode ser definida como principal.
      *
+     * Altura, peso e foto não fazem parte da progressão e são atualizados
+     * pelo perfil, sem reabrir o onboarding.
+     *
      * @param list<Modality> $modalities
      */
     public function completeOnboarding(
-        ?int $heightCm,
-        ?float $weightKg,
-        ?string $photoUrl,
         array $modalities,
         ?Modality $primaryModality,
     ): void {
         if (OnboardingStatus::COMPLETED === $this->onboardingStatus) {
             throw new OnboardingAlreadyCompletedException();
-        }
-
-        $height = null;
-
-        if (null !== $heightCm) {
-            $heightResult = Height::fromCentimeters($heightCm);
-
-            if ($heightResult->isInvalid()) {
-                throw new InvalidHeightException();
-            }
-
-            $height = $heightResult->value();
-        }
-
-        $weight = null;
-
-        if (null !== $weightKg) {
-            $weightResult = Weight::fromKilograms($weightKg);
-
-            if ($weightResult->isInvalid()) {
-                throw new InvalidWeightException();
-            }
-
-            $weight = $weightResult->value();
         }
 
         $modalities = self::uniqueModalities($modalities);
@@ -284,9 +258,29 @@ final class User
             ));
         }
 
-        $this->profile = $this->profile->withPhysicalData($height, $weight, $photoUrl);
         $this->onboardingStatus = OnboardingStatus::COMPLETED;
         $this->level = $this->level->next();
+        $this->touch();
+    }
+
+    /**
+     * Substitui os dados de perfil do usuário.
+     *
+     * A foto é mantida porque tem ciclo de vida próprio e não é alterada por
+     * este fluxo.
+     */
+    public function changeProfile(Profile $profile): void
+    {
+        $this->profile = $profile;
+        $this->touch();
+    }
+
+    /**
+     * Define ou remove a chave do objeto da foto de perfil.
+     */
+    public function changePhoto(?string $photoKey): void
+    {
+        $this->profile = $this->profile->withPhoto($photoKey);
         $this->touch();
     }
 
@@ -475,9 +469,9 @@ final class User
         return $this->profile->weight();
     }
 
-    public function photoUrl(): ?string
+    public function photoKey(): ?string
     {
-        return $this->profile->photoUrl();
+        return $this->profile->photoKey();
     }
 
     /**

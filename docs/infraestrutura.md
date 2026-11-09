@@ -112,8 +112,9 @@ Detalhes do fluxo e do Playground estão em [autenticacao.md](autenticacao.md).
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `S3_ENDPOINT` | `http://localhost:3900` | Endpoint S3 (Garage local ou provedor externo) |
-| `S3_REGION` | `us-east-1` | Região do bucket |
+| `S3_ENDPOINT` | `http://garage:3900` | Endpoint S3 visto de dentro do container `php` (do host, use `http://localhost:3900`) |
+| `S3_REGION` | `garage` | Região do bucket (o `garage.toml` local usa `garage`; em produção, use a região do provedor) |
+| `S3_PATH_STYLE` | `true` | Usa path-style endpoint, necessário no Garage local |
 | `S3_ACCESS_KEY` | — | Access key |
 | `S3_SECRET_KEY` | — | Secret key |
 | `S3_BUCKET` | `profile-images` | Bucket de arquivos |
@@ -127,9 +128,21 @@ O Garage local usa `garage.toml`:
 - admin em `:3903` (não publicado no Compose);
 - `replication_factor = 1` e banco SQLite, adequados apenas para desenvolvimento.
 
-> O valor de `S3_ENDPOINT` em `.env` usa `localhost:3900`, pensado para acesso a partir do host. Dentro do container `php`, o endpoint precisa apontar para o serviço (`http://garage:3900`); ajuste em `.env.local` quando o adapter de storage for implementado.
+O upload usa as credenciais da aplicação apenas para escrita/remoção. A leitura é pública pelo endpoint website do Garage (`:3902`) e a chave do objeto inclui um UUID aleatório. Para habilitar o acesso de leitura no bucket local:
 
-> A aplicação ainda **não** implementa o adapter de storage. Os pacotes estão instalados, mas o upload de foto permanece pendente.
+```bash
+just storage-setup
+```
+
+O comando executa `garage bucket website --allow profile-images`. O bucket continua privado para operações S3 autenticadas (a credencial da aplicação já tem `RWO`).
+
+Limites do upload:
+
+- **2 MB** por arquivo na aplicação (`Image(maxSize: '2M')`);
+- `upload_max_filesize=5M` e `post_max_size=10M` no `frankenphp/conf.d/10-app.ini`;
+- JPEG, PNG ou WebP, entre 200×200 e 4096×4096 pixels.
+
+> Em produção, troque `S3_PUBLIC_URL` pelo domínio/CDN do bucket e mantenha a credencial na variável `S3_*`. A matriz definitiva de visibilidade (`DEC06`) pode exigir bucket privado com proxy ou URL assinada; a URL não é persistida, só a chave.
 
 ### 3.6 Lock
 

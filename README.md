@@ -69,7 +69,7 @@ Grupos informais costumam depender de convites, mensagens soltas e memória. Nã
 | ORM | Doctrine ORM 3 + Doctrine Migrations 4 |
 | Autenticação | `lcobucci/jwt`, `firebase/php-jwt` e autenticador customizado |
 | Serialização / validação | Symfony Serializer e Validator |
-| Storage | Flysystem 3 + S3 (Garage local) — adapter pendente |
+| Storage | Flysystem 3 + S3 (Garage local) |
 | Testes | Pest 5 + Mockery + Foundry + DAMA |
 | Qualidade | PHPStan 6, php-cs-fixer (`@Symfony`) e CaptainHook |
 | Documentação da API | NelmioApiDocBundle + Scalar |
@@ -175,6 +175,16 @@ O contrato completo, com schemas e exemplos, é servido em `/doc`.
 O front-end precisa chamar a API com credenciais habilitadas (`credentials: 'include'` no `fetch` ou `withCredentials` no axios).
 
 Fluxos, exemplos de request/response, códigos de erro, rate limiting e configuração do Google estão em [docs/autenticacao.md](docs/autenticacao.md).
+
+## Armazenamento de fotos
+
+As fotos de perfil ficam no bucket S3 `profile-images`, com escrita pela credencial da aplicação e leitura pública pelo endpoint website do Garage local.
+
+```bash
+just storage-setup   # habilita leitura website do bucket no Garage
+```
+
+O upload aceita JPEG, PNG ou WebP de até 2 MB e 200×200 a 4096×4096. A referência persistida é a chave do objeto (`users/{id}/{uuid}.{ext}`), não a URL. Detalhes em [docs/infraestrutura.md](docs/infraestrutura.md#35-armazenamento-s3).
 
 ## Banco de dados e migrations
 

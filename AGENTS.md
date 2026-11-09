@@ -98,9 +98,8 @@ assumption; don't scaffold a full stack unprompted.
 - `messenger_messages` is created by migration; keep `auto_setup=0` and do not route
   `Symfony\Component\Mailer\Messenger\SendEmailMessage` to `async` (the mailer bus is
   disabled on purpose).
-- Not implemented yet: S3/Flysystem storage adapter, onboarding HTTP layer,
-  API Platform, shared storage for rate limiter and OAuth flow. Don't assume or scaffold
-  them unless asked.
+- Not implemented yet: API Platform and shared storage for rate limiter and OAuth flow.
+  Don't assume or scaffold them unless asked.
 
 ## Test conventions
 

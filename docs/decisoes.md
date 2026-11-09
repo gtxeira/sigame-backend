@@ -31,12 +31,14 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-007](#adr-007--testes-em-unit-functional-e-integration) | Testes em Unit, Functional e Integration | Vigente |
 | [ADR-008](#adr-008--configuração-em-php-com-autowiring) | Configuração em PHP com autowiring | Vigente |
 | [ADR-009](#adr-009--postgresql-18-com-doctrine-migrations) | PostgreSQL 18 com Doctrine Migrations | Vigente |
-| [ADR-010](#adr-010--arquivos-em-s3-via-flysystemgarage) | Arquivos em S3 via Flysystem/Garage | Decidida; implementação pendente |
+| [ADR-010](#adr-010--arquivos-em-s3-via-flysystemgarage) | Arquivos em S3 via Flysystem/Garage | Vigente |
 | [ADR-011](#adr-011--e-mail-canônico-e-vínculo-explícito-de-identidade-social) | E-mail canônico e vínculo explícito de identidade social | Vigente |
 | [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend) | Fluxo OAuth com state e PKCE no backend | Vigente |
 | [ADR-013](#adr-013--tokens-de-uso-único-para-verificação-de-e-mail-e-reset-de-senha) | Tokens de uso único para verificação de e-mail e reset de senha | Vigente |
 | [ADR-014](#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado) | E-mails de identidade assíncronos com payload cifrado | Vigente |
-| [ADR-015](#adr-015--onboarding-como-ação-única-e-evento-de-domínio) | Onboarding como ação única e evento de domínio | Vigente |
+| [ADR-015](#adr-015--onboarding-como-ação-única-e-evento-de-domínio) | Onboarding como ação única e evento de domínio | Vigente (emendada pelo ADR-017) |
+| [ADR-016](#adr-016--upload-de-foto-de-perfil-com-chave-em-s3) | Upload de foto de perfil com chave em S3 | Vigente |
+| [ADR-017](#adr-017--perfil-parcial-e-onboarding-restrito-a-modalidades) | Perfil parcial e onboarding restrito a modalidades | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once) e [`DEC14`](#dec14--login-social-google-nesta-entrega).
 
@@ -283,9 +285,10 @@ Usar S3 como contrato de storage, com Flysystem como abstração e Garage como i
 
 ### Consequências
 
-- **Implementação pendente**: os pacotes estão instalados, mas ainda não há `FileStorageInterface` nem adapter.
-- As variáveis `S3_*` já existem em `.env`.
-- O bucket, limites e política de acesso precisam ser definidos antes do upload.
+- **Implementado** em `FileStorageInterface`/`FlysystemFileStorage`; a configuração fica em `config/packages/storage.php`.
+- Em teste, o adapter é local (`var/storage-test`), sem depender do Garage.
+- O bucket local é `profile-images`, escrito pela credencial da aplicação e lido pelo endpoint website do Garage.
+- Limites e formatos aceitos estão no [ADR-016](#adr-016--upload-de-foto-de-perfil-com-chave-em-s3).
 
 ---
 
@@ -440,6 +443,74 @@ O agregado `User` já concentrava as regras de onboarding, mas faltava expô-las
 - A troca de modalidade principal depois de concluído (`RN03.5`) fica como dívida, com caso de uso e endpoint próprios.
 - O endpoint é limitado por usuário pelo limiter `user_onboarding`.
 - Testes: `CompleteOnboardingHandlerTest` (unidade) e `OnboardingTest` (HTTP), além do caminho de 401 em `AuthHardeningTest`.
+
+> **Emenda (ADR-017):** altura, peso e foto saíram do onboarding. A rota passou a aceitar apenas `modalities` e `primaryModality`; os demais dados são atualizados por `PATCH /users/me/profile` e pelo ciclo próprio da foto.
+
+---
+
+## ADR-016 — Upload de foto de perfil com chave em S3
+
+### Contexto
+
+O onboarding aceitava `photoUrl` como string livre, o que permitia apontar para qualquer origem e não garantia que o arquivo existisse. Era preciso definir o transporte do arquivo, onde a referência é persistida e como o cliente lê a imagem.
+
+### Decisão
+
+- Expor `POST /api/v1/users/me/photo` com `multipart/form-data` e campo `photo`. PHP não popula `$_FILES` em `PUT` multipart, por isso o upload usa `POST` também para substituição.
+- Validar com `#[MapUploadedFile]` e `Image`: até 2 MB, JPEG/PNG/WebP, 200×200 a 4096×4096. O limite do PHP sobe para `upload_max_filesize=5M`/`post_max_size=10M` para o erro chegar como `422`.
+- Persistir apenas a **chave do objeto** em `users.photo_key`, no formato `users/{userId}/{uuid}.{ext}`; a URL é derivada de `S3_PUBLIC_URL` na resposta.
+- Devolver `CurrentUserResponse` no upload e `204` no `DELETE /api/v1/users/me/photo`, que é idempotente.
+- Serializar uploads por usuário com `LockFactory`; se o save falhar, apagar o objeto recém-gravado. O objeto anterior é apagado em best-effort depois do sucesso.
+- No Garage local, habilitar leitura anônima pelo website (`just storage-setup`) e manter a escrita privada pela credencial da aplicação.
+
+### Alternativas consideradas
+
+- **URL pré-assinada:** reduz o tráfego no backend, mas exige CORS, validação posterior do objeto e mais estados no cliente.
+- **Base64 no JSON:** reaproveita o contrato atual, porém infla o payload e ignora o content-type de upload.
+- **Manter `photoUrl`:** não garante existência, formato ou origem do arquivo.
+- **`detectCorrupted`:** a constraint exige GD; como a extensão não está instalada, derrubaria a requisição com `500`.
+
+### Consequências
+
+- A URL pública não é persistida: trocar bucket, domínio ou estratégia de leitura não exige migration.
+- A chave aleatória evita adivinhação, mas o bucket é público na V1. A matriz definitiva de visibilidade (`DEC06`) pode exigir proxy ou URL assinada depois; a chave já prepara essa migração.
+- Não há resize, thumbnail, leitura de EXIF nem validação de imagem corrompida no servidor; o arquivo original é armazenado.
+- A migration `Version20261108120000` renomeia a coluna e limpa URLs antigas, que não são chaves válidas.
+- Testes: `FlysystemFileStorageTest`, `S3ProfilePhotoStorageTest`, `UploadProfilePhotoHandlerTest`, `RemoveProfilePhotoHandlerTest` e `MePhotoTest`.
+
+---
+
+## ADR-017 — Perfil parcial e onboarding restrito a modalidades
+
+### Contexto
+
+O onboarding misturava progressão (modalidades e modalidade principal) com dados de perfil (altura, peso e foto). Como altura e peso são opcionais e a foto não é obrigatória, uma falha de storage podia impedir a promoção ao nível 2. Também não existia forma de editar o perfil depois da conclusão.
+
+### Decisão
+
+- `POST /api/v1/users/me/onboarding` aceita apenas `modalities` e `primaryModality`; `User::completeOnboarding()` deixou de receber altura, peso e foto.
+- Criar `PATCH /api/v1/users/me/profile` com semântica de **JSON Merge Patch (RFC 7396)**:
+  - campo ausente não altera;
+  - `null` limpa somente `heightCm` e `weightKg`;
+  - `name`, quando enviado, é trimado e não pode ser vazio, com mínimo de 2 e máximo de 255 caracteres;
+  - corpo sem nenhum campo conhecido (`{}`) retorna `422 VALIDATION_ERROR` para não gerar operação sem efeito.
+- A presença é conferida no controller com `Request::getPayload()->has()`, porque a desserialização não distingue campo ausente de campo `null`.
+- Altura e peso continuam validados no domínio e retornam `USER_HEIGHT_INVALID`/`USER_WEIGHT_INVALID` sem persistir nenhuma alteração quando um dos campos é inválido.
+- O media type aceito é `application/json`; `application/merge-patch+json` fica como evolução.
+
+### Alternativas consideradas
+
+- **`PUT /users/me/profile`:** expressa substituição completa, mas obriga o cliente a reenviar todos os campos para alterar um só.
+- **PATCH sem regra de corpo vazio:** permite `200` sem efeito, o que dificulta detectar clientes errados.
+- **Aceitar `name: null`:** apagaria o nome, que é obrigatório no agregado.
+
+### Consequências
+
+- O nível 2 depende apenas das modalidades; falha de storage ou dados físicos não bloqueiam a progressão.
+- `Profile` ganhou withers (`withName`, `withHeight`, `withWeight`, `withPhoto`) e `User` ganhou `changeProfile()`/`changePhoto()`.
+- A foto tem ciclo de vida próprio e nunca é alterada pelo PATCH de perfil.
+- Testes: `UpdateProfileHandlerTest` e `MeProfileTest` cobrem campo ausente, `null`, valor, corpo vazio e tipos inválidos.
+- A aceitação de `application/merge-patch+json` exige registrar o formato no `Request` e fica como dívida.
 
 ---
 

@@ -22,7 +22,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 
 | Fase | Escopo | Estado |
 |---|---|---|
-| 0 | Infraestrutura base (Docker, PostgreSQL, Doctrine, Shared) | Concluída; integração de storage ainda pendente |
+| 0 | Infraestrutura base (Docker, PostgreSQL, Doctrine, Shared, storage) | Concluída |
 | 1 | Identity: cadastro | Concluída |
 | 2 | Identity: autenticação | Concluída |
 | 3 | Identity: onboarding | Concluída |
@@ -48,10 +48,11 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Logout e logout de todos os dispositivos | Implementado | `src/Identity/Application/UseCase/Logout/` |
 | Dados do usuário autenticado | Implementado | `src/Identity/Presentation/Http/Controller/MeController.php` |
 | Definição de CPF write-once | Implementado | `AssignCpfHandler` e `PATCH /api/v1/users/me/cpf` |
-| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF e onboarding | Implementado | `config/packages/rate_limiter.php` |
+| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF, perfil e fotos | Implementado | `config/packages/rate_limiter.php` |
 | Health checks | Implementado | `src/Monitoring/` |
-| Onboarding | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
-| Upload de foto de perfil em S3 | Não iniciado | Pacotes instalados, sem adapter de storage |
+| Onboarding de modalidades | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
+| Edição parcial de perfil | Implementado | `UpdateProfileHandler` e `PATCH /api/v1/users/me/profile` |
+| Upload e remoção de foto de perfil em S3 | Implementado | `ProfilePhotoStorageInterface`, `S3ProfilePhotoStorage` e `POST`/`DELETE /api/v1/users/me/photo` |
 | CRUD administrativo de usuários | Não iniciado | Planejado |
 | Gamificação | Não iniciada | Eventos `UserRegistered` e `OnboardingCompleted` são publicados, mas não há listener |
 | Demais módulos de negócio | Não iniciados | Groups, Activities, Notifications, Moderation, Sponsorship, Reports |
@@ -75,6 +76,9 @@ Rotas confirmadas por `bin/console debug:router`:
 | `POST` | `/api/v1/auth/logout/all` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT |
+| `PATCH` | `/api/v1/users/me/profile` | Bearer JWT |
+| `POST` | `/api/v1/users/me/photo` | Bearer JWT |
+| `DELETE` | `/api/v1/users/me/photo` | Bearer JWT |
 | `POST` | `/api/v1/users/me/onboarding` | Bearer JWT |
 | `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | Bearer JWT |
@@ -96,7 +100,7 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 - [x] Configurar Docker Compose com FrankenPHP, PostgreSQL 18 e Garage (S3).
 - [x] Configurar Doctrine, migrations e tipos customizados.
 - [x] Estruturar `src/Shared/` com VOs base (`BaseId`, `Email`, `Cpf`, `Instant`, `Modality`).
-- [ ] Implementar adapter de storage S3 via Flysystem e ligar o upload de foto de perfil.
+- [x] Implementar adapter de storage S3 via Flysystem e ligar o upload de foto de perfil.
 
 ### Fase 1 — Identity: cadastro
 
@@ -132,6 +136,15 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 - [x] Publicação efetiva de `OnboardingCompleted`.
 - [x] Teste funcional do fluxo registro → onboarding → nível 2.
 - [ ] Consumo de `OnboardingCompleted` pela Gamification (Fase 6).
+
+### Fase 3.1 — Perfil e foto
+
+- [x] `FileStorageInterface`/`FlysystemFileStorage` e configuração S3/Garage.
+- [x] `PATCH /users/me/profile` com semântica de JSON Merge Patch.
+- [x] `POST /users/me/photo` (multipart) e `DELETE /users/me/photo` idempotente.
+- [x] Onboarding restrito a modalidades e modalidade principal.
+- [x] Migration de `photo_url` para `photo_key` e limpeza dos valores antigos.
+- [x] Testes unitários, funcionais e de integração do perfil e da foto.
 
 ### Fase 4 — Groups
 
@@ -194,7 +207,7 @@ Decisões já fechadas (`DEC09`, `DEC13` e `DEC14`) estão registradas em [decis
 |---|---|
 | Rate limiter em produção | Com mais de uma instância, o pool `cache.rate_limiter` precisa apontar para armazenamento compartilhado (Redis ou banco). Hoje o padrão é o cache da aplicação. |
 | Limpeza de refresh tokens | Não há rotina para remover tokens expirados ou revogados antigos. |
-| Storage de fotos | Definir bucket, política de acesso, limites de tamanho e formato antes de ligar o upload. |
+| Processamento de imagem | Não há GD/Imagick: falta resize/thumbnail, leitura de EXIF e detecção de imagem corrompida no servidor. |
 | Mercure | O template sobe um hub Mercure, mas a aplicação ainda não publica nem consome tópicos. |
 
 ---
@@ -214,8 +227,9 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261106090100` | 2026-11-06 | Valida duplicatas e cria o índice único de `users.email`. |
 | `Version20261106090200` | 2026-11-06 | Cria `identity_tokens` para verificação de e-mail e reset de senha. |
 | `Version20261106100000` | 2026-11-06 | Cria `messenger_messages` para o transporte Doctrine do Messenger. |
+| `Version20261108120000` | 2026-11-08 | Renomeia `users.photo_url` para `photo_key`, limpa URLs antigas e reduz a coluna para 255 caracteres. |
 
-A conclusão do onboarding não exigiu migration: `height_cm`, `weight_kg`, `photo_url` e `user_modalities` já existiam desde `Version20261029191722`.
+A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou de URL para chave de objeto em `Version20261108120000`.
 
 ### Regras
 
@@ -235,7 +249,9 @@ A conclusão do onboarding não exigiu migration: `height_cm`, `weight_kg`, `pho
 | Troca de modalidade principal ausente | RN03.5/CA03.5 exigem alterar a principal preservando histórico, mas `completeOnboarding()` só aceita uma conclusão | Criar caso de uso e endpoint próprios, com teste de preservação de XP. |
 | `UserRegistered` sem consumidor | O evento é publicado no cadastro e no login social | Implementar listener de Gamification quando o módulo existir. |
 | Motivo da suspensão não é persistido | `User::suspend(string $reason)` ignora o argumento | Criar histórico de suspensões com autor, motivo e datas. |
-| Sem upload de arquivos | Pacotes `league/flysystem` e `league/flysystem-aws-s3-v3` instalados, sem adapter | Implementar `FileStorageInterface` e o adapter S3/Garage. |
+| Imagem sem pós-processamento | Sem GD/Imagick, o servidor aceita o arquivo original: não há resize, thumbnail, EXIF nem `detectCorrupted` | Adicionar processamento assíncrono (worker) ou validar com GD quando a extensão existir. |
+| Objetos órfãos em falha abrupta | A compensação cobre falha de persistência, mas um processo morto entre o upload e o save deixa o objeto no bucket | Criar rotina de limpeza por referência/idade ou lifecycle policy no provedor. |
+| Leitura pública da foto | O bucket local usa website público com chave não adivinhável; a matriz definitiva do `DEC06` segue aberta | Reavaliar quando a visibilidade de perfil for fechada; a chave persistida permite migrar para proxy ou URL assinada sem migration. |
 | CI não roda testes | `.github/workflows/ci.yaml` tem os passos de migrations/PHPUnit comentados | Reativar migrations, testes e `doctrine:schema:validate` no CI. |
 | Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |

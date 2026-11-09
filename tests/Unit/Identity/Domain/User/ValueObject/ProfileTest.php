@@ -12,7 +12,7 @@ it('creates a profile with name and empty physical data', function () {
     expect($profile->name())->toBe('João Silva')
         ->and($profile->height())->toBeNull()
         ->and($profile->weight())->toBeNull()
-        ->and($profile->photoUrl())->toBeNull();
+        ->and($profile->photoKey())->toBeNull();
 });
 
 it('stores physical data without changing the name', function () {
@@ -20,36 +20,48 @@ it('stores physical data without changing the name', function () {
     $weight = Weight::fromKilograms(75.5)->value();
 
     $profile = Profile::create('João Silva')
-        ->withPhysicalData($height, $weight, 'https://example.com/photo.jpg');
+        ->withHeight($height)
+        ->withWeight($weight)
+        ->withPhoto('users/photo.png');
 
     expect($profile->name())->toBe('João Silva')
         ->and($profile->height())->toBe($height)
         ->and($profile->weight())->toBe($weight)
-        ->and($profile->photoUrl())->toBe('https://example.com/photo.jpg');
+        ->and($profile->photoKey())->toBe('users/photo.png');
 });
 
-it('keeps the original profile untouched when physical data is added', function () {
+it('keeps the original profile untouched when a field changes', function () {
     $original = Profile::create('João Silva');
 
-    $updated = $original->withPhysicalData(
-        Height::fromCentimeters(178)->value(),
-        Weight::fromKilograms(75.5)->value(),
-        null,
-    );
+    $updated = $original
+        ->withHeight(Height::fromCentimeters(178)->value())
+        ->withWeight(Weight::fromKilograms(75.5)->value());
 
     expect($original->height())->toBeNull()
         ->and($original->weight())->toBeNull()
         ->and($updated)->not->toBe($original);
 });
 
-it('clears physical data when onboarding is repeated without it', function () {
-    $height = Height::fromCentimeters(178)->value();
-
+it('clears physical data without clearing the photo', function () {
     $profile = Profile::create('João Silva')
-        ->withPhysicalData($height, Weight::fromKilograms(75.5)->value(), 'https://example.com/photo.jpg')
-        ->withPhysicalData(null, null, null);
+        ->withHeight(Height::fromCentimeters(178)->value())
+        ->withWeight(Weight::fromKilograms(75.5)->value())
+        ->withPhoto('users/photo.png')
+        ->withHeight(null)
+        ->withWeight(null);
 
     expect($profile->height())->toBeNull()
         ->and($profile->weight())->toBeNull()
-        ->and($profile->photoUrl())->toBeNull();
+        ->and($profile->photoKey())->toBe('users/photo.png');
+});
+
+it('replaces the name preserving the remaining fields', function () {
+    $profile = Profile::create('João Silva')
+        ->withHeight(Height::fromCentimeters(178)->value())
+        ->withPhoto('users/photo.png')
+        ->withName('Maria Silva');
+
+    expect($profile->name())->toBe('Maria Silva')
+        ->and($profile->height()?->centimeters())->toBe(178)
+        ->and($profile->photoKey())->toBe('users/photo.png');
 });

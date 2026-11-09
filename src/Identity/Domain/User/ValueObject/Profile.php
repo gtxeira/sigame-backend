@@ -25,8 +25,8 @@ final readonly class Profile
         #[ORM\Column(name: 'weight_kg', type: 'weight', nullable: true)]
         private ?Weight $weight,
 
-        #[ORM\Column(name: 'photo_url', type: 'string', length: 2048, nullable: true)]
-        private ?string $photoUrl,
+        #[ORM\Column(name: 'photo_key', type: 'string', length: 255, nullable: true)]
+        private ?string $photoKey,
     ) {
     }
 
@@ -35,12 +35,24 @@ final readonly class Profile
         return new self($name, null, null, null);
     }
 
-    public function withPhysicalData(
-        ?Height $height,
-        ?Weight $weight,
-        ?string $photoUrl,
-    ): self {
-        return new self($this->name, $height, $weight, $photoUrl);
+    public function withName(string $name): self
+    {
+        return new self($name, $this->height, $this->weight, $this->photoKey);
+    }
+
+    public function withHeight(?Height $height): self
+    {
+        return new self($this->name, $height, $this->weight, $this->photoKey);
+    }
+
+    public function withWeight(?Weight $weight): self
+    {
+        return new self($this->name, $this->height, $weight, $this->photoKey);
+    }
+
+    public function withPhoto(?string $photoKey): self
+    {
+        return new self($this->name, $this->height, $this->weight, $photoKey);
     }
 
     public function name(): string
@@ -58,8 +70,8 @@ final readonly class Profile
         return $this->weight;
     }
 
-    public function photoUrl(): ?string
+    public function photoKey(): ?string
     {
-        return $this->photoUrl;
+        return $this->photoKey;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Presentation\Http\Controller;
 
+use App\Identity\Application\Storage\ProfilePhotoStorageInterface;
 use App\Identity\Application\UseCase\CompleteOnboarding\CompleteOnboardingCommand;
 use App\Identity\Application\UseCase\CompleteOnboarding\CompleteOnboardingHandler;
 use App\Identity\Domain\User\Entity\User;
@@ -45,6 +46,7 @@ final class OnboardingController extends AbstractController
 {
     public function __construct(
         private readonly CompleteOnboardingHandler $completeOnboardingHandler,
+        private readonly ProfilePhotoStorageInterface $photoStorage,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.user_onboarding')]
@@ -85,18 +87,6 @@ final class OnboardingController extends AbstractController
                 summary: 'Erros de Validação',
                 description: 'O payload contém dados com tipo, formato ou valor inválido.',
             ),
-            'USER_HEIGHT_INVALID' => new ApiErrorExample(
-                message: 'A altura informada é inválida.',
-                details: ['heightCm' => 'A altura deve estar entre 50 e 250 centímetros.'],
-                summary: 'Altura inválida',
-                description: 'A altura está fora da faixa aceita ou ausente quando obrigatória.',
-            ),
-            'USER_WEIGHT_INVALID' => new ApiErrorExample(
-                message: 'O peso informado é inválido.',
-                details: ['weightKg' => 'O peso deve estar entre 20 e 300 quilogramas.'],
-                summary: 'Peso inválido',
-                description: 'O peso está fora da faixa aceita.',
-            ),
             'ONBOARDING_NO_MODALITY_SELECTED' => new ApiErrorExample(
                 message: 'Pelo menos uma modalidade deve ser selecionada.',
                 details: ['modalities' => 'É necessário selecionar ao menos uma modalidade.'],
@@ -111,9 +101,6 @@ final class OnboardingController extends AbstractController
             ),
         ],
         fields: [
-            'heightCm' => 'Altura em centímetros.',
-            'weightKg' => 'Peso em quilogramas.',
-            'photoUrl' => 'URL da foto de perfil.',
             'modalities' => 'Modalidades praticadas.',
             'primaryModality' => 'Modalidade principal.',
         ],
@@ -133,9 +120,6 @@ final class OnboardingController extends AbstractController
 
         $result = ($this->completeOnboardingHandler)(new CompleteOnboardingCommand(
             userId: $user->id(),
-            heightCm: $request->heightCm,
-            weightKg: $request->weightKg,
-            photoUrl: $request->photoUrl,
             modalities: array_map(
                 static fn (string $modality): Modality => Modality::from($modality),
                 $request->modalities,
@@ -150,7 +134,10 @@ final class OnboardingController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(static fn (User $updated): CurrentUserResponse => CurrentUserResponse::fromEntity($updated)),
+            $result->map(fn (User $updated): CurrentUserResponse => CurrentUserResponse::fromEntity(
+                user: $updated,
+                photoUrl: $this->photoStorage->url($updated->photoKey()),
+            )),
         );
     }
 }

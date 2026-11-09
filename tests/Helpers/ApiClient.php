@@ -6,6 +6,7 @@ namespace Tests\Helpers;
 
 use JsonException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
@@ -79,6 +80,27 @@ final readonly class ApiClient
     public function delete(string $route, array|object $payload = [], array $routeParams = [], array $server = []): Response
     {
         return $this->sendRequest($route, $payload, 'DELETE', $routeParams, $server);
+    }
+
+    /**
+     * Envia um POST multipart/form-data para a rota (em memória).
+     *
+     * @param array<string, UploadedFile|list<UploadedFile>> $files
+     * @param array<string, mixed>                           $parameters
+     * @param array<string, mixed>                           $routeParams
+     * @param array<string, mixed>                           $server
+     */
+    public function postMultipart(
+        string $route,
+        array $files = [],
+        array $parameters = [],
+        array $routeParams = [],
+        array $server = [],
+    ): Response {
+        $uri = $this->router->generate($route, $routeParams, UrlGeneratorInterface::ABSOLUTE_PATH);
+        $this->client->request('POST', $uri, $parameters, $files, $server);
+
+        return $this->client->getResponse();
     }
 
     /**

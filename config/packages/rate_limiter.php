@@ -72,6 +72,16 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:USER_ONBOARDING_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
+            'user_photo' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:USER_PHOTO_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'user_profile' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:USER_PROFILE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
         ],
     ]);
 

@@ -12,9 +12,6 @@ use Symfony\Component\HttpFoundation\Response;
 function onboardingTestPayload(array $overrides = []): array
 {
     return array_merge([
-        'heightCm' => 178,
-        'weightKg' => 75.5,
-        'photoUrl' => 'https://example.com/photo.jpg',
         'modalities' => ['corrida', 'caminhada'],
         'primaryModality' => 'corrida',
     ], $overrides);
@@ -33,9 +30,9 @@ it('completes onboarding and exposes the profile', function () {
 
     expect($data['level'])->toBe(2)
         ->and($data['onboardingStatus'])->toBe('COMPLETED')
-        ->and($data['heightCm'])->toBe(178)
-        ->and($data['weightKg'])->toEqual(75.5)
-        ->and($data['photoUrl'])->toBe('https://example.com/photo.jpg')
+        ->and($data['heightCm'])->toBeNull()
+        ->and($data['weightKg'])->toBeNull()
+        ->and($data['photoUrl'])->toBeNull()
         ->and($data['modalities'])->toBe(['caminhada', 'corrida'])
         ->and($data['primaryModality'])->toBe('corrida');
 
@@ -44,7 +41,6 @@ it('completes onboarding and exposes the profile', function () {
 
     expect($me->getStatusCode())->toBe(Response::HTTP_OK)
         ->and($meData['level'])->toBe(2)
-        ->and($meData['heightCm'])->toBe(178)
         ->and($meData['modalities'])->toBe(['caminhada', 'corrida']);
 });
 
@@ -91,22 +87,6 @@ it('rejects onboarding data violating business rules', function (array $payload,
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
         ->and($this->api->errorCodes())->toBe([$expectedCode]);
 })->with([
-    'height below the minimum' => [
-        ['heightCm' => 49, 'modalities' => ['corrida']],
-        'USER_HEIGHT_INVALID',
-    ],
-    'height above the maximum' => [
-        ['heightCm' => 251, 'modalities' => ['corrida']],
-        'USER_HEIGHT_INVALID',
-    ],
-    'weight below the minimum' => [
-        ['weightKg' => 19.9, 'modalities' => ['corrida']],
-        'USER_WEIGHT_INVALID',
-    ],
-    'weight above the maximum' => [
-        ['weightKg' => 300.1, 'modalities' => ['corrida']],
-        'USER_WEIGHT_INVALID',
-    ],
     'no modality selected' => [
         ['modalities' => []],
         'ONBOARDING_NO_MODALITY_SELECTED',

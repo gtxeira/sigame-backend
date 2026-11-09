@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Presentation\Http\Controller;
 
+use App\Identity\Application\Storage\ProfilePhotoStorageInterface;
 use App\Identity\Application\UseCase\AssignCpf\AssignCpfCommand;
 use App\Identity\Application\UseCase\AssignCpf\AssignCpfHandler;
 use App\Identity\Domain\User\Entity\User;
@@ -47,6 +48,7 @@ final class MeController extends AbstractController
 {
     public function __construct(
         private readonly AssignCpfHandler $assignCpfHandler,
+        private readonly ProfilePhotoStorageInterface $photoStorage,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.user_cpf')]
@@ -72,8 +74,13 @@ final class MeController extends AbstractController
         $securityUser = $this->getUser();
         assert($securityUser instanceof SecurityUser);
 
+        $user = $securityUser->user();
+
         return ApiResponse::ok(
-            CurrentUserResponse::fromEntity($securityUser->user()),
+            CurrentUserResponse::fromEntity(
+                user: $user,
+                photoUrl: $this->photoStorage->url($user->photoKey()),
+            ),
         )->toJsonResponse();
     }
 
@@ -147,7 +154,10 @@ final class MeController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(static fn (User $updated): CurrentUserResponse => CurrentUserResponse::fromEntity($updated)),
+            $result->map(fn (User $updated): CurrentUserResponse => CurrentUserResponse::fromEntity(
+                user: $updated,
+                photoUrl: $this->photoStorage->url($updated->photoKey()),
+            )),
         );
     }
 }

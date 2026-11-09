@@ -38,9 +38,6 @@ final readonly class CompleteOnboardingHandler
         }
 
         $user->completeOnboarding(
-            heightCm: $command->heightCm(),
-            weightKg: $command->weightKg(),
-            photoUrl: $command->photoUrl(),
             modalities: $command->modalities(),
             primaryModality: $command->primaryModality(),
         );

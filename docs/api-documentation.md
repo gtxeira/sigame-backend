@@ -11,7 +11,7 @@ Este documento registra as decisões de organização da documentação OpenAPI,
 A divisão das tags segue quatro critérios, nesta ordem de prioridade:
 
 1. **Recurso ou entidade de domínio (padrão REST).** Endpoints que manipulam o mesmo ciclo de vida de dados ficam juntos. Por isso `/users` e `/users/{id}` pertencem à mesma tag `Usuários` quando o CRUD administrativo existir.
-2. **Ciclo de vida e intenção de uso.** Ações do próprio usuário são separadas da gestão administrativa. Quando o ciclo de vida tem semântica própria — senha, verificação de e-mail, identidade social — ele ganha uma tag própria. `Minha conta` fica reservada aos dados do perfil (`/users/me` e `/users/me/cpf`).
+2. **Ciclo de vida e intenção de uso.** Ações do próprio usuário são separadas da gestão administrativa. Quando o ciclo de vida tem semântica própria — senha, verificação de e-mail, identidade social — ele ganha uma tag própria. `Minha conta` fica reservada aos dados do perfil (`/users/me`, `/users/me/cpf`, `/users/me/profile` e `/users/me/photo`).
 3. **Mecanismo de autenticação e segurança.** A emissão de credencial local fica em `Autenticação`; a rotação e a revogação dos tokens ficam em `Sessão`; o fluxo OAuth e o vínculo de identidades ficam em `Autenticação social`. Integrações com mecanismo próprio de autenticação (por exemplo, webhooks validados por assinatura HMAC) devem ter uma tag própria, como `Webhooks`.
 4. **Funcionalidades transversais ou de sistema.** Endpoints de infraestrutura e monitoramento ficam em `Saúde` e não se misturam com a lógica de negócio.
 
@@ -28,7 +28,7 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Autenticação social` | `/auth/social/{provider}/start`, `/auth/social/{provider}/callback`, `/auth/social/{provider}/link`, `/users/me/identities/{provider}` | Mecanismo de autenticação | Ciclo OAuth e vínculo de identidades sociais. |
 | `Verificação de e-mail` | `/auth/email/verify`, `/auth/email/verification/resend` | Ciclo de vida do recurso | Confirmação pública e reenvio autenticado do e-mail canônico. |
 | `Senha` | `/auth/password/forgot`, `/auth/password/reset`, `/users/me/password` | Ciclo de vida do recurso | Recuperação pública, redefinição por token e troca autenticada. |
-| `Minha conta` | `/users/me`, `/users/me/cpf` | Responsabilidade/intenção (self-service) | Dados do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
+| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo` | Responsabilidade/intenção (self-service) | Dados e foto do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |
 | `Usuários` (planejado) | `/users`, `/users/{id}` | Recurso/entidade de domínio (REST) | Mesmo agregado e ciclo de vida: coleção e item. Gestão global/administrativa. |
@@ -39,8 +39,8 @@ A tag `Usuários` ainda não aparece no documento gerado porque não existe endp
 ## 3. Decisão sobre `/users`
 
 - `/users` e `/users/{id}` compartilham a tag `Usuários`, pelo critério de recurso.
-- `/users/me` e `/users/me/cpf` ficam em `Minha conta`, pelo critério de intenção self-service.
-- As demais rotas `/users/me/*` ficam na tag do respectivo ciclo de vida: `POST /users/me/password` em `Senha`, `POST /users/me/identities/{provider}` em `Autenticação social` e `POST /users/me/onboarding` em `Onboarding`.
+- `/users/me`, `/users/me/cpf`, `/users/me/profile` e `/users/me/photo` ficam em `Minha conta`, pelo critério de intenção self-service.
+- As demais rotas `/users/me/*` ficam na tag do respectivo ciclo de vida: `POST /users/me/password` em `Senha`, `POST /users/me/identities/{provider}` em `Autenticação social` e `POST /users/me/onboarding` em `Onboarding`. O perfil e a foto permanecem em `Minha conta`.
 - A separação entre a coleção e o item não é feita por tag; as operações aparecem como entradas distintas dentro de `Usuários`.
 - Se no futuro a coleção e o item tiverem públicos ou ciclos de vida diferentes (por exemplo, `/users` restrito a administradores e `/users/{id}` self-service), a separação passa a ser justificada.
 - A rota `/users/me` precisa continuar sendo declarada antes de `/users/{id}` ou, preferencialmente, `{id}` deve ter um requirement que não aceite o literal `me`.
@@ -63,7 +63,7 @@ Toda tag documentada deve pertencer a exatamente um grupo, e todo grupo deve ref
 
 1. Classifique primeiro pelo ciclo de vida do recurso.
 2. Se a ação é entrada na conta com credencial local, use `Autenticação`; se gerencia a sessão, use `Sessão`; se é OAuth ou vínculo de identidade social, use `Autenticação social`.
-3. Se a ação pertence a um ciclo com semântica própria, use a tag do ciclo (`Senha`, `Verificação de e-mail`, `Onboarding`). `Minha conta` fica reservada aos dados do perfil (`/users/me`, `/users/me/cpf`).
+3. Se a ação pertence a um ciclo com semântica própria, use a tag do ciclo (`Senha`, `Verificação de e-mail`, `Onboarding`). `Minha conta` fica reservada aos dados e à foto do perfil (`/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo`).
 4. Se o mecanismo de autenticação é diferente do Bearer JWT, crie uma tag própria (por exemplo, `Webhooks`).
 5. Se o endpoint é de infraestrutura, monitoramento ou diagnóstico, use `Saúde`.
 6. Ao criar uma tag, adicione a descrição em `documentation.tags` e inclua-a em um grupo de `documentation.x-tagGroups`.
@@ -115,12 +115,17 @@ Summaries atuais, usados como referência:
 | `POST /auth/logout/all` | `Encerrar todas as sessões` |
 | `GET /users/me` | `Obter os dados do usuário autenticado` |
 | `PATCH /users/me/cpf` | `Definir o CPF do usuário autenticado` |
+| `PATCH /users/me/profile` | `Atualizar o perfil` |
+| `POST /users/me/photo` | `Alterar a foto de perfil` |
+| `DELETE /users/me/photo` | `Remover a foto de perfil` |
 | `GET /api/health/liveness` | `Verificar a execução da aplicação` |
 | `GET /api/health/readiness` | `Verificar a prontidão da aplicação` |
 
 A convenção vale apenas para summaries de operação. Descrição de operação continua em frase completa no presente, com ponto final. Descrição de resposta (`Dados do usuário autenticado.`) e descrição de campo (`E-mail do usuário.`) são frases nominais, porque descrevem resultado ou conteúdo, não uma ação.
 
 O teste `ApiDocumentationTest` verifica o formato do summary e a primeira palavra contra a lista de verbos aprovados.
+
+O upload de foto é documentado como `requestBody` `multipart/form-data`, com o campo `photo` no formato `binary`. O `PATCH /users/me/profile` documenta `422` para corpo vazio, nome inválido, tipo inválido e faixas de altura/peso.
 
 ## 7. Segurança na documentação
 

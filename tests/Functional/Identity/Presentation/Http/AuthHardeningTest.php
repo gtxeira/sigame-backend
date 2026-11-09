@@ -43,6 +43,24 @@ it('requires a bearer token on every protected account route', function (
     'password change' => ['app_me_password_change', []],
     'identity link' => ['app_me_identity_link', ['provider' => 'google']],
     'onboarding' => ['app_me_onboarding', []],
+    'photo upload' => ['app_me_photo_update', []],
+]);
+
+it('requires a bearer token on partial profile and photo removal routes', function (
+    string $method,
+    string $route,
+) {
+    $response = match ($method) {
+        'PATCH' => $this->api->patch($route),
+        'DELETE' => $this->api->delete($route),
+        default => throw new LogicException(sprintf('Método não suportado: %s.', $method)),
+    };
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNAUTHORIZED)
+        ->and($this->api->errorCodes())->toBe(['ACCESS_TOKEN_MISSING']);
+})->with([
+    'profile update' => ['PATCH', 'app_me_profile_update'],
+    'photo removal' => ['DELETE', 'app_me_photo_remove'],
 ]);
 
 it('authenticates an existing social identity without creating a duplicate account', function () {

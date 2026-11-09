@@ -6,8 +6,6 @@ use App\Identity\Application\UseCase\CompleteOnboarding\CompleteOnboardingComman
 use App\Identity\Application\UseCase\CompleteOnboarding\CompleteOnboardingHandler;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\OnboardingCompleted;
-use App\Identity\Domain\User\Exception\InvalidHeightException;
-use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
 use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
@@ -32,18 +30,16 @@ function completeOnboardingTestUser(): User
 /**
  * @param list<Modality> $modalities
  */
+/**
+ * @param list<Modality> $modalities
+ */
 function completeOnboardingTestCommand(
     User $user,
-    ?int $heightCm = 178,
-    ?float $weightKg = 75.5,
     array $modalities = [Modality::WALKING],
     ?Modality $primaryModality = null,
 ): CompleteOnboardingCommand {
     return new CompleteOnboardingCommand(
         userId: $user->id(),
-        heightCm: $heightCm,
-        weightKg: $weightKg,
-        photoUrl: null,
         modalities: $modalities,
         primaryModality: $primaryModality,
     );
@@ -89,8 +85,6 @@ it('completes onboarding and dispatches the domain event', function () {
         ->and($result->value())->toBe($user)
         ->and($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
         ->and($user->level()->value())->toBe(2)
-        ->and($user->height()?->centimeters())->toBe(178)
-        ->and($user->weight()?->kilograms())->toBe(75.5)
         ->and($user->modalities())->toBe([Modality::WALKING]);
 });
 
@@ -103,8 +97,6 @@ it('completes onboarding without optional profile data', function () {
 
     $result = ($this->handler)(completeOnboardingTestCommand(
         user: $user,
-        heightCm: null,
-        weightKg: null,
         modalities: [Modality::CYCLING],
     ));
 
@@ -121,9 +113,6 @@ it('throws when the authenticated user does not exist', function () {
 
     ($this->handler)(new CompleteOnboardingCommand(
         userId: UserId::generate(),
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::WALKING],
         primaryModality: null,
     ));
@@ -134,9 +123,6 @@ it('rejects onboarding data violating domain rules', function (array $overrides,
 
     if (true === ($overrides['preCompleted'] ?? false)) {
         $user->completeOnboarding(
-            heightCm: null,
-            weightKg: null,
-            photoUrl: null,
             modalities: [Modality::WALKING],
             primaryModality: null,
         );
@@ -146,35 +132,20 @@ it('rejects onboarding data violating domain rules', function (array $overrides,
     $this->userRepository->shouldNotReceive('save');
     $this->eventDispatcher->shouldNotReceive('dispatch');
 
-    $heightCm = $overrides['heightCm'] ?? null;
-    $weightKg = $overrides['weightKg'] ?? null;
     $modalities = $overrides['modalities'] ?? [Modality::WALKING];
     $primaryModality = $overrides['primaryModality'] ?? null;
 
-    assert(null === $heightCm || is_int($heightCm));
-    assert(null === $weightKg || is_float($weightKg));
     assert(is_array($modalities));
     assert(null === $primaryModality || $primaryModality instanceof Modality);
 
     $command = new CompleteOnboardingCommand(
         userId: $user->id(),
-        heightCm: $heightCm,
-        weightKg: $weightKg,
-        photoUrl: null,
         modalities: array_values($modalities),
         primaryModality: $primaryModality,
     );
 
     expect(fn () => ($this->handler)($command))->toThrow($exception);
 })->with([
-    'height below the minimum' => [
-        ['heightCm' => 49],
-        InvalidHeightException::class,
-    ],
-    'weight below the minimum' => [
-        ['weightKg' => 19.9],
-        InvalidWeightException::class,
-    ],
     'no modality selected' => [
         ['modalities' => []],
         OnboardingNoModalitySelectedException::class,

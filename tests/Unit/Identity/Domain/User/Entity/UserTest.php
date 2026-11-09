@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use App\Identity\Domain\User\Entity\User;
-use App\Identity\Domain\User\Exception\InvalidHeightException;
-use App\Identity\Domain\User\Exception\InvalidWeightException;
 use App\Identity\Domain\User\Exception\OnboardingAlreadyCompletedException;
 use App\Identity\Domain\User\Exception\OnboardingInvalidPrimaryModalityException;
 use App\Identity\Domain\User\Exception\OnboardingNoModalitySelectedException;
@@ -59,7 +57,7 @@ it('creates a new user via register factory method', function () {
         ->and($user->status())->toBe(UserStatus::ACTIVE)
         ->and($user->height())->toBeNull()
         ->and($user->weight())->toBeNull()
-        ->and($user->photoUrl())->toBeNull()
+        ->and($user->photoKey())->toBeNull()
         ->and($user->modalities())->toBe([])
         ->and($user->primaryModality())->toBeNull()
         ->and($user->isActive())->toBeTrue()
@@ -101,22 +99,15 @@ it('completes onboarding and advances to level 2', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        heightCm: 178,
-        weightKg: 75.5,
-        photoUrl: 'https://example.com/photo.jpg',
         modalities: [Modality::WALKING, Modality::RUNNING],
         primaryModality: Modality::WALKING,
     );
 
-    $height = $user->height();
-    $weight = $user->weight();
-
     expect($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
         ->and($user->level()->value())->toBe(2)
-        ->and($height?->centimeters())->toBe(178)
-        ->and($height?->meters())->toBe(1.78)
-        ->and($weight?->kilograms())->toBe(75.5)
-        ->and($user->photoUrl())->toBe('https://example.com/photo.jpg')
+        ->and($user->height())->toBeNull()
+        ->and($user->weight())->toBeNull()
+        ->and($user->photoKey())->toBeNull()
         ->and($user->modalities())->toBe([Modality::WALKING, Modality::RUNNING])
         ->and($user->primaryModality())->toBe(Modality::WALKING)
         ->and($user->hasModality(Modality::RUNNING))->toBeTrue()
@@ -127,9 +118,6 @@ it('completes onboarding without optional profile data', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::CYCLING],
         primaryModality: null,
     );
@@ -137,7 +125,7 @@ it('completes onboarding without optional profile data', function () {
     expect($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
         ->and($user->height())->toBeNull()
         ->and($user->weight())->toBeNull()
-        ->and($user->photoUrl())->toBeNull()
+        ->and($user->photoKey())->toBeNull()
         ->and($user->modalities())->toBe([Modality::CYCLING])
         ->and($user->primaryModality())->toBeNull();
 });
@@ -146,9 +134,6 @@ it('deduplicates modalities and keeps a deterministic order', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::RUNNING, Modality::WALKING, Modality::RUNNING],
         primaryModality: null,
     );
@@ -160,9 +145,6 @@ it('throws exception when completing onboarding without modalities', function ()
     $user = makeUser();
 
     $user->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [],
         primaryModality: null,
     );
@@ -172,53 +154,46 @@ it('throws exception when the primary modality is not selected', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::WALKING],
         primaryModality: Modality::RUNNING,
     );
 })->throws(OnboardingInvalidPrimaryModalityException::class);
 
-it('throws exception when height is below the minimum', function () {
+it('updates profile data while preserving the photo key', function () {
     $user = makeUser();
+    $user->changePhoto('users/'.$user->id()->value().'/photo.png');
 
-    $user->completeOnboarding(
-        heightCm: Height::MIN_CENTIMETERS - 1,
-        weightKg: null,
-        photoUrl: null,
-        modalities: [Modality::WALKING],
-        primaryModality: null,
+    $user->changeProfile(
+        $user->profile()
+            ->withName('Maria Silva')
+            ->withHeight(Height::fromCentimeters(165)->value())
+            ->withWeight(Weight::fromKilograms(62.5)->value()),
     );
-})->throws(InvalidHeightException::class);
 
-it('throws exception when weight is below the minimum', function () {
+    expect($user->name())->toBe('Maria Silva')
+        ->and($user->height()?->centimeters())->toBe(165)
+        ->and($user->weight()?->kilograms())->toBe(62.5)
+        ->and($user->photoKey())->toBe('users/'.$user->id()->value().'/photo.png');
+});
+
+it('removes the photo key', function () {
     $user = makeUser();
+    $user->changePhoto('users/photo.png');
 
-    $user->completeOnboarding(
-        heightCm: null,
-        weightKg: Weight::MIN_KILOGRAMS - 0.1,
-        photoUrl: null,
-        modalities: [Modality::WALKING],
-        primaryModality: null,
-    );
-})->throws(InvalidWeightException::class);
+    $user->changePhoto(null);
+
+    expect($user->photoKey())->toBeNull();
+});
 
 it('throws exception when completing onboarding twice', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
-        heightCm: 178,
-        weightKg: 75.5,
-        photoUrl: null,
         modalities: [Modality::WALKING],
         primaryModality: null,
     );
 
     $user->completeOnboarding(
-        heightCm: 180,
-        weightKg: 80.0,
-        photoUrl: null,
         modalities: [Modality::RUNNING],
         primaryModality: null,
     );
@@ -230,9 +205,6 @@ it('can create group after completing onboarding (level 2)', function () {
     expect($user->canCreateGroup())->toBeFalse();
 
     $user->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::WALKING],
         primaryModality: null,
     );

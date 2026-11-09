@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
+use App\Identity\Domain\User\ValueObject\Height;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
+use App\Identity\Domain\User\ValueObject\Weight;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Modality;
@@ -37,11 +39,14 @@ it('persists and reloads profile data and modalities', function () {
     );
 
     $user->completeOnboarding(
-        heightCm: 165,
-        weightKg: 62.5,
-        photoUrl: 'https://example.com/maria.jpg',
         modalities: [Modality::RUNNING, Modality::WALKING],
         primaryModality: Modality::RUNNING,
+    );
+    $user->changePhoto('users/maria/photo.png');
+    $user->changeProfile(
+        $user->profile()
+            ->withHeight(Height::fromCentimeters(165)->value())
+            ->withWeight(Weight::fromKilograms(62.5)->value()),
     );
 
     $repository->save($user);
@@ -57,7 +62,7 @@ it('persists and reloads profile data and modalities', function () {
     expect($height?->centimeters())->toBe(165)
         ->and($height?->meters())->toBe(1.65)
         ->and($weight?->kilograms())->toBe(62.5)
-        ->and($found->photoUrl())->toBe('https://example.com/maria.jpg')
+        ->and($found->photoKey())->toBe('users/maria/photo.png')
         ->and($found->name())->toBe('Maria Silva')
         ->and($found->email()->value())->toBe('persist@example.com')
         ->and($found->password()?->value())->toBe('hashed_password_123')
@@ -89,7 +94,7 @@ it('reloads a user without onboarding data', function () {
 
     expect($found->height())->toBeNull()
         ->and($found->weight())->toBeNull()
-        ->and($found->photoUrl())->toBeNull()
+        ->and($found->photoKey())->toBeNull()
         ->and($found->modalities())->toBe([])
         ->and($found->primaryModality())->toBeNull();
 });
@@ -106,9 +111,6 @@ it('allows only one primary modality per user', function () {
     );
 
     $user->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::WALKING],
         primaryModality: Modality::WALKING,
     );
@@ -144,9 +146,6 @@ it('persists updatedAt equal to createdAt and advances it after changes', functi
         ->and($found->updatedAt()->equals($found->createdAt()))->toBeTrue();
 
     $found->completeOnboarding(
-        heightCm: null,
-        weightKg: null,
-        photoUrl: null,
         modalities: [Modality::WALKING],
         primaryModality: null,
     );

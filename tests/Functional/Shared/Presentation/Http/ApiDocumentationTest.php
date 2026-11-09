@@ -255,6 +255,8 @@ it('documents every public api operation', function () {
             '/api/v1/users/me/cpf',
             '/api/v1/users/me/identities/{provider}',
             '/api/v1/users/me/onboarding',
+            '/api/v1/users/me/profile',
+            '/api/v1/users/me/photo',
             '/api/v1/auth/email/verification/resend',
             '/api/v1/users/me/password',
             '/api/health/liveness',

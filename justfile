@@ -52,6 +52,12 @@ worker:
 messenger-failed:
     @{{ _php }} php bin/console messenger:failed:show
 
+# Habilita leitura pública (website) do bucket de fotos no Garage local
+[group('Docker')]
+storage-setup:
+    @{{ _exec }} garage /garage bucket website --allow profile-images
+    @{{ _exec }} garage /garage bucket info profile-images
+
 # Shell sh no container PHP
 [group('Docker')]
 sh:
