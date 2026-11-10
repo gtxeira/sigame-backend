@@ -306,6 +306,33 @@ final class IdentityErrors
         );
     }
 
+    public static function userNotFound(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::UserNotFound,
+            message: 'Usuário não encontrado.',
+            field: 'id',
+        );
+    }
+
+    public static function cannotSuspendAdmin(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::CannotSuspendAdmin,
+            message: 'Contas de administração SIGAME não podem ser suspensas por este endpoint.',
+            field: 'id',
+        );
+    }
+
+    public static function suspensionReasonInvalid(int $minimum, int $maximum): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::SuspensionReasonInvalid,
+            message: sprintf('O motivo deve ter entre %d e %d caracteres.', $minimum, $maximum),
+            field: 'reason',
+        );
+    }
+
     private static function error(
         IdentityErrorCode $code,
         string $message,

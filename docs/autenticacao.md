@@ -43,7 +43,7 @@ Claims:
 | `jti` | Identificador único do token |
 | `iat` / `nbf` / `exp` | Janela de validade |
 
-O access token é validado a cada requisição. O usuário é recarregado do banco, então uma suspensão passa a valer imediatamente. Não existe lista de access tokens revogados; eles expiram em até 15 minutos.
+O access token é validado a cada requisição. O usuário é recarregado do banco, então uma suspensão passa a valer imediatamente. Não existe lista de access tokens revogados; eles expiram em até 15 minutos. A suspensão administrativa também revoga todas as famílias de refresh tokens, então a sessão não pode ser retomada após a reativação: o usuário precisa autenticar novamente.
 
 Rotas públicas (`login`, `refresh`, `logout`, `register`, `email`, `password` e `social`) **ignoram** o header `Authorization`. Um access token antigo ou malformado no cliente não impede que essas rotas sejam executadas; apenas rotas protegidas falham com `ACCESS_TOKEN_MISSING`, `ACCESS_TOKEN_INVALID` ou `ACCESS_TOKEN_EXPIRED`.
 

@@ -289,7 +289,7 @@ it('rejects an unverified provider email', function () {
 
 it('rejects a link for a suspended account', function () {
     $user = linkFlowTestUser();
-    $user->suspend('fraud');
+    $user->suspend();
 
     ['handler' => $handler, 'users' => $users, 'flows' => $flows] = linkFlowTestHandler();
 

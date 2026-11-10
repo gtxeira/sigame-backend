@@ -63,7 +63,12 @@ Nunca coloque segredos reais em `.env`. Use `.env.local` (ignorado pelo Git) ou 
 | `HTTPS_PORT` | `8443` | Porta HTTPS publicada |
 | `HTTP3_PORT` | `8443` | Porta UDP do HTTP/3 |
 | `CORS_ALLOW_ORIGINS` | `https://sigame.com.br` | Regex de origens permitidas com credenciais |
-| `CADDY_MERCURE_JWT_SECRET` | — | Segredo do hub Mercure do template |
+| `CADDY_MERCURE_JWT_SECRET` | — | Segredo compartilhado pelo hub Mercure e pela aplicação |
+| `MERCURE_URL` | `http://php/.well-known/mercure` | URL interna de publicação |
+| `MERCURE_PUBLIC_URL` | `https://${SERVER_NAME}:${HTTPS_PORT}/.well-known/mercure` | URL pública do SSE |
+| `MERCURE_JWT_SECRET` | `${CADDY_MERCURE_JWT_SECRET}` | Segredo dos JWTs do Mercure |
+| `MERCURE_TOPIC_BASE` | `https://sigame.app/notifications` | Namespace lógico dos tópicos privados por usuário |
+| `MERCURE_SUBSCRIBER_TOKEN_TTL` | `900` | Tempo de vida do token de assinatura do sino |
 
 ### 3.2 Banco de dados
 
@@ -164,7 +169,7 @@ Em produção com múltiplas instâncias, prefira um store compartilhado (por ex
 
 - O transporte `async` usa a tabela `messenger_messages`, criada pela migration `Version20261106100000`; `auto_setup` fica desativado.
 - O transporte `failed` usa a mesma tabela com `queue_name=failed`.
-- O worker roda `php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just worker` executa manualmente e `just worker-logs` acompanha o serviço.
+- O worker roda `php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M`. Ele consome e-mails de identidade, criação de notificações e entregas externas. Em desenvolvimento, `just worker` executa manualmente e `just worker-logs` acompanha o serviço.
 - O scheduler roda `php bin/console messenger:consume scheduler_activities scheduler_gamification --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just scheduler` executa manualmente e `just scheduler-logs` acompanha o serviço. Se ele estiver parado, o fechamento automático de atividades e o deleveling atrasam.
 - A integridade do XP é conferida com `just sf app:gamification:audit-ledger` (somente leitura) e reparada com `--repair`. O comando alinha `user_progress` e `users.level` ao ledger, sem gravar evento de XP. A projeção isolada pode ser corrigida com `just sf app:gamification:check-level-projection --repair`.
 - Inspecione a fila de falhas com `just messenger-failed` (`messenger:failed:show`). Mensagens de reset nessa fila já tiveram o token consumido: remova-as, não faça retry.
@@ -219,7 +224,8 @@ Em produção:
 - O cookie de refresh é `HttpOnly` e restrito a `/api/v1/auth`.
 - O banco de produção deve ter backup e usuário com privilégios mínimos.
 - O rate limiter precisa de storage compartilhado quando houver mais de uma instância.
-- O hub Mercure e o Vulcain vêm do template, mas ainda não são usados pela aplicação.
+- O hub Mercure é usado pelo sino: a aplicação publica em tópicos privados e emite tokens de assinatura de curta duração. O Vulcain continua sem uso.
+- O CORS do hub deve liberar a origem do frontend (diretiva `cors_origins` em `MERCURE_EXTRA_DIRECTIVES` ou no proxy), pois o SSE não passa pelo NelmioCors.
 - O hub usa as diretivas `publisher_jwt`/`subscriber_jwt` (formato 0.x); o FrankenPHP atual exige `protocol_version_compatibility 8` no bloco `mercure` do `frankenphp/Caddyfile`. A tag `dunglas/frankenphp:1-php8.5` é flutuante, então um rebuild pode trazer mudanças de diretiva — fixe a versão se precisar de estabilidade.
 
 ## 8. Referências oficiais

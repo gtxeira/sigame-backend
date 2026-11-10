@@ -2,13 +2,15 @@
 
 > **Status:** Em revisão
 >
-> **Versão:** 0.6
+> **Versão:** 0.7
 >
-> **Última atualização:** 2026-11-09
+> **Última atualização:** 2026-11-10
 >
 > **Fonte:** levantamento inicial, especificação de requisitos e proposta arquitetural do SIGAME.
 
-> **Escopo deste documento:** requisitos de produto (RF, RN, CA). O estado da implementação, o roadmap e as decisões ainda abertas ficam em [../implementacao.md](../implementacao.md). As decisões já tomadas e o porquê ficam em [../decisoes.md](../decisoes.md).
+> **Escopo deste documento:** requisitos de produto (RF, RN, CA). O estado da implementação, o roadmap e as decisões
+> ainda abertas ficam em [../implementacao.md](../implementacao.md). As decisões já tomadas e o porquê ficam
+> em [../decisoes.md](../decisoes.md).
 
 ---
 
@@ -107,28 +109,31 @@ administrativos globais.
 
 ### 3.2 Matriz inicial de permissões
 
-| Operação                              |       Usuário | Admin. do grupo |                  Supervisor | Administração SIGAME |
-|---------------------------------------|--------------:|----------------:|----------------------------:|---------------------:|
-| Editar próprio perfil                 |           Sim |             Sim |                         Sim |                  Sim |
-| Criar grupo                           | Se habilitado |             Sim |               Se habilitado |                  Sim |
-| Solicitar entrada em grupo            |           Sim |             Sim |                         Sim |                  Sim |
-| Aprovar entrada                       |           Não |             Sim | Não, salvo delegação futura |                  Sim |
-| Remover membro do grupo               |           Não |             Sim |                         Não |                  Sim |
-| Promover/rebaixar administrador       |           Não |             Sim |                         Não |                  Sim |
-| Criar atividade                       |           Não |             Sim |                         Não |                  Sim |
-| Editar/remarcar atividade             |           Não |             Sim |                         Não |                  Sim |
-| Cancelar atividade                    |           Não |             Sim |                         Não |                  Sim |
-| Iniciar/finalizar atividade           |           Não |             Sim |                         Sim |                  Sim |
-| Invalidar atividade                   |           Não |             Sim |                         Não |                  Sim |
-| Inscrever-se em atividade             |           Sim |             Sim |                         Sim |                  Sim |
-| Check-in próprio                      |           Sim |             Sim |                         Sim |                  Sim |
-| Validar presença                      |           Não |             Sim |                         Sim |                  Sim |
-| Listar presenças                      |           Não |             Sim |                         Sim |                  Sim |
-| Ver histórico de remarcações           |           Não |             Sim |                         Não |                  Sim |
-| Suspender conta globalmente           |           Não |             Não |                         Não |                  Sim |
-| Consultar denúncias globais           |           Não |             Não |                         Não |                  Sim |
-| Criar recompensa interna              |           Não |             Sim |                    Pendente |                  Sim |
-| Gerenciar patrocinadores e benefícios |           Não |             Não |                         Não |                  Sim |
+| Operação                                |       Usuário | Admin. do grupo |                  Supervisor | Administração SIGAME |
+|-----------------------------------------|--------------:|----------------:|----------------------------:|---------------------:|
+| Editar próprio perfil                   |           Sim |             Sim |                         Sim |                  Sim |
+| Criar grupo                             | Se habilitado |             Sim |               Se habilitado |                  Sim |
+| Solicitar entrada em grupo              |           Sim |             Sim |                         Sim |                  Sim |
+| Aprovar entrada                         |           Não |             Sim | Não, salvo delegação futura |                  Sim |
+| Remover membro do grupo                 |           Não |             Sim |                         Não |                  Sim |
+| Promover/rebaixar administrador         |           Não |             Sim |                         Não |                  Sim |
+| Criar atividade                         |           Não |             Sim |                         Não |                  Sim |
+| Editar/remarcar atividade               |           Não |             Sim |                         Não |                  Sim |
+| Cancelar atividade                      |           Não |             Sim |                         Não |                  Sim |
+| Iniciar/finalizar atividade             |           Não |             Sim |                         Sim |                  Sim |
+| Invalidar atividade                     |           Não |             Sim |                         Não |                  Sim |
+| Inscrever-se em atividade               |           Sim |             Sim |                         Sim |                  Sim |
+| Check-in próprio                        |           Sim |             Sim |                         Sim |                  Sim |
+| Validar presença                        |           Não |             Sim |                         Sim |                  Sim |
+| Listar presenças                        |           Não |             Sim |                         Sim |                  Sim |
+| Ver histórico de remarcações            |           Não |             Sim |                         Não |                  Sim |
+| Listar e consultar contas               |           Não |             Não |                         Não |                  Sim |
+| Suspender conta globalmente             |           Não |             Não |                         Não |                  Sim |
+| Reativar conta globalmente              |           Não |             Não |                         Não |                  Sim |
+| Consultar notificações próprias         |           Sim |             Sim |                         Sim |                  Sim |
+| Marcar notificações próprias como lidas |           Sim |             Sim |                         Sim |                  Sim |
+| Criar recompensa interna                |           Não |             Sim |                    Pendente |                  Sim |
+| Gerenciar patrocinadores e benefícios   |           Não |             Não |                         Não |                  Sim |
 
 > Os poderes de atividade do supervisor foram fechados no `ADR-027`: ele opera a atividade no dia
 > (check-in, validação/lista de presenças, início e finalização), mas não cria, edita, remarca, cancela,
@@ -141,7 +146,8 @@ administrativos globais.
 
 ### RF01 — Cadastrar usuário
 
-O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastrais mínimos. O CPF é opcional no cadastro.
+O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastrais mínimos. O CPF é opcional no
+cadastro.
 
 #### Regras
 
@@ -153,10 +159,14 @@ O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastr
 - `RN01.6` Peso e altura são opcionais.
 - `RN01.7` Peso e altura não podem impedir o acesso às funcionalidades sociais.
 - `RN01.8` Todo usuário novo inicia no nível 1.
-- `RN01.9` O CPF pode ser definido depois do cadastro, por endpoint autenticado. Uma vez definido, é **write-once**: o próprio usuário não pode alterá-lo.
+- `RN01.9` O CPF pode ser definido depois do cadastro, por endpoint autenticado. Uma vez definido, é **write-once**: o
+  próprio usuário não pode alterá-lo.
 - `RN01.10` O cadastro por provedor social cria a conta sem senha local e sem CPF, com onboarding pendente e nível 1.
-- `RN01.11` Quando o provedor confirma `email_verified=true` e o e-mail já pertence a uma conta **sem senha local**, a identidade social é vinculada a essa conta em vez de criar uma duplicata. Se a conta existente tiver senha local, o vínculo só ocorre após o usuário autenticar na conta e confirmar a vinculação.
-- `RN01.12` O CPF é exigido apenas para resgatar recompensas/vouchers externos à plataforma, como comprovação de identidade real e prevenção de ganhos indevidos.
+- `RN01.11` Quando o provedor confirma `email_verified=true` e o e-mail já pertence a uma conta **sem senha local**, a
+  identidade social é vinculada a essa conta em vez de criar uma duplicata. Se a conta existente tiver senha local, o
+  vínculo só ocorre após o usuário autenticar na conta e confirmar a vinculação.
+- `RN01.12` O CPF é exigido apenas para resgatar recompensas/vouchers externos à plataforma, como comprovação de
+  identidade real e prevenção de ganhos indevidos.
 
 #### Critérios de aceitação
 
@@ -171,18 +181,21 @@ O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastr
 
 ### RF02 — Autenticar usuário
 
-O sistema deve autenticar o usuário por e-mail/senha ou por provedor social (Google nesta entrega) e manter sua sessão conforme o perfil e o estado da conta.
+O sistema deve autenticar o usuário por e-mail/senha ou por provedor social (Google nesta entrega) e manter sua sessão
+conforme o perfil e o estado da conta.
 
 #### Regras
 
 - `RN02.1` Conta suspensa não pode iniciar uma nova sessão.
 - `RN02.2` A autenticação deve identificar o usuário responsável pela operação.
 - `RN02.3` Operações protegidas devem verificar a autorização no backend, mesmo que a interface oculte controles.
-- `RN02.4` A sessão usa um **access token JWT** de curta duração (15 minutos) e um **refresh token opaco** de alta entropia (7 dias), este último em cookie `HttpOnly`.
+- `RN02.4` A sessão usa um **access token JWT** de curta duração (15 minutos) e um **refresh token opaco** de alta
+  entropia (7 dias), este último em cookie `HttpOnly`.
 - `RN02.5` A cada renovação, o refresh token é rotacionado dentro da mesma família; o token anterior é revogado.
 - `RN02.6` O reuso de um refresh token revogado fora da janela de graça revoga toda a família.
 - `RN02.7` O logout revoga a família do cookie; o logout de todos os dispositivos revoga todas as famílias.
-- `RN02.8` No login social, o e-mail deve estar verificado pelo provedor; o vínculo automático só ocorre quando a conta existente não tem senha local. Contas com senha local exigem autenticação e vínculo explícito.
+- `RN02.8` No login social, o e-mail deve estar verificado pelo provedor; o vínculo automático só ocorre quando a conta
+  existente não tem senha local. Contas com senha local exigem autenticação e vínculo explícito.
 - `RN02.9` O refresh token nunca é retornado no corpo da resposta; o access token nunca é armazenado em cookie.
 
 #### Critérios de aceitação
@@ -239,12 +252,12 @@ Usuários habilitados devem poder criar grupos esportivos.
 
 #### Campos do grupo
 
-| Campo | Obrigatório | Regra |
-|---|---|---|
-| `name` | Sim | 3 a 80 caracteres, com espaços removidos das pontas |
-| `description` | Não | até 500 caracteres |
-| `modality` | Sim | `caminhada`, `corrida` ou `ciclismo` |
-| `communicationLink` | Não | URL `http` ou `https`, até 2048 caracteres, visível apenas para membros aprovados |
+| Campo               | Obrigatório | Regra                                                                             |
+|---------------------|-------------|-----------------------------------------------------------------------------------|
+| `name`              | Sim         | 3 a 80 caracteres, com espaços removidos das pontas                               |
+| `description`       | Não         | até 500 caracteres                                                                |
+| `modality`          | Sim         | `caminhada`, `corrida` ou `ciclismo`                                              |
+| `communicationLink` | Não         | URL `http` ou `https`, até 2048 caracteres, visível apenas para membros aprovados |
 
 #### Regras
 
@@ -378,22 +391,24 @@ O sistema deve permitir criar e manter atividades vinculadas a grupos ativos.
 
 #### Campos da atividade
 
-| Campo | Obrigatório | Regra |
-|---|---|---|
-| `title` | Sim | 3 a 100 caracteres, com espaços removidos das pontas |
-| `description` | Não | até 500 caracteres |
-| `startsAt` | Sim | data/hora de início em ISO 8601 com offset, no futuro |
-| `estimatedDurationMinutes` | Não | duração média estimada, de 15 a 1440 minutos |
-| `meetingPoint` | Sim | 3 a 255 caracteres |
-| `route` | Sim | ponto final ou trajeto, 3 a 500 caracteres |
-| `estimatedDistanceMeters` | Sim | inteiro entre 1 e 1.000.000 |
-| `group` | Sim | grupo `ACTIVE` ou `FULL` no momento da criação |
+| Campo                      | Obrigatório | Regra                                                 |
+|----------------------------|-------------|-------------------------------------------------------|
+| `title`                    | Sim         | 3 a 100 caracteres, com espaços removidos das pontas  |
+| `description`              | Não         | até 500 caracteres                                    |
+| `startsAt`                 | Sim         | data/hora de início em ISO 8601 com offset, no futuro |
+| `estimatedDurationMinutes` | Não         | duração média estimada, de 15 a 1440 minutos          |
+| `meetingPoint`             | Sim         | 3 a 255 caracteres                                    |
+| `route`                    | Sim         | ponto final ou trajeto, 3 a 500 caracteres            |
+| `estimatedDistanceMeters`  | Sim         | inteiro entre 1 e 1.000.000                           |
+| `group`                    | Sim         | grupo `ACTIVE` ou `FULL` no momento da criação        |
 
 #### Regras
 
-- `RN09.1` Apenas administrador do grupo ou administrador SIGAME pode criar, editar, remarcar, cancelar e invalidar atividade.
+- `RN09.1` Apenas administrador do grupo ou administrador SIGAME pode criar, editar, remarcar, cancelar e invalidar
+  atividade.
 - `RN09.2` A atividade deve pertencer a um grupo com pelo menos 3 membros aprovados no momento da criação.
-- `RN09.3` Supervisor pode iniciar, finalizar, validar e listar presenças, mas não pode criar, editar, remarcar, cancelar nem invalidar.
+- `RN09.3` Supervisor pode iniciar, finalizar, validar e listar presenças, mas não pode criar, editar, remarcar,
+  cancelar nem invalidar.
 - `RN09.4` Alterações relevantes devem gerar alerta interno.
 - `RN09.5` GPS não é obrigatório na V1.
 - `RN09.6` Atividade cancelada não pode ser iniciada.
@@ -401,16 +416,19 @@ O sistema deve permitir criar e manter atividades vinculadas a grupos ativos.
 - `RN09.8` Atividade cancelada ou invalidada não gera XP.
 - `RN09.9` A janela operacional de início, check-in, finalização e validação segue o `ADR-025`.
 - `RN09.10` O criador não é inscrito automaticamente na atividade.
-- `RN09.11` Atividades e dados de encontro são visíveis apenas para membros aprovados do grupo; administradores SIGAME podem consultar para moderação.
+- `RN09.11` Atividades e dados de encontro são visíveis apenas para membros aprovados do grupo; administradores SIGAME
+  podem consultar para moderação.
 - `RN09.12` A remarcação só é permitida em atividade agendada e preserva a janela anterior em histórico append-only.
 - `RN09.13` O cancelamento só é permitido em atividade agendada, com motivo opcional.
 - `RN09.14` A invalidação só é permitida em atividade iniciada ou finalizada, por administrador, com motivo obrigatório.
 - `RN09.15` Quando `estimatedDurationMinutes` é omitido, a janela de planejamento usa 120 minutos.
-- `RN09.16` Atividade iniciada com duração informada fecha automaticamente após a duração somada a uma tolerância de 50%, com mínimo de 15 e máximo de 240 minutos.
+- `RN09.16` Atividade iniciada com duração informada fecha automaticamente após a duração somada a uma tolerância de
+  50%, com mínimo de 15 e máximo de 240 minutos.
 - `RN09.17` Atividade iniciada sem duração informada fecha automaticamente após 12 horas.
 - `RN09.18` Atividade não iniciada é cancelada automaticamente após 3 horas do início previsto.
 - `RN09.19` O fechamento automático é idempotente e não substitui a finalização explícita.
-- `RN09.20` Se o grupo cair para `FORMING`, atividades já criadas continuam válidas; apenas novas criações são bloqueadas.
+- `RN09.20` Se o grupo cair para `FORMING`, atividades já criadas continuam válidas; apenas novas criações são
+  bloqueadas.
 
 #### Critérios de aceitação
 
@@ -458,7 +476,8 @@ stateDiagram-v2
 
 ### RF10 — Inscrever-se, fazer check-in e validar presença
 
-O participante deve poder se inscrever, registrar seu check-in e ter a presença validada por administrador ou supervisor.
+O participante deve poder se inscrever, registrar seu check-in e ter a presença validada por administrador ou
+supervisor.
 
 #### Regras
 
@@ -474,7 +493,8 @@ O participante deve poder se inscrever, registrar seu check-in e ter a presença
 - `RN10.10` Somente presença validada gera XP.
 - `RN10.11` Uma presença validada não pode gerar XP novamente.
 - `RN10.12` A validação exige check-in prévio.
-- `RN10.13` A validação só é permitida após a finalização e o fechamento do check-in, em até 48 horas após a finalização.
+- `RN10.13` A validação só é permitida após a finalização e o fechamento do check-in, em até 48 horas após a
+  finalização.
 - `RN10.14` A atividade só é elegível a XP com pelo menos 2 participantes com check-in.
 - `RN10.15` A validação pode ocorrer com menos de 2 check-ins, mas o evento indica `xpEligible=false`.
 
@@ -540,7 +560,8 @@ treino diário sem planejamento.
 - `RN12.4` Participação em atividade só gera XP após validação da presença.
 - `RN12.5` O sistema registra XP por atividade, bônus de grupo, fim de semana e ofensiva semanal.
 - `RN12.6` O histórico de XP não deve ser perdido ao trocar a modalidade principal.
-- `RN12.7` A atividade precisa estar finalizada, não cancelada/invalidada e ter pelo menos 2 check-ins para ser elegível a XP.
+- `RN12.7` A atividade precisa estar finalizada, não cancelada/invalidada e ter pelo menos 2 check-ins para ser elegível
+  a XP.
 - `RN12.8` O evento `AttendanceValidated` informa `xpEligible`; a Gamification não deve conceder XP quando for falso.
 - `RN12.9` Invalidação posterior de atividade com XP exige evento de reversão com os usuários validados.
 
@@ -548,15 +569,17 @@ treino diário sem planejamento.
 
 O sistema mantém duas grandezas distintas:
 
-| Grandeza | Definição | Pode diminuir? | Uso |
-|---|---|---|---|
+| Grandeza                        | Definição                                | Pode diminuir?                                                           | Uso                                      |
+|---------------------------------|------------------------------------------|--------------------------------------------------------------------------|------------------------------------------|
 | **XP vitalício** (`xpLifetime`) | Soma de todo XP conquistado pelo usuário | Apenas quando uma atividade que gerou XP é invalidada e o XP é estornado | Histórico, fidelidade e recálculo futuro |
-| **Saldo de XP** (`xpBalance`) | XP atual do usuário | Sim, por deleveling e por estorno | Nível, barra e progresso |
+| **Saldo de XP** (`xpBalance`)   | XP atual do usuário                      | Sim, por deleveling e por estorno                                        | Nível, barra e progresso                 |
 
 - `RN12.10` O nível é derivado do saldo de XP. O XP vitalício não define o nível.
 - `RN12.11` Deleveling reduz o saldo e o nível, mas **não reduz o XP vitalício**.
-- `RN12.12` O estorno por invalidação de atividade reduz os dois, porque a atividade deixou de existir como conquista válida.
-- `RN12.13` O XP não é armazenado apenas como um número agregado: cada concessão, estorno e penalidade gera um lançamento no histórico de XP.
+- `RN12.12` O estorno por invalidação de atividade reduz os dois, porque a atividade deixou de existir como conquista
+  válida.
+- `RN12.13` O XP não é armazenado apenas como um número agregado: cada concessão, estorno e penalidade gera um
+  lançamento no histórico de XP.
 
 #### Curva de níveis
 
@@ -565,17 +588,17 @@ A curva é triangular e cumulativa:
 `T(n) = 50 × n × (n − 1)`
 
 | Nível | XP acumulado necessário | XP para o próximo nível |
-|---:|---:|---:|
-| 1 | 0 | 100 |
-| 2 | 100 | 200 |
-| 3 | 300 | 300 |
-| 4 | 600 | 400 |
-| 5 | 1.000 | 500 |
-| 6 | 1.500 | 600 |
-| 7 | 2.100 | 700 |
-| 8 | 2.800 | 800 |
-| 9 | 3.600 | 900 |
-| 10 | 4.500 | — |
+|------:|------------------------:|------------------------:|
+|     1 |                       0 |                     100 |
+|     2 |                     100 |                     200 |
+|     3 |                     300 |                     300 |
+|     4 |                     600 |                     400 |
+|     5 |                   1.000 |                     500 |
+|     6 |                   1.500 |                     600 |
+|     7 |                   2.100 |                     700 |
+|     8 |                   2.800 |                     800 |
+|     9 |                   3.600 |                     900 |
+|    10 |                   4.500 |                       — |
 
 - `RN12.14` Todo usuário novo começa no nível 1 com 0 XP.
 - `RN12.15` A conclusão do onboarding concede **100 XP uma única vez**, colocando o usuário no nível 2.
@@ -586,17 +609,17 @@ A curva é triangular e cumulativa:
 
 #### Fontes de XP
 
-| Fonte | Quando é concedida | Valor | Limite |
-|---|---|---|---|
-| Atividade validada | Presença validada com `xpEligible=true` | Fórmula da atividade | 100 XP por atividade |
-| Bônus de grupo | Atividade com 3–4 check-ins ou 5 check-ins | +10 ou +15 | Por atividade |
-| Bônus de fim de semana | Atividade iniciada em sábado ou domingo | ×1,2 no XP de atividade | Por atividade |
-| Início de semana | Primeira atividade válida da semana | +10 | 1 vez por semana |
-| Meta semanal | Segunda atividade válida da semana | 20 a 50 XP, conforme a sequência | 1 vez por semana |
-| Onboarding | Conclusão válida do onboarding | +100 | 1 vez por usuário |
-| Estorno | Invalidação de atividade | Negativo | Por lançamento estornado |
-| Decay | Inatividade após a tolerância | Negativo | Por período de 2 dias |
-| Bônus de fidelidade | Recálculo de regra | Positivo | 1 vez por versão de regra |
+| Fonte                  | Quando é concedida                         | Valor                            | Limite                    |
+|------------------------|--------------------------------------------|----------------------------------|---------------------------|
+| Atividade validada     | Presença validada com `xpEligible=true`    | Fórmula da atividade             | 100 XP por atividade      |
+| Bônus de grupo         | Atividade com 3–4 check-ins ou 5 check-ins | +10 ou +15                       | Por atividade             |
+| Bônus de fim de semana | Atividade iniciada em sábado ou domingo    | ×1,2 no XP de atividade          | Por atividade             |
+| Início de semana       | Primeira atividade válida da semana        | +10                              | 1 vez por semana          |
+| Meta semanal           | Segunda atividade válida da semana         | 20 a 50 XP, conforme a sequência | 1 vez por semana          |
+| Onboarding             | Conclusão válida do onboarding             | +100                             | 1 vez por usuário         |
+| Estorno                | Invalidação de atividade                   | Negativo                         | Por lançamento estornado  |
+| Decay                  | Inatividade após a tolerância              | Negativo                         | Por período de 2 dias     |
+| Bônus de fidelidade    | Recálculo de regra                         | Positivo                         | 1 vez por versão de regra |
 
 Não geram XP:
 
@@ -630,36 +653,36 @@ depois; o teto de 100 é o último passo.
 ##### Base por modalidade
 
 | Modalidade | XP base |
-|---|---:|
-| Caminhada | 20 |
-| Corrida | 25 |
-| Ciclismo | 30 |
+|------------|--------:|
+| Caminhada  |      20 |
+| Corrida    |      25 |
+| Ciclismo   |      30 |
 
 ##### Faixas de distância
 
-| Modalidade | Faixa | Bônus |
-|---|---|---:|
-| Caminhada | até 2 km | 0 |
-| Caminhada | acima de 2 km até 5 km | +10 |
-| Caminhada | acima de 5 km até 10 km | +15 |
-| Caminhada | acima de 10 km | +20 |
-| Corrida | até 3 km | 0 |
-| Corrida | acima de 3 km até 6 km | +10 |
-| Corrida | acima de 6 km até 10 km | +15 |
-| Corrida | acima de 10 km | +20 |
-| Ciclismo | até 10 km | 0 |
-| Ciclismo | acima de 10 km até 20 km | +10 |
-| Ciclismo | acima de 20 km até 40 km | +15 |
-| Ciclismo | acima de 40 km | +20 |
+| Modalidade | Faixa                    | Bônus |
+|------------|--------------------------|------:|
+| Caminhada  | até 2 km                 |     0 |
+| Caminhada  | acima de 2 km até 5 km   |   +10 |
+| Caminhada  | acima de 5 km até 10 km  |   +15 |
+| Caminhada  | acima de 10 km           |   +20 |
+| Corrida    | até 3 km                 |     0 |
+| Corrida    | acima de 3 km até 6 km   |   +10 |
+| Corrida    | acima de 6 km até 10 km  |   +15 |
+| Corrida    | acima de 10 km           |   +20 |
+| Ciclismo   | até 10 km                |     0 |
+| Ciclismo   | acima de 10 km até 20 km |   +10 |
+| Ciclismo   | acima de 20 km até 40 km |   +15 |
+| Ciclismo   | acima de 40 km           |   +20 |
 
 ##### Faixas de duração
 
-| Duração estimada | Bônus |
-|---|---:|
-| Não informada | 0 |
-| Menor que 30 minutos | 0 |
-| De 30 a 59 minutos | +5 |
-| 60 minutos ou mais | +10 |
+| Duração estimada     | Bônus |
+|----------------------|------:|
+| Não informada        |     0 |
+| Menor que 30 minutos |     0 |
+| De 30 a 59 minutos   |    +5 |
+| 60 minutos ou mais   |   +10 |
 
 ##### Bônus de grupo
 
@@ -667,22 +690,22 @@ O bônus usa o número de **check-ins** da atividade, não o número de validaç
 participantes recebam o mesmo bônus, independentemente da ordem em que as presenças forem validadas.
 
 | Check-ins | Bônus |
-|---:|---:|
-| 2 | 0 |
-| 3–4 | +10 |
-| 5 | +15 |
+|----------:|------:|
+|         2 |     0 |
+|       3–4 |   +10 |
+|         5 |   +15 |
 
 ##### Fator diário
 
 Para evitar farm de atividades, o XP de atividade é reduzido a partir da quarta atividade XP-elegível do mesmo dia:
 
 | Atividade XP-elegível do dia | Fator |
-|---:|---:|
-| 1ª | 1,0 |
-| 2ª | 1,0 |
-| 3ª | 1,0 |
-| 4ª | 0,25 |
-| 5ª em diante | 0,0 |
+|-----------------------------:|------:|
+|                           1ª |   1,0 |
+|                           2ª |   1,0 |
+|                           3ª |   1,0 |
+|                           4ª |  0,25 |
+|                 5ª em diante |   0,0 |
 
 O fator diário afeta somente o XP de atividade. Ele não afeta o bônus de início de semana nem o de meta semanal.
 Atividades além da terceira continuam contando para a meta semanal.
@@ -693,18 +716,18 @@ Atividades além da terceira continuam contando para a meta semanal.
 
 #### Exemplos completos de XP de atividade
 
-| Situação | Cálculo | XP |
-|---|---|---:|
-| Caminhada 3 km, 45 min, dia de semana, 2 check-ins | 20 + 10 + 5 + 0 | 35 |
-| Caminhada 3 km, 45 min, fim de semana, 2 check-ins | (20 + 10 + 5) × 1,2 | 42 |
-| Corrida 5 km, 30 min, dia de semana, 2 check-ins | 25 + 10 + 5 + 0 | 40 |
-| Corrida 5 km, 30 min, fim de semana, 2 check-ins | (25 + 10 + 5) × 1,2 | 48 |
-| Corrida 12 km, 75 min, fim de semana, 5 check-ins | (25 + 20 + 10 + 15) × 1,2 | 84 |
-| Ciclismo 25 km, 90 min, dia de semana, 3 check-ins | 30 + 15 + 10 + 10 | 65 |
-| Ciclismo 25 km, 90 min, fim de semana, 5 check-ins | (30 + 15 + 10 + 15) × 1,2 | 84 |
+| Situação                                            | Cálculo                                        | XP |
+|-----------------------------------------------------|------------------------------------------------|---:|
+| Caminhada 3 km, 45 min, dia de semana, 2 check-ins  | 20 + 10 + 5 + 0                                | 35 |
+| Caminhada 3 km, 45 min, fim de semana, 2 check-ins  | (20 + 10 + 5) × 1,2                            | 42 |
+| Corrida 5 km, 30 min, dia de semana, 2 check-ins    | 25 + 10 + 5 + 0                                | 40 |
+| Corrida 5 km, 30 min, fim de semana, 2 check-ins    | (25 + 10 + 5) × 1,2                            | 48 |
+| Corrida 12 km, 75 min, fim de semana, 5 check-ins   | (25 + 20 + 10 + 15) × 1,2                      | 84 |
+| Ciclismo 25 km, 90 min, dia de semana, 3 check-ins  | 30 + 15 + 10 + 10                              | 65 |
+| Ciclismo 25 km, 90 min, fim de semana, 5 check-ins  | (30 + 15 + 10 + 15) × 1,2                      | 84 |
 | Ciclismo 50 km, 120 min, fim de semana, 5 check-ins | (30 + 20 + 10 + 15) × 1,2 = 90, abaixo do teto | 90 |
-| Corrida 5 km, 30 min, como 4ª atividade do dia | 40 × 0,25 | 10 |
-| Corrida 5 km, 30 min, como 5ª atividade do dia | 40 × 0,0 | 0 |
+| Corrida 5 km, 30 min, como 4ª atividade do dia      | 40 × 0,25                                      | 10 |
+| Corrida 5 km, 30 min, como 5ª atividade do dia      | 40 × 0,0                                       |  0 |
 
 #### Ofensiva semanal — o “foguinho”
 
@@ -718,35 +741,40 @@ A única mecânica de constância da V1 é a ofensiva semanal.
 
 ##### Regras
 
-- `RN12.21` A primeira atividade válida da semana concede **+10 XP** (`WEEKLY_START`), mantém a ofensiva acesa e conta a semana como válida para a sequência.
-- `RN12.22` A segunda atividade válida da semana concede **+20 XP + bônus de sequência** (`WEEKLY_GOAL`) e completa a meta semanal.
-- `RN12.23` O bônus de sequência é `5 × min(semanasConsecutivas − 1, 6)`, com máximo de +30. O total da meta semanal fica entre 20 e 50 XP.
+- `RN12.21` A primeira atividade válida da semana concede **+10 XP** (`WEEKLY_START`), mantém a ofensiva acesa e conta a
+  semana como válida para a sequência.
+- `RN12.22` A segunda atividade válida da semana concede **+20 XP + bônus de sequência** (`WEEKLY_GOAL`) e completa a
+  meta semanal.
+- `RN12.23` O bônus de sequência é `5 × min(semanasConsecutivas − 1, 6)`, com máximo de +30. O total da meta semanal
+  fica entre 20 e 50 XP.
 - `RN12.24` Uma semana com **1 atividade** mantém o foguinho, mas não concede o bônus de meta semanal.
 - `RN12.25` Uma semana com **0 atividades** apaga o foguinho ao fim da semana. O recorde (`best`) é preservado.
-- `RN12.26` Duas atividades no mesmo dia contam como duas atividades para a meta semanal. Não há exigência de dias distintos na V1.
+- `RN12.26` Duas atividades no mesmo dia contam como duas atividades para a meta semanal. Não há exigência de dias
+  distintos na V1.
 - `RN12.27` A ofensiva semanal é recalculada após validações tardias e estornos.
-- `RN12.28` Se uma atividade for invalidada e a semana passar a ter 1 atividade, o bônus de meta é estornado e o foguinho permanece; se passar a ter 0, o foguinho daquela semana é desfeito.
+- `RN12.28` Se uma atividade for invalidada e a semana passar a ter 1 atividade, o bônus de meta é estornado e o
+  foguinho permanece; se passar a ter 0, o foguinho daquela semana é desfeito.
 
 ##### Evolução do bônus semanal
 
 | Semana consecutiva | Início (+10) | Meta (20 a 50) | Total da semana |
-|---:|---:|---:|---:|
-| 1 | +10 | +20 | +30 |
-| 2 | +10 | +25 | +35 |
-| 3 | +10 | +30 | +40 |
-| 4 | +10 | +35 | +45 |
-| 5 | +10 | +40 | +50 |
-| 6 | +10 | +45 | +55 |
-| 7 ou mais | +10 | +50 | +60 |
+|-------------------:|-------------:|---------------:|----------------:|
+|                  1 |          +10 |            +20 |             +30 |
+|                  2 |          +10 |            +25 |             +35 |
+|                  3 |          +10 |            +30 |             +40 |
+|                  4 |          +10 |            +35 |             +45 |
+|                  5 |          +10 |            +40 |             +50 |
+|                  6 |          +10 |            +45 |             +55 |
+|          7 ou mais |          +10 |            +50 |             +60 |
 
 ##### Estados do foguinho
 
-| Estado | Quando ocorre |
-|---|---|
-| `APAGADO` | O usuário nunca teve uma semana válida ou a última semana terminou com 0 atividades |
-| `ACESO` | A semana corrente já tem pelo menos 1 atividade |
-| `EM_RISCO` | A semana corrente ainda não tem atividade e a semana anterior estava acesa |
-| `COMPLETO` | A semana corrente já tem 2 ou mais atividades |
+| Estado     | Quando ocorre                                                                       |
+|------------|-------------------------------------------------------------------------------------|
+| `APAGADO`  | O usuário nunca teve uma semana válida ou a última semana terminou com 0 atividades |
+| `ACESO`    | A semana corrente já tem pelo menos 1 atividade                                     |
+| `EM_RISCO` | A semana corrente ainda não tem atividade e a semana anterior estava acesa          |
+| `COMPLETO` | A semana corrente já tem 2 ou mais atividades                                       |
 
 O número exibido ao lado do foguinho é o número de semanas consecutivas com pelo menos 1 atividade.
 
@@ -754,8 +782,10 @@ O número exibido ao lado do foguinho é o número de semanas consecutivas com p
 
 - `RN12.29` Não existe bônus por dias consecutivos.
 - `RN12.30` Não existe bônus de primeira atividade do dia.
-- `RN12.31` O XP do dia é a soma do XP das atividades válidas daquele dia, mais os bônus semanais concedidos naquele dia.
-- `RN12.32` Fazer atividades em dias consecutivos não gera XP adicional além do XP de cada atividade e dos bônus semanais.
+- `RN12.31` O XP do dia é a soma do XP das atividades válidas daquele dia, mais os bônus semanais concedidos naquele
+  dia.
+- `RN12.32` Fazer atividades em dias consecutivos não gera XP adicional além do XP de cada atividade e dos bônus
+  semanais.
 
 Essa decisão evita estimular treino diário sem planejamento e mantém a gamificação alinhada à maturidade do usuário.
 
@@ -770,8 +800,10 @@ Essa decisão evita estimular treino diário sem planejamento e mantém a gamifi
 
 - `RN12.37` Cada presença validada gera XP no máximo uma vez.
 - `RN12.38` Cada bônus semanal é concedido no máximo uma vez por semana, salvo estorno e nova concessão válida.
-- `RN12.39` Todo lançamento de XP possui uma chave de idempotência, a origem, a data da atividade, a versão da regra e o valor concedido.
-- `RN12.40` O histórico de XP é append-only: estornos e penalidades são novos lançamentos, não alterações no lançamento original.
+- `RN12.39` Todo lançamento de XP possui uma chave de idempotência, a origem, a data da atividade, a versão da regra e o
+  valor concedido.
+- `RN12.40` O histórico de XP é append-only: estornos e penalidades são novos lançamentos, não alterações no lançamento
+  original.
 
 #### Estorno por invalidação
 
@@ -786,8 +818,10 @@ Essa decisão evita estimular treino diário sem planejamento e mantém a gamifi
 - `RN12.46` Cada lançamento de XP registra a versão da regra usada (`ruleVersion`).
 - `RN12.47` A versão inicial da V1 é `2026-11-v1`.
 - `RN12.48` Uma mudança futura de regra não pode reduzir o XP já conquistado sem um bônus de fidelidade.
-- `RN12.49` O recálculo de uma nova versão compara o XP de atividade antigo com o novo e concede `LEGACY_BONUS` quando o novo cálculo for maior. Se o novo cálculo for menor, o valor antigo é preservado.
-- `RN12.50` Bônus de engajamento (início e meta semanal) passam a valer da nova versão em diante; o recálculo retroativo completo fica para uma versão futura.
+- `RN12.49` O recálculo de uma nova versão compara o XP de atividade antigo com o novo e concede `LEGACY_BONUS` quando o
+  novo cálculo for maior. Se o novo cálculo for menor, o valor antigo é preservado.
+- `RN12.50` Bônus de engajamento (início e meta semanal) passam a valer da nova versão em diante; o recálculo retroativo
+  completo fica para uma versão futura.
 
 #### Critérios de aceitação
 
@@ -820,39 +854,39 @@ Essa decisão evita estimular treino diário sem planejamento e mantém a gamifi
 
 Ana está no nível 4, com saldo atual de 700 XP.
 
-| Dia | Atividade | XP de atividade | Bônus | Total | Saldo |
-|---|---|---:|---:|---:|---:|
-| Seg | Caminhada 3 km, 45 min, 2 check-ins | 35 | +10 início de semana | 45 | 745 |
-| Qua | Corrida 5 km, 30 min, 2 check-ins | 40 | +20 meta semanal (semana 1) | 60 | 805 |
-| Sáb | Ciclismo 25 km, 90 min, 3 check-ins | (30 + 15 + 10 + 10) × 1,2 = 78 | 0 | 78 | 883 |
-| Dom | Caminhada 2 km, 30 min, 2 check-ins | (20 + 0 + 5) × 1,2 = 30 | 0 | 30 | 913 |
+| Dia | Atividade                           |                XP de atividade |                       Bônus | Total | Saldo |
+|-----|-------------------------------------|-------------------------------:|----------------------------:|------:|------:|
+| Seg | Caminhada 3 km, 45 min, 2 check-ins |                             35 |        +10 início de semana |    45 |   745 |
+| Qua | Corrida 5 km, 30 min, 2 check-ins   |                             40 | +20 meta semanal (semana 1) |    60 |   805 |
+| Sáb | Ciclismo 25 km, 90 min, 3 check-ins | (30 + 15 + 10 + 10) × 1,2 = 78 |                           0 |    78 |   883 |
+| Dom | Caminhada 2 km, 30 min, 2 check-ins |        (20 + 0 + 5) × 1,2 = 30 |                           0 |    30 |   913 |
 
 Resultado da semana: 213 XP, foguinho = 1 semana, meta semanal completa, nível permanece 4 (o próximo nível exige
 1.000 XP).
 
 #### Casos de borda
 
-| Situação | Resultado |
-|---|---|
-| Atividade com 2 check-ins | Sem bônus de grupo |
-| Atividade com 3 check-ins | +10 de grupo |
-| Atividade com 5 check-ins | +15 de grupo |
-| Atividade cancelada | Sem XP |
-| Atividade invalidada | Sem XP; se já concedido, estorno |
-| Check-in sem validação | Sem XP |
-| `xpEligible=false` | Sem XP |
-| Mesma presença validada duas vezes | XP concedido uma única vez |
-| Duas atividades no mesmo dia | Contam para a meta semanal; não há bônus diário |
-| Quarta atividade do dia | 25% do XP de atividade |
-| Quinta atividade do dia | 0 XP de atividade, mas conta para a meta semanal |
-| Atividade no sábado ou domingo | ×1,2 no XP de atividade |
-| Atividade começa sábado e termina domingo | Conta como sábado |
-| Atividade validada dias depois | XP e ofensiva usam a data de início; deleveling usa a data de validação |
-| Semana com 1 atividade | Foguinho mantido, sem bônus de meta |
-| Semana com 0 atividades | Foguinho apagado |
-| Troca de modalidade principal | Sem XP e sem perda de histórico |
-| Onboarding repetido | Sem XP duplicado |
-| Atividade invalidada que tinha bônus semanal | Bônus estornado e ofensiva recalculada |
+| Situação                                     | Resultado                                                               |
+|----------------------------------------------|-------------------------------------------------------------------------|
+| Atividade com 2 check-ins                    | Sem bônus de grupo                                                      |
+| Atividade com 3 check-ins                    | +10 de grupo                                                            |
+| Atividade com 5 check-ins                    | +15 de grupo                                                            |
+| Atividade cancelada                          | Sem XP                                                                  |
+| Atividade invalidada                         | Sem XP; se já concedido, estorno                                        |
+| Check-in sem validação                       | Sem XP                                                                  |
+| `xpEligible=false`                           | Sem XP                                                                  |
+| Mesma presença validada duas vezes           | XP concedido uma única vez                                              |
+| Duas atividades no mesmo dia                 | Contam para a meta semanal; não há bônus diário                         |
+| Quarta atividade do dia                      | 25% do XP de atividade                                                  |
+| Quinta atividade do dia                      | 0 XP de atividade, mas conta para a meta semanal                        |
+| Atividade no sábado ou domingo               | ×1,2 no XP de atividade                                                 |
+| Atividade começa sábado e termina domingo    | Conta como sábado                                                       |
+| Atividade validada dias depois               | XP e ofensiva usam a data de início; deleveling usa a data de validação |
+| Semana com 1 atividade                       | Foguinho mantido, sem bônus de meta                                     |
+| Semana com 0 atividades                      | Foguinho apagado                                                        |
+| Troca de modalidade principal                | Sem XP e sem perda de histórico                                         |
+| Onboarding repetido                          | Sem XP duplicado                                                        |
+| Atividade invalidada que tinha bônus semanal | Bônus estornado e ofensiva recalculada                                  |
 
 > `DEC16` — Definir se a validação da própria presença pelo administrador/supervisor pode gerar XP ou se exige um
 > validador diferente do participante.
@@ -902,13 +936,13 @@ O sistema deve aplicar perda de progresso por inatividade conforme as regras def
 
 #### Matriz de exemplos — deleveling
 
-| Situação | Cálculo | Resultado |
-|---|---|---|
-| Nível 5, saldo 1.250 (50% da barra), 7 dias + 10 dias inativo | 5 períodos × 2% × 500 = 50 XP | Saldo 1.200, ainda nível 5 |
-| Nível 5, saldo 1.000 (0% da barra), 7 dias + 2 dias inativo | Cruzou 0% | Nível 4 com 98% da barra: 600 + 392 = 992 XP |
-| Nível 5, saldo 1.250, 7 dias + 30 dias inativo | 11 períodos × 10 XP = 110 XP | Saldo 1.140, ainda nível 5 |
-| Nível 5, saldo 1.250, 7 dias + 60 dias inativo | 26 períodos aplicados em sequência | Pode cair para o nível 4 e continuar perdendo barra |
-| Nível 2, saldo 100 | Piso | Permanece nível 2 com 100 XP |
+| Situação                                                      | Cálculo                            | Resultado                                           |
+|---------------------------------------------------------------|------------------------------------|-----------------------------------------------------|
+| Nível 5, saldo 1.250 (50% da barra), 7 dias + 10 dias inativo | 5 períodos × 2% × 500 = 50 XP      | Saldo 1.200, ainda nível 5                          |
+| Nível 5, saldo 1.000 (0% da barra), 7 dias + 2 dias inativo   | Cruzou 0%                          | Nível 4 com 98% da barra: 600 + 392 = 992 XP        |
+| Nível 5, saldo 1.250, 7 dias + 30 dias inativo                | 11 períodos × 10 XP = 110 XP       | Saldo 1.140, ainda nível 5                          |
+| Nível 5, saldo 1.250, 7 dias + 60 dias inativo                | 26 períodos aplicados em sequência | Pode cair para o nível 4 e continuar perdendo barra |
+| Nível 2, saldo 100                                            | Piso                               | Permanece nível 2 com 100 XP                        |
 
 ### RF14 — Recompensas
 
@@ -930,34 +964,102 @@ O sistema deve associar recompensas a marcos de nível e permitir recompensas in
 
 ---
 
-## 8. Notificações internas
+## 8. Notificações
 
-### RF15 — Alertas e notificações
+### RF15 — Notificar eventos relevantes
 
-O sistema deve exibir alertas internos sobre eventos relevantes, especialmente atividades de grupo.
+O sistema deve registrar notificações para o destinatário e entregá-las pelo canal interno (sino) e, quando definido,
+por canais externos, sem acoplar a notificação a um único frontend.
 
-#### Eventos mínimos
+#### Definições
 
-- criação de atividade;
-- alteração de atividade;
-- remarcação;
-- cancelamento;
-- início;
-- encerramento;
-- invalidação;
-- inscrição e cancelamento de inscrição;
-- check-in e validação de presença;
-- mudanças relevantes na participação do usuário.
+- **Notificação:** registro canônico do evento para um destinatário, com tipo, categoria, título, corpo, dados
+  estruturados, estado de leitura e chave de idempotência.
+- **Tipo:** código estável consumido por web, app nativo e canais externos.
+- **Canal interno:** inbox persistido e exposto pela API; o sino do frontend é apenas um consumidor.
+- **Canal externo:** entrega adicional (e-mail, WhatsApp ou push) por adaptador; não substitui o registro interno.
+- **Tempo real:** transporte SSE (Mercure) que projeta o inbox; não é um canal de notificação.
+
+#### Regras
+
+- `RN15.1` Toda notificação pertence a exatamente um destinatário; listagens e leituras são isoladas por usuário.
+- `RN15.2` O tipo é estável e determina a categoria (`GROUP`, `ACTIVITY`, `GAMIFICATION` ou `ACCOUNT`).
+- `RN15.3` O título e o corpo são renderizados em PT-BR no backend; `data` carrega apenas IDs e dados públicos para deep
+  link.
+- `RN15.4` O conteúdo não depende de URL de frontend; clientes web e nativo montam suas próprias rotas.
+- `RN15.5` A API lista notificações com filtro `all`, `unread` ou `read`, filtro de categoria e paginação.
+- `RN15.6` Marcar como lida é idempotente e registra `readAt`; “marcar todas” afeta somente o próprio usuário.
+- `RN15.7` Não há exclusão nem arquivamento pelo usuário na V1; o frontend pode ocultar as lidas usando o filtro.
+- `RN15.8` O canal interno é sempre persistido; canais externos são opcionais por tipo.
+- `RN15.9` Na V1, somente suspensão e reativação de conta usam e-mail; WhatsApp e push ficam para versões futuras.
+- `RN15.10` Notificações são geradas a partir de Domain Events, de forma assíncrona; falha de notificação não reverte a
+  operação de negócio.
+- `RN15.11` A criação é idempotente por `(destinatário, deduplicationKey)`; o reenvio da mesma mensagem não duplica o
+  item.
+- `RN15.12` Entregas externas têm status (`PENDING`, `SENT`, `FAILED`, `SKIPPED`), tentativas e último erro; falhas são
+  reprocessadas pelo Messenger.
+- `RN15.13` O público é resolvido por administradores do grupo, membros aprovados, inscritos ou usuário afetado,
+  conforme o tipo.
+- `RN15.14` O ator da ação não recebe a notificação quando ela é consequência direta da própria ação.
+- `RN15.15` Usuário suspenso não recebe notificações comuns; eventos de conta usam e-mail e são registrados para leitura
+  após a reativação.
+- `RN15.16` Nenhum título, corpo ou `data` expõe CPF, telefone, senha, tokens ou notas internas.
+- `RN15.17` Não há preferências de notificação na V1; a política de canais é fixa por tipo.
+- `RN15.18` Eventos automáticos de fechamento e cancelamento trafegam com `automatic=true`.
+- `RN15.19` O token de assinatura do Mercure é somente leitura, de curta duração e restrito ao tópico do próprio
+  usuário.
+- `RN15.20` O sino pode usar SSE e, em caso de falha do Mercure, refazer a consulta da API; a notificação permanece
+  disponível.
+- `RN15.21` Se o worker estiver parado, notificações e e-mails atrasam até a próxima execução; a mensagem permanece na
+  fila.
+
+#### Catálogo da V1
+
+| Evento                         | Tipo                                           | Destinatários                     | Canal externo |
+|--------------------------------|------------------------------------------------|-----------------------------------|---------------|
+| Solicitação de entrada         | `MEMBERSHIP_REQUESTED`                         | administradores do grupo          | —             |
+| Entrada aprovada/rejeitada     | `MEMBERSHIP_APPROVED` / `MEMBERSHIP_REJECTED`  | solicitante                       | —             |
+| Membro removido                | `MEMBER_REMOVED`                               | membro removido                   | —             |
+| Papel alterado                 | `MEMBERSHIP_PROMOTED` / `MEMBERSHIP_DEMOTED`   | membro afetado                    | —             |
+| Supervisor designado/removido  | `SUPERVISOR_DESIGNATED` / `SUPERVISOR_REMOVED` | membro afetado                    | —             |
+| Grupo ativado                  | `GROUP_ACTIVATED`                              | membros aprovados                 | —             |
+| Atividade criada               | `ACTIVITY_CREATED`                             | membros aprovados, exceto criador | —             |
+| Atividade atualizada/remarcada | `ACTIVITY_UPDATED` / `ACTIVITY_RESCHEDULED`    | inscritos, exceto ator            | —             |
+| Atividade cancelada/invalidada | `ACTIVITY_CANCELLED` / `ACTIVITY_INVALIDATED`  | inscritos, exceto ator            | —             |
+| Atividade finalizada           | `ACTIVITY_FINISHED`                            | administradores e supervisor      | —             |
+| Presença validada              | `ATTENDANCE_VALIDATED`                         | participante                      | —             |
+| Nível alcançado/perdido        | `LEVEL_REACHED` / `LEVEL_LOST`                 | usuário                           | —             |
+| Meta semanal concluída         | `WEEKLY_GOAL_COMPLETED`                        | usuário                           | —             |
+| Conta suspensa                 | `ACCOUNT_SUSPENDED`                            | titular                           | e-mail        |
+| Conta reativada                | `ACCOUNT_REACTIVATED`                          | titular                           | e-mail        |
+
+Não geram notificação na V1: início de atividade, inscrição e cancelamento de inscrição, check-in, cada XP individual,
+atualização de dados do grupo e ofensiva em risco.
 
 #### Critérios de aceitação
 
-- `CA15.1` Participantes relevantes recebem uma notificação quando uma atividade é criada.
-- `CA15.2` Alterações relevantes geram nova notificação ou atualizam a anterior conforme política definida.
-- `CA15.3` Usuário consegue consultar suas notificações.
-- `CA15.4` Usuário consegue distinguir notificações lidas e não lidas.
-- `CA15.5` Eventos automáticos de fechamento e cancelamento são identificados como automáticos.
+- `CA15.1` Solicitação de entrada gera notificação para todos os administradores do grupo.
+- `CA15.2` Aprovação e rejeição geram notificação para o solicitante.
+- `CA15.3` Remoção, promoção, rebaixamento e mudança de supervisor geram notificação para o afetado.
+- `CA15.4` Ativação do grupo gera notificação para os membros aprovados.
+- `CA15.5` Criação de atividade gera notificação para os membros aprovados, exceto o criador.
+- `CA15.6` Remarcação, cancelamento e invalidação geram notificação para os inscritos, exceto o ator.
+- `CA15.7` Finalização gera notificação para administradores e supervisor.
+- `CA15.8` Validação de presença gera notificação para o participante, salvo quando ele mesmo validou.
+- `CA15.9` Nível e meta semanal geram notificação para o usuário.
+- `CA15.10` O sino obtém a contagem de não lidas correta para o usuário.
+- `CA15.11` A listagem filtra por lida/não lida e categoria e isola o destinatário.
+- `CA15.12` Marcar uma ou todas é idempotente e não afeta notificações de outro usuário.
+- `CA15.13` Ler notificação de outro usuário retorna `404 NOTIFICATION_NOT_FOUND`.
+- `CA15.14` O mesmo evento reenviado não duplica a notificação.
+- `CA15.15` Falha de canal externo não desfaz a notificação e fica registrada na entrega.
+- `CA15.16` Suspensão e reativação geram e-mail para o titular.
+- `CA15.17` O payload contém IDs suficientes para o deep link, sem URL de frontend.
+- `CA15.18` O endpoint de tempo real devolve URL de assinatura e token restrito ao tópico do usuário.
+- `CA15.19` Criar ou marcar notificação como lida publica a atualização no tópico privado do usuário.
+- `CA15.20` Se o Mercure falhar, a notificação continua disponível na API.
 
-> `DEC04` — Definir se notificações podem ser apagadas, arquivadas e marcadas manualmente como lidas.
+> `DEC04` encerrada: leitura e “marcar todas” na V1; sem arquivamento ou exclusão pelo usuário.
 
 ---
 
@@ -965,51 +1067,74 @@ O sistema deve exibir alertas internos sobre eventos relevantes, especialmente a
 
 ### RF16 — Denunciar usuário
 
-Usuários devem poder denunciar outros usuários informando motivo e observação.
+> **Status:** Adiado na V1.
 
-#### Regras
-
-- `RN16.1` Uma denúncia deve registrar denunciante, denunciado, motivo, observação, data e estado.
-- `RN16.2` O denunciado não deve obter acesso indevido aos dados internos da apuração.
-- `RN16.3` A administração SIGAME consulta e trata denúncias globais.
-
-#### Critérios de aceitação
-
-- `CA16.1` Usuário autenticado consegue registrar denúncia válida.
-- `CA16.2` Denúncia sem motivo obrigatório é recusada.
-- `CA16.3` Denúncia fica disponível para administração SIGAME.
-- `CA16.4` Usuário comum não consulta a fila global de denúncias.
+Denúncias de usuários não fazem parte da V1. A moderação é centralizada na administração SIGAME via RF18. O tema deve
+ser reavaliado futuramente, quando houver necessidade e estrutura de moderação dedicada.
 
 ### RF17 — Bloquear usuário
 
-Usuários devem poder bloquear outros usuários.
+> **Status:** Adiado na V1.
 
-#### Critérios de aceitação
+Bloqueio entre usuários não faz parte da V1. A política de interações e os efeitos do bloqueio ficam para uma
+reavaliação futura.
 
-- `CA17.1` Usuário consegue bloquear outro usuário.
-- `CA17.2` O bloqueio impede as interações definidas pela política do produto.
-- `CA17.3` O sistema impede bloqueio de si próprio, salvo decisão futura.
+> `DEC05` encerrada: bloqueio entre usuários fora da V1.
 
-> `DEC05` — Definir quais comportamentos o bloqueio impede: solicitações, visualização de perfil, mensagens futuras,
-> participação conjunta ou todos eles.
+### RF18 — Suspender e reativar conta globalmente
 
-### RF18 — Suspender conta globalmente
-
-A administração SIGAME deve poder suspender globalmente uma conta.
+A administração SIGAME deve poder suspender e reativar globalmente uma conta, com histórico auditável.
 
 #### Regras
 
-- `RN18.1` Suspensão global é exclusiva da administração SIGAME.
-- `RN18.2` Administrador de grupo pode remover membro, mas não suspender conta.
-- `RN18.3` Conta suspensa não pode autenticar nem executar operações protegidas.
-- `RN18.4` A suspensão deve registrar motivo, autor, data de início e, quando aplicável, data de término.
+- `RN18.1` Suspensão e reativação são exclusivas da administração SIGAME.
+- `RN18.2` Administrador de grupo pode remover membro, mas não suspender globalmente.
+- `RN18.3` Conta suspensa não pode autenticar nem executar operações protegidas; access tokens são recusados e todas as
+  famílias de refresh tokens são revogadas na suspensão.
+- `RN18.4` A suspensão exige motivo público; a reativação aceita motivo opcional. O histórico registra autor, motivo e
+  data de forma append-only.
+- `RN18.5` A suspensão é indefinida até reativação manual na V1; não há auto-reativação.
+- `RN18.6` A suspensão preserva grupos, participações, inscrições, XP, recompensas e vouchers; apenas o acesso é
+  bloqueado.
+- `RN18.7` Somente contas `USER` podem ser suspensas; contas `ADMIN_SIGAME` não podem ser suspensas pela API.
+- `RN18.8` Suspender conta já suspensa ou reativar conta ativa é no-op idempotente, sem novo histórico ou evento.
+- `RN18.9` Reativação devolve o acesso, mas não restaura sessões antigas; o usuário autentica novamente.
+- `RN18.10` A administração lista e busca contas por nome, e-mail, estado e papel, com paginação e detalhe.
+- `RN18.11` O e-mail de suspensão/reativação vai para o e-mail canônico; o motivo é público ao titular.
+- `RN18.12` Solicitação pendente de usuário suspenso não pode ser aprovada.
+- `RN18.13` O histórico de status é somente auditoria; não é editável nem excluível.
+- `RN18.14` A provisão de `ADMIN_SIGAME` é feita por CLI/seed, não por endpoint público.
+- `RN18.15` A suspensão do único administrador de um grupo não transfere o grupo automaticamente; a limitação fica
+  registrada no `DEC15`.
+
+#### Matriz de estados
+
+| Estado atual   | Ação               | Resultado                                             |
+|----------------|--------------------|-------------------------------------------------------|
+| `ACTIVE`       | suspender          | `SUSPENDED`, histórico, revogação de sessões e e-mail |
+| `SUSPENDED`    | suspender          | sucesso sem mudança, sem histórico e sem e-mail       |
+| `SUSPENDED`    | reativar           | `ACTIVE`, histórico e e-mail                          |
+| `ACTIVE`       | reativar           | sucesso sem mudança                                   |
+| `ADMIN_SIGAME` | suspender          | `403 CANNOT_SUSPEND_ADMIN`                            |
+| inexistente    | suspender/reativar | `404 USER_NOT_FOUND`                                  |
 
 #### Critérios de aceitação
 
-- `CA18.1` Administração SIGAME consegue suspender conta.
-- `CA18.2` Administrador de grupo não consegue suspender conta globalmente.
-- `CA18.3` Conta suspensa não consegue autenticar.
-- `CA18.4` Suspensão fica registrada para auditoria.
+- `CA18.1` Administração SIGAME suspende conta comum com motivo e histórico.
+- `CA18.2` Administrador de grupo não suspende globalmente.
+- `CA18.3` Usuário comum não acessa os endpoints administrativos.
+- `CA18.4` Conta suspensa não autentica; access token existente é recusado e refresh é revogado.
+- `CA18.5` Administração reativa a conta e o usuário volta a autenticar.
+- `CA18.6` Suspender e reativar são idempotentes.
+- `CA18.7` Motivo ausente ou fora de 3–500 caracteres retorna `422`.
+- `CA18.8` Suspender conta administrativa retorna `403`.
+- `CA18.9` Grupos, inscrições, XP, recompensas e vouchers são preservados.
+- `CA18.10` O histórico lista autor, motivo e data em ordem decrescente.
+- `CA18.11` A listagem administrativa não expõe CPF, telefone, peso ou altura.
+- `CA18.12` Aprovação de solicitação de usuário suspenso retorna `409 GROUP_MEMBERSHIP_SUSPENDED`.
+- `CA18.13` Suspensão e reativação geram e-mail para o titular.
+- `CA18.14` Usuário inexistente retorna `404`.
+- `CA18.15` A suspensão fica registrada para auditoria.
 
 ### RNF01 — Privacidade e exposição de dados
 
@@ -1023,7 +1148,8 @@ Dados sensíveis não devem ser expostos a usuários sem autorização.
 - peso;
 - altura;
 - dados de autenticação;
-- informações internas de moderação.
+- informações internas de moderação;
+- conteúdo de notificações e tokens de tempo real.
 
 #### Critérios de aceitação
 
@@ -1031,9 +1157,14 @@ Dados sensíveis não devem ser expostos a usuários sem autorização.
 - `CA19.2` Administrador de grupo não visualiza telefone pessoal como requisito de comunicação.
 - `CA19.3` Dados de peso e altura não são expostos fora da autorização definida.
 - `CA19.4` Senhas e credenciais nunca aparecem em respostas da API.
+- `CA19.5` A listagem administrativa expõe apenas identificação, e-mail, estado, papel, nível e timestamps.
+- `CA19.6` Notificações não expõem CPF, telefone, senha, tokens ou notas internas.
+- `CA19.7` Ler notificação de outro usuário retorna `404`.
+- `CA19.8` O token Mercure não permite publicar e só assina o tópico do próprio usuário.
 
 > `DEC06` — Definir a visão de perfil para o próprio usuário, membros do mesmo grupo, administradores e administração
-> SIGAME.
+> SIGAME. A matriz de notificações já limita o conteúdo ao público indicado no catálogo.
+
 
 ---
 
@@ -1112,7 +1243,8 @@ O sistema deve calcular um indicador interno mensal de desempenho dos grupos.
 ### RNF02 — Plataforma e dispositivos
 
 - A aplicação será web.
-- O uso prioritário será em mobile (já que é o que a maioria usa para acessar a internet, principalmente para serviços deste tipo).
+- O uso prioritário será em mobile (já que é o que a maioria usa para acessar a internet, principalmente para serviços
+  deste tipo).
 - Deve existir responsividade para se adequar aos dispositivos móveis e telas grandes (úteis para os organizadores).
 
 ### RNF03 — Integridade e consistência
@@ -1152,7 +1284,8 @@ A estrutura deve permitir testes sem depender da interface web ou de banco real 
 - Senhas nunca devem ser armazenadas ou retornadas em texto puro.
 - O access token deve ser um JWT assinado com HS256 e segredo de pelo menos 32 caracteres.
 - O refresh token deve ser uma string opaca de 256 bits, nunca persistida em texto puro (apenas SHA-256).
-- O refresh token deve trafegar em cookie `HttpOnly`, `Secure` e `SameSite` configurável (preferencialmente `strict` em produção same-site), com path `/api/v1/auth`.
+- O refresh token deve trafegar em cookie `HttpOnly`, `Secure` e `SameSite` configurável (preferencialmente `strict` em
+  produção same-site), com path `/api/v1/auth`.
 - Sessões, tokens e cookies devem ser protegidos conforme o mecanismo de autenticação escolhido.
 
 ---
@@ -1168,7 +1301,7 @@ flowchart LR
     APP --> DOM[Domínio por módulos]
     APP --> REP[Interfaces de repositório]
     REP --> INF[Infraestrutura de persistência]
-    INF --> DB[(SQLite V1)]
+    INF --> DB[(PostgreSQL V1)]
     APP --> NOTIF[Notificações]
     APP --> EVENTS[Eventos/processos futuros]
 ```
@@ -1181,18 +1314,18 @@ flowchart TD
     Groups[Grupos e membros]
     Activities[Atividades e presença]
     Gamification[Gamificação]
-    Moderation[Moderação]
     Sponsorship[Patrocínios e vouchers]
     Notifications[Notificações]
     Reports[Indicadores mensais]
     Identity --> Groups
     Identity --> Activities
+    Identity --> Notifications
     Groups --> Activities
     Activities --> Gamification
     Groups --> Sponsorship
-    Moderation --> Identity
     Activities --> Notifications
     Groups --> Notifications
+    Gamification --> Notifications
     Gamification --> Sponsorship
     Activities --> Reports
     Groups --> Reports
@@ -1202,7 +1335,10 @@ flowchart TD
 
 ## 14. Decisões e acompanhamento
 
-As decisões ainda pendentes (`DEC04`–`DEC08`, `DEC15` e `DEC16`) e o estado de implementação de cada requisito estão em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões da Fase 5 (`DEC01`, `DEC10`, `DEC11` e `DEC12`), as decisões da Fase 6 (`DEC02` e `DEC03`), as decisões anteriores (`DEC09`, `DEC13`, `DEC14`) e as decisões arquiteturais estão em [../decisoes.md](../decisoes.md).
+As decisões ainda pendentes (`DEC06`–`DEC08`, `DEC15` e `DEC16`) e o estado de implementação de cada requisito estão
+em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões da Fase 7 (`DEC04` e `DEC05`), da Fase 5
+(`DEC01`, `DEC10`, `DEC11` e `DEC12`), da Fase 6 (`DEC02` e `DEC03`), as decisões anteriores (`DEC09`, `DEC13`, `DEC14`)
+e as decisões arquiteturais estão em [../decisoes.md](../decisoes.md).
 
 Ao fechar uma decisão:
 
@@ -1225,13 +1361,15 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 
 ### Exemplo de rastreabilidade
 
-| Requisito                  | Critérios         | Testes esperados                                 |
-|----------------------------|-------------------|--------------------------------------------------|
-| `RF04` Criar grupo         | `CA04.1`–`CA04.6` | Teste de caso de uso + teste do agregado `Group` |
-| `RF06` Administrar membros | `CA06.1`–`CA06.6` | Testes de autorização, limite e auditoria        |
-| `RF10` Inscrição/presença  | `CA10.1`–`CA10.14` | Testes de fluxo, conflito e idempotência de XP   |
-| `RF13` Deleveling          | `CA13.1`–`CA13.15` | Testes de datas, piso, 98% ao cair e idempotência |
-| `RF20` Vouchers            | `CA21.1`–`CA21.5` | Testes de unicidade e concorrência               |
+| Requisito                  | Critérios          | Testes esperados                                                  |
+|----------------------------|--------------------|-------------------------------------------------------------------|
+| `RF04` Criar grupo         | `CA04.1`–`CA04.6`  | Teste de caso de uso + teste do agregado `Group`                  |
+| `RF06` Administrar membros | `CA06.1`–`CA06.6`  | Testes de autorização, limite e auditoria                         |
+| `RF10` Inscrição/presença  | `CA10.1`–`CA10.14` | Testes de fluxo, conflito e idempotência de XP                    |
+| `RF13` Deleveling          | `CA13.1`–`CA13.15` | Testes de datas, piso, 98% ao cair e idempotência                 |
+| `RF15` Notificações        | `CA15.1`–`CA15.20` | Testes de catálogo, isolamento, leitura, idempotência e Mercure   |
+| `RF18` Contas              | `CA18.1`–`CA18.15` | Testes de autorização, suspensão, sessão, histórico e privacidade |
+| `RF20` Vouchers            | `CA21.1`–`CA21.5`  | Testes de unicidade e concorrência                                |
 
 ### Tipos de teste
 
@@ -1247,19 +1385,23 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 
 ## 16. Histórico de alterações
 
-| Versão | Data       | Alteração                                                                          | Responsável                    |
-|--------|------------|------------------------------------------------------------------------------------|--------------------------------|
-| 0.1    | 2026-09-19 | Consolidação inicial dos PDFs                                                      | Felipe do Nascimento Magalhães |
-| 0.2    | 2026-09-19 | Organização por capacidades, critérios de aceitação, matrizes e decisões pendentes | Gustavo Teixeira de Sousa      |
-| 0.3    | 2026-11-05 | Extração de decisões e acompanhamento para `implementacao.md` e `decisoes.md`      | Gustavo Teixeira de Sousa      |
-| 0.4    | 2026-11-09 | Fase 4: campos do grupo, criador independente, múltiplos admins e poderes do supervisor | Gustavo Teixeira de Sousa      |
-| 0.5    | 2026-11-09 | Fase 5: atividades, inscrição, conflito, presença, duração opcional e fechamento automático | Gustavo Teixeira de Sousa      |
-| 0.6    | 2026-11-09 | Fase 6: curva de níveis, XP por atividade, bônus de grupo e fim de semana, ofensiva semanal e deleveling | Gustavo Teixeira de Sousa      |
+| Versão | Data       | Alteração                                                                                                                                  | Responsável                    |
+|--------|------------|--------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| 0.1    | 2026-09-19 | Consolidação inicial dos PDFs                                                                                                              | Felipe do Nascimento Magalhães |
+| 0.2    | 2026-09-19 | Organização por capacidades, critérios de aceitação, matrizes e decisões pendentes                                                         | Gustavo Teixeira de Sousa      |
+| 0.3    | 2026-11-05 | Extração de decisões e acompanhamento para `implementacao.md` e `decisoes.md`                                                              | Gustavo Teixeira de Sousa      |
+| 0.4    | 2026-11-09 | Fase 4: campos do grupo, criador independente, múltiplos admins e poderes do supervisor                                                    | Gustavo Teixeira de Sousa      |
+| 0.5    | 2026-11-09 | Fase 5: atividades, inscrição, conflito, presença, duração opcional e fechamento automático                                                | Gustavo Teixeira de Sousa      |
+| 0.6    | 2026-11-09 | Fase 6: curva de níveis, XP por atividade, bônus de grupo e fim de semana, ofensiva semanal e deleveling                                   | Gustavo Teixeira de Sousa      |
+| 0.7    | 2026-11-10 | Fase 7: notificações multicanal com sino e Mercure, leitura, administração de contas e suspensão/reativação; denúncias e bloqueios adiados | Gustavo Teixeira de Sousa      |
 
 ---
 
 ## 17. Checklist de revisão
 
-O checklist de revisão pendente foi movido para [../implementacao.md](../implementacao.md#6-checklist-de-revisão-de-requisitos), junto com o roadmap e as decisões em aberto.
+O checklist de revisão pendente foi movido
+para [../implementacao.md](../implementacao.md#6-checklist-de-revisão-de-requisitos), junto com o roadmap e as decisões
+em aberto.
 
-Cada item fechado deve virar uma entrada em [../decisoes.md](../decisoes.md) e atualizar o requisito correspondente neste documento.
+Cada item fechado deve virar uma entrada em [../decisoes.md](../decisoes.md) e atualizar o requisito correspondente
+neste documento.

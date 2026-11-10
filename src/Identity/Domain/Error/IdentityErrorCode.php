@@ -17,6 +17,9 @@ enum IdentityErrorCode: string
     case UserCpfAlreadyExists = 'USER_CPF_ALREADY_EXISTS';
     case UserCpfAlreadySet = 'USER_CPF_ALREADY_SET';
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
+    case UserNotFound = 'USER_NOT_FOUND';
+    case CannotSuspendAdmin = 'CANNOT_SUSPEND_ADMIN';
+    case SuspensionReasonInvalid = 'SUSPENSION_REASON_INVALID';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
     case UserHeightInvalid = 'USER_HEIGHT_INVALID';
     case UserWeightInvalid = 'USER_WEIGHT_INVALID';
@@ -66,6 +69,7 @@ enum IdentityErrorCode: string
             self::UserWeightInvalid,
             self::OnboardingInvalidPrimaryModality,
             self::OnboardingNoModalitySelected,
+            self::SuspensionReasonInvalid,
             self::SocialProviderUnsupported,
             self::SocialEmailNotVerified,
             self::SocialEmailMissing,
@@ -85,7 +89,10 @@ enum IdentityErrorCode: string
             self::RefreshTokenAlreadyRotated,
             self::SocialAuthenticationFailed => ErrorKind::Authentication,
 
-            self::AccountSuspended => ErrorKind::Forbidden,
+            self::UserNotFound => ErrorKind::NotFound,
+
+            self::AccountSuspended,
+            self::CannotSuspendAdmin => ErrorKind::Forbidden,
         };
     }
 }

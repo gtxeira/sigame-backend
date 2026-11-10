@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Identity\Infrastructure\Mailer\Message\SendEmailVerificationMessage;
 use App\Identity\Infrastructure\Mailer\Message\SendPasswordResetMessage;
+use App\Notifications\Application\Message\CreateNotificationsMessage;
+use App\Notifications\Application\Message\DeliverNotificationMessage;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 return static function (ContainerConfigurator $containerConfigurator): void {
@@ -25,6 +27,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'routing' => [
                 SendEmailVerificationMessage::class => 'async',
                 SendPasswordResetMessage::class => 'async',
+                CreateNotificationsMessage::class => 'async',
+                DeliverNotificationMessage::class => 'async',
             ],
         ],
     ]);

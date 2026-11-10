@@ -54,6 +54,14 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'description' => 'Progresso de XP, níveis, ofensiva semanal e histórico.',
                 ],
                 [
+                    'name' => 'Notificações',
+                    'description' => 'Inbox do usuário, leitura e assinatura do stream em tempo real.',
+                ],
+                [
+                    'name' => 'Usuários',
+                    'description' => 'Administração global de contas, suspensão e reativação.',
+                ],
+                [
                     'name' => 'Saúde',
                     'description' => 'Endpoints operacionais de saúde e diagnóstico da aplicação.',
                 ], // Sempre em último, pois é utilitário do sistema
@@ -75,6 +83,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                         'Minha conta',
                         'Onboarding',
                         'Gamificação',
+                        'Notificações',
                     ],
                 ],
                 [
@@ -82,6 +91,12 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'tags' => [
                         'Grupos',
                         'Atividades',
+                    ],
+                ],
+                [
+                    'name' => 'Administração',
+                    'tags' => [
+                        'Usuários',
                     ],
                 ],
                 [

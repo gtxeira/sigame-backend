@@ -28,6 +28,7 @@ enum GroupErrorCode: string
     case GroupMembershipAlreadyExists = 'GROUP_MEMBERSHIP_ALREADY_EXISTS';
     case GroupMembershipNotPending = 'GROUP_MEMBERSHIP_NOT_PENDING';
     case GroupMembershipNotApproved = 'GROUP_MEMBERSHIP_NOT_APPROVED';
+    case GroupMembershipSuspended = 'GROUP_MEMBERSHIP_SUSPENDED';
     case GroupLastAdminRequired = 'GROUP_LAST_ADMIN_REQUIRED';
 
     public function kind(): ErrorKind
@@ -50,6 +51,7 @@ enum GroupErrorCode: string
             self::GroupMembershipAlreadyExists,
             self::GroupMembershipNotPending,
             self::GroupMembershipNotApproved,
+            self::GroupMembershipSuspended,
             self::GroupLastAdminRequired => ErrorKind::Conflict,
         };
     }

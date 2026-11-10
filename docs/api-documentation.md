@@ -1,6 +1,6 @@
 # SIGAME — Documentação da API (OpenAPI)
 
-> **Última atualização:** 2026-11-09
+> **Última atualização:** 2026-11-10
 >
 > **Implementação:** `config/packages/nelmio_api_doc.php`, `src/Shared/Presentation/Http/OpenApi/` e atributos `OpenApi\Attributes` nos controllers.
 
@@ -10,7 +10,7 @@ Este documento registra as decisões de organização da documentação OpenAPI,
 
 A divisão das tags segue quatro critérios, nesta ordem de prioridade:
 
-1. **Recurso ou entidade de domínio (padrão REST).** Endpoints que manipulam o mesmo ciclo de vida de dados ficam juntos. Por isso `/users` e `/users/{id}` pertencem à mesma tag `Usuários` quando o CRUD administrativo existir.
+1. **Recurso ou entidade de domínio (padrão REST).** Endpoints que manipulam o mesmo ciclo de vida de dados ficam juntos. Por isso `/admin/users` e `/admin/users/{id}` pertencem à mesma tag `Usuários`.
 2. **Ciclo de vida e intenção de uso.** Ações do próprio usuário são separadas da gestão administrativa. Quando o ciclo de vida tem semântica própria — senha, verificação de e-mail, identidade social — ele ganha uma tag própria. `Minha conta` fica reservada aos dados do perfil (`/users/me`, `/users/me/cpf`, `/users/me/profile` e `/users/me/photo`).
 3. **Mecanismo de autenticação e segurança.** A emissão de credencial local fica em `Autenticação`; a rotação e a revogação dos tokens ficam em `Sessão`; o fluxo OAuth e o vínculo de identidades ficam em `Autenticação social`. Integrações com mecanismo próprio de autenticação (por exemplo, webhooks validados por assinatura HMAC) devem ter uma tag própria, como `Webhooks`.
 4. **Funcionalidades transversais ou de sistema.** Endpoints de infraestrutura e monitoramento ficam em `Saúde` e não se misturam com a lógica de negócio.
@@ -32,15 +32,16 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
 | `Grupos` | `/groups`, `/groups/{id}`, `/groups/{id}/memberships`, `/groups/{id}/supervisor` | Recurso/entidade de domínio (REST) | Ciclo de vida do grupo, das participações e do supervisor. |
 | `Atividades` | `/groups/{groupId}/activities`, `/activities/{id}`, `/activities/{id}/enrollments`, `/activities/{id}/attendances` | Recurso/entidade de domínio (REST) | Ciclo de vida, inscrição, check-in e presença em atividades. |
+| `Notificações` | `/notifications`, `/notifications/unread-count`, `/notifications/{id}/read`, `/notifications/read-all`, `/notifications/realtime` | Intenção self-service | Inbox, leitura e assinatura do stream do usuário autenticado. |
+| `Usuários` | `/admin/users`, `/admin/users/{id}`, `/admin/users/{id}/status-history`, `/admin/users/{id}/suspend`, `/admin/users/{id}/reactivate` | Recurso/entidade de domínio (REST) | Administração global de contas. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |
-| `Usuários` (planejado) | `/users`, `/users/{id}` | Recurso/entidade de domínio (REST) | Mesmo agregado e ciclo de vida: coleção e item. Gestão global/administrativa. |
 | `Webhooks` (futuro) | `/webhooks/*` | Mecanismo de autenticação | Assinatura HMAC, não Bearer JWT; não deve se misturar com `Autenticação`. |
 
-A tag `Usuários` ainda não aparece no documento gerado porque não existe endpoint administrativo de usuários. O swagger-php remove tags sem operações. Quando o CRUD administrativo for criado, adicionar a tag em `documentation.tags` e o grupo `Administração` em `documentation.x-tagGroups`.
+A tag `Usuários` agora aparece no documento gerado com a administração global de contas. A coleção e o item usam `/admin/users` para separar a intenção administrativa de `/users/me`.
 
 ## 3. Decisão sobre `/users`
 
-- `/users` e `/users/{id}` compartilham a tag `Usuários`, pelo critério de recurso.
+- `/admin/users` e `/admin/users/{id}` compartilham a tag `Usuários`, pelo critério de recurso.
 - `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo` e `/users/me/groups` ficam em `Minha conta`, pelo critério de intenção self-service.
 - As demais rotas `/users/me/*` ficam na tag do respectivo ciclo de vida: `POST /users/me/password` em `Senha`, `POST /users/me/identities/{provider}` em `Autenticação social` e `POST /users/me/onboarding` em `Onboarding`. O perfil e a foto permanecem em `Minha conta`.
 - A separação entre a coleção e o item não é feita por tag; as operações aparecem como entradas distintas dentro de `Usuários`.
@@ -63,10 +64,10 @@ Os grupos organizam as tags na navegação do Scalar. Os nomes dos grupos são i
 | Grupo | Tags |
 |---|---|
 | `Acesso` | `Autenticação`, `Sessão`, `Autenticação social`, `Verificação de e-mail`, `Senha` |
-| `Conta` | `Minha conta`, `Onboarding` |
+| `Conta` | `Minha conta`, `Onboarding`, `Gamificação`, `Notificações` |
 | `Comunidade` | `Grupos`, `Atividades` |
+| `Administração` | `Usuários` |
 | `Sistema` | `Saúde` |
-| `Administração` | `Usuários` (quando o CRUD administrativo existir) |
 | `Integrações` | `Webhooks` (futuro) |
 
 Toda tag documentada deve pertencer a exatamente um grupo, e todo grupo deve referenciar apenas tags existentes. O teste `ApiDocumentationTest` verifica essa consistência.
@@ -158,6 +159,16 @@ Summaries atuais, usados como referência:
 | `GET /activities/{id}/attendances` | `Listar presenças` |
 | `POST /activities/{id}/attendances/{attendanceId}/validate` | `Validar presença` |
 | `GET /users/me/activities` | `Listar minhas atividades` |
+| `GET /notifications` | `Listar notificações` |
+| `GET /notifications/unread-count` | `Obter contagem de notificações não lidas` |
+| `POST /notifications/{id}/read` | `Marcar notificação como lida` |
+| `POST /notifications/read-all` | `Marcar todas como lidas` |
+| `GET /notifications/realtime` | `Autorizar stream de notificações` |
+| `GET /admin/users` | `Listar usuários` |
+| `GET /admin/users/{id}` | `Obter usuário` |
+| `GET /admin/users/{id}/status-history` | `Listar histórico de status` |
+| `POST /admin/users/{id}/suspend` | `Suspender conta` |
+| `POST /admin/users/{id}/reactivate` | `Reativar conta` |
 | `GET /api/health/liveness` | `Verificar a execução da aplicação` |
 | `GET /api/health/readiness` | `Verificar a prontidão da aplicação` |
 

@@ -299,12 +299,9 @@ final class User
      * Suspende a conta do usuário.
      *
      * RN18.3: Conta suspensa não pode autenticar.
-     * RN18.4: Registra motivo e data.
-     *
-     * O motivo ainda não é persistido; o registro dele é tratado em
-     * mudança separada, junto do histórico de suspensões.
+     * O motivo e o autor são registrados no histórico de suspensões.
      */
-    public function suspend(string $reason): bool
+    public function suspend(): bool
     {
         if ($this->isSuspended()) {
             return false;
@@ -326,6 +323,39 @@ final class User
         }
 
         $this->access = $this->access->reactivate();
+        $this->touch();
+
+        return true;
+    }
+
+    /**
+     * Promove a conta a administrador global do SIGAME.
+     *
+     * A provisão é feita por comando de console; não existe endpoint público
+     * para elevar privilégios.
+     */
+    public function grantAdminRole(): bool
+    {
+        if (UserRole::ADMIN_SIGAME === $this->role()) {
+            return false;
+        }
+
+        $this->access = $this->access->withRole(UserRole::ADMIN_SIGAME);
+        $this->touch();
+
+        return true;
+    }
+
+    /**
+     * Rebaixa um administrador global para usuário comum.
+     */
+    public function revokeAdminRole(): bool
+    {
+        if (UserRole::USER === $this->role()) {
+            return false;
+        }
+
+        $this->access = $this->access->withRole(UserRole::USER);
         $this->touch();
 
         return true;

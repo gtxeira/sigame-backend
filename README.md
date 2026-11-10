@@ -2,7 +2,7 @@
 
 Plataforma web para incentivar a prática de atividades físicas em grupo: encontrar pessoas com interesses e disponibilidades compatíveis, formar pequenos grupos, organizar atividades, registrar presença e acompanhar a evolução de cada participante.
 
-> **Status:** V1 em desenvolvimento. O módulo de identidade (cadastro, autenticação, conta e onboarding) está implementado. Os demais módulos estão no roadmap. O acompanhamento detalhado fica em [docs/implementacao.md](docs/implementacao.md).
+> **Status:** V1 em desenvolvimento. Identity, Groups, Activities, Gamification e Notifications estão implementados; Sponsorship e Reports estão no roadmap. O acompanhamento detalhado fica em [docs/implementacao.md](docs/implementacao.md).
 
 ## Visão do projeto
 
@@ -12,7 +12,7 @@ O SIGAME nasce para centralizar essa experiência. A proposta é oferecer um can
 
 O produto prioriza **inclusão**: iniciantes, pessoas sedentárias, tímidas ou que nunca praticaram atividade em grupo devem se sentir acolhidas. Por isso, dados como peso e altura são opcionais e não impedem o acesso às funcionalidades sociais; não há exigência de GPS; e a comunicação do grupo pode acontecer por um link externo, sem expor telefone pessoal.
 
-A V1 também leva a sério **segurança e moderação**. Denúncias, bloqueio entre usuários e suspensão global de conta fazem parte do escopo, assim como a separação entre administração da plataforma, administradores de grupo e supervisores. Nenhuma operação financeira, Pix, comissão ou repasse faz parte da V1.
+A V1 também leva a sério **segurança e moderação**. A administração da plataforma pode suspender e reativar contas, com histórico auditável; denúncias e bloqueio entre usuários ficam adiados para uma reavaliação futura. A separação entre administração da plataforma, administradores de grupo e supervisores continua valendo. Nenhuma operação financeira, Pix, comissão ou repasse faz parte da V1.
 
 As modalidades iniciais são **caminhada, corrida e ciclismo**. O usuário pode praticar mais de uma modalidade e definir uma delas como principal sem perder histórico ou XP.
 
@@ -32,8 +32,8 @@ Grupos informais costumam depender de convites, mensagens soltas e memória. Nã
 - organização de atividades com data, horário, ponto de encontro e trajeto;
 - check-in individual e validação de presença;
 - progressão por XP e níveis, com regras de deleveling por inatividade;
-- notificações internas de mudanças relevantes;
-- moderação, denúncias e bloqueios;
+- notificações internas de mudanças relevantes, com sino e tempo real;
+- suspensão e reativação global de contas;
 - patrocínios e vouchers vinculados ao grupo, sem transação financeira.
 
 ## Escopo da V1
@@ -46,8 +46,8 @@ Grupos informais costumam depender de convites, mensagens soltas e memória. Nã
 - atividades vinculadas a grupos ativos;
 - check-in e validação de presença;
 - gamificação com 10 níveis;
-- notificações internas;
-- denúncias, bloqueio e suspensão global;
+- notificações internas com sino e tempo real;
+- administração global de contas com suspensão e reativação;
 - patrocínios, benefícios e vouchers;
 - indicador mensal interno de desempenho dos grupos.
 
@@ -231,7 +231,7 @@ tests/
 └── Helpers/         # ApiClient e factories de teste
 ```
 
-Módulos planejados: `Groups`, `Activities`, `Gamification`, `Moderation`, `Sponsorship`, `Notifications` e `Reports`. O estado de cada um está em [docs/implementacao.md](docs/implementacao.md).
+Módulos implementados: `Identity`, `Groups`, `Activities`, `Gamification` e `Notifications`. Módulos planejados: `Sponsorship` e `Reports`. Denúncias e bloqueios estão adiados. O estado de cada um está em [docs/implementacao.md](docs/implementacao.md).
 
 ## Documentação
 

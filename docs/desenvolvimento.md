@@ -88,9 +88,13 @@ O ambiente de desenvolvimento já traz uma chave em `.env.dev`. Para usar outra,
 MESSENGER_MAIL_ENCRYPTION_KEY=<base64 de 32 bytes>
 ```
 
-O worker do Messenger sobe junto com `just up`. Se ele estiver parado, os e-mails de verificação e reset ficam na fila `messenger_messages` até o worker voltar. Para rodar um consumidor manual use `just worker`; para acompanhar o serviço, `just worker-logs`.
+O worker do Messenger sobe junto com `just up`. Se ele estiver parado, e-mails de verificação/reset e a criação/entrega de notificações ficam na fila `messenger_messages` até o worker voltar. Para rodar um consumidor manual use `just worker`; para acompanhar o serviço, `just worker-logs`.
 
 O serviço `scheduler` consome `scheduler_activities` e `scheduler_gamification`. O primeiro executa o fechamento automático de atividades a cada 5 minutos; o segundo aplica a perda por inatividade uma vez por dia. Se ele estiver parado, atividades vencidas permanecem abertas e o deleveling atrasa até a próxima execução. Use `just scheduler-logs` e `just scheduler` para acompanhar ou rodar manualmente.
+
+O hub Mercure usa as variáveis `MERCURE_URL`, `MERCURE_PUBLIC_URL`, `MERCURE_JWT_SECRET`, `MERCURE_TOPIC_BASE` e `MERCURE_SUBSCRIBER_TOKEN_TTL`. O caminho de publicação é interno (`http://php/.well-known/mercure`); o navegador/app assina `MERCURE_PUBLIC_URL`. O frontend deve usar `Authorization: Bearer` no SSE e o CORS do hub precisa liberar a origem do frontend.
+
+Para provisionar a primeira conta administrativa use `just sf app:identity:grant-admin <email>`; para remover o papel, `just sf app:identity:revoke-admin <email>`. O comando de revogação recusa rebaixar o último admin ativo.
 
 ## 4. Comandos do dia a dia
 

@@ -59,7 +59,7 @@ it('rejects an access token from a suspended account', function () {
     $user = authTestCreateUser($this, 'suspended-token@example.com');
     $accessToken = authTestAccessToken(authTestLogin($this, 'suspended-token@example.com'));
 
-    $user->suspend('violation');
+    $user->suspend();
     // @phpstan-ignore-next-line
     $this->api->getKernelBrowser()->getContainer()->get(UserRepositoryInterface::class)->save($user);
 

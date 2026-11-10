@@ -3,7 +3,8 @@
 SIGAME is a JSON HTTP API (no app UI) built with PHP 8.5 / Symfony 8.1, PostgreSQL 18
 and FrankenPHP. `src/` is a modular monolith: each module lives in
 `src/<Module>/{Domain,Application,Infrastructure,Presentation}`. The implemented
-modules are `Identity` (business) and `Monitoring` (technical); `Shared` is the kernel.
+modules are `Identity`, `Groups`, `Activities`, `Gamification` and `Notifications`
+(business), plus `Monitoring` (technical); `Shared` is the kernel.
 Read `docs/implementacao.md` before starting a feature, `docs/arquitetura.md` for
 boundaries, and `docs/desenvolvimento.md` for the full workflow.
 
@@ -19,7 +20,8 @@ assumption; don't scaffold a full stack unprompted.
   `.env.dev` and `.env.local` to Compose; a missing `.env.local` breaks every recipe.
 - `just build`, `just up`, `just logs`, `just down`, `just sh` / `just bash`.
 - `just sf <args>` runs `bin/console`; `just composer <args>` runs Composer;
-  `just cc` clears the cache.
+  `just cc` clears the cache. Admin provisioning uses `just sf app:identity:grant-admin <email>`
+  and `just sf app:identity:revoke-admin <email>`.
 - Messenger runs in the `worker` service. Use `just worker-logs`, `just worker`
   (manual consumer) and `just messenger-failed` (failed queue); `just keygen`
   generates `MESSENGER_MAIL_ENCRYPTION_KEY`.
@@ -48,13 +50,19 @@ assumption; don't scaffold a full stack unprompted.
   and `Shared`.
 - Cross-module communication goes through Domain Events
   (`DomainEventInterface` + `#[AsEventListener]`), never direct imports.
-- Transactional email is enqueued through `IdentityMailDispatcherInterface`; use cases
+- Transactional identity email is enqueued through `IdentityMailDispatcherInterface`; use cases
   must not call `IdentityMailerInterface` directly. The raw token is encrypted with
   `PayloadEncryptor` before it reaches Messenger.
+- Notifications are written through the `Notifications` module. Domain events only feed
+  listeners; use cases must not call channels directly. The in-app record is canonical and
+  external channels are adapters. The realtime transport is Mercure and must not become the
+  source of truth.
 - Keep layers clean: Domain is framework-free; Application holds ports/use cases;
   Infrastructure implements adapters; Presentation handles HTTP.
 - `tests/Unit/Architecture/ModuleBoundariesTest.php` fails on violations.
   Mirror source paths in `tests/<Type>/<Module>/...`.
+- Notifications may import event classes from other modules (ADR-030); all other imports follow
+  the module boundary rules. Cross-module read ports live in `Shared/Application`.
 - A new module must register its Doctrine mapping in
   `config/packages/doctrine.php`; mappings are not auto-discovered.
 

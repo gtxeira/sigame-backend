@@ -124,6 +124,15 @@ final class GroupErrors
         );
     }
 
+    public static function membershipSuspended(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupMembershipSuspended,
+            message: 'A conta do solicitante está suspensa e não pode ser aprovada.',
+            field: 'membershipId',
+        );
+    }
+
     public static function membershipNotApproved(): DomainError
     {
         return self::error(

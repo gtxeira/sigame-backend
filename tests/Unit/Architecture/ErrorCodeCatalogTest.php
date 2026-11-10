@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Activities\Domain\Error\ActivityErrorCode;
 use App\Groups\Domain\Error\GroupErrorCode;
 use App\Identity\Domain\Error\IdentityErrorCode;
+use App\Notifications\Domain\Error\NotificationErrorCode;
 use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Error\SharedErrorCode;
 use App\Shared\Presentation\Http\Response\ApiErrorCode;
@@ -26,7 +27,7 @@ function allErrorCodes(): array
 }
 
 /**
- * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|ApiErrorCode>>
+ * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|NotificationErrorCode|ApiErrorCode>>
  */
 function errorCodeCatalogs(): array
 {
@@ -35,6 +36,7 @@ function errorCodeCatalogs(): array
         IdentityErrorCode::class,
         GroupErrorCode::class,
         ActivityErrorCode::class,
+        NotificationErrorCode::class,
         ApiErrorCode::class,
     ];
 }
@@ -49,16 +51,17 @@ it('uses screaming snake case for every error code', function (string $code) {
     expect($code)->toMatch('/^[A-Z][A-Z0-9_]*$/');
 })->with(fn (): array => allErrorCodes());
 
-it('classifies every domain error code', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode $code) {
+it('classifies every domain error code', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|NotificationErrorCode $code) {
     expect(ErrorKind::cases())->toContain($code->kind());
 })->with(fn (): array => [
     ...SharedErrorCode::cases(),
     ...IdentityErrorCode::cases(),
     ...GroupErrorCode::cases(),
     ...ActivityErrorCode::cases(),
+    ...NotificationErrorCode::cases(),
 ]);
 
-it('classifies state conflicts as conflict', function (IdentityErrorCode $code) {
+it('classifies state conflicts as conflict', function (IdentityErrorCode|GroupErrorCode $code) {
     expect($code->kind())->toBe(ErrorKind::Conflict);
 })->with([
     IdentityErrorCode::UserCpfAlreadyExists,
@@ -68,6 +71,7 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode $code) 
     IdentityErrorCode::EmailAlreadyVerified,
     IdentityErrorCode::UserCpfAlreadySet,
     IdentityErrorCode::RefreshInProgress,
+    GroupErrorCode::GroupMembershipSuspended,
 ]);
 
 it('classifies input problems as validation', function (SharedErrorCode|IdentityErrorCode $code) {
@@ -85,6 +89,7 @@ it('classifies input problems as validation', function (SharedErrorCode|Identity
     IdentityErrorCode::SocialProviderUnsupported,
     IdentityErrorCode::SocialEmailNotVerified,
     IdentityErrorCode::SocialEmailMissing,
+    IdentityErrorCode::SuspensionReasonInvalid,
 ]);
 
 it('classifies authentication problems as authentication', function (IdentityErrorCode $code) {
@@ -99,5 +104,11 @@ it('classifies authentication problems as authentication', function (IdentityErr
 ]);
 
 it('classifies suspended accounts as forbidden', function () {
-    expect(IdentityErrorCode::AccountSuspended->kind())->toBe(ErrorKind::Forbidden);
+    expect(IdentityErrorCode::AccountSuspended->kind())->toBe(ErrorKind::Forbidden)
+        ->and(IdentityErrorCode::CannotSuspendAdmin->kind())->toBe(ErrorKind::Forbidden);
+});
+
+it('classifies missing users and notifications as not found', function () {
+    expect(IdentityErrorCode::UserNotFound->kind())->toBe(ErrorKind::NotFound)
+        ->and(NotificationErrorCode::NotificationNotFound->kind())->toBe(ErrorKind::NotFound);
 });

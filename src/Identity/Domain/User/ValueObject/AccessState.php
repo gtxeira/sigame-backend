@@ -16,7 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
 final readonly class AccessState
 {
     private function __construct(
-        #[ORM\Column(name: 'role', type: 'string', length: 10, enumType: UserRole::class)]
+        #[ORM\Column(name: 'role', type: 'string', length: 20, enumType: UserRole::class)]
         private UserRole $role,
 
         #[ORM\Column(name: 'status', type: 'string', length: 20, enumType: UserStatus::class)]
@@ -50,6 +50,18 @@ final readonly class AccessState
         }
 
         return new self($this->role, UserStatus::ACTIVE);
+    }
+
+    /**
+     * Define o papel de acesso mantendo o estado da conta.
+     */
+    public function withRole(UserRole $role): self
+    {
+        if ($this->role === $role) {
+            return $this;
+        }
+
+        return new self($role, $this->status);
     }
 
     /**

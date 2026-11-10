@@ -22,6 +22,7 @@ it('builds the public group errors with messages and kinds', function () {
         GroupErrors::membershipAlreadyExists(),
         GroupErrors::membershipNotPending(),
         GroupErrors::membershipNotApproved(),
+        GroupErrors::membershipSuspended(),
         GroupErrors::lastAdminRequired(),
     ];
 

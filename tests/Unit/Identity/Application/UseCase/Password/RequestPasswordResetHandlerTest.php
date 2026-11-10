@@ -86,7 +86,7 @@ it('does nothing when the account does not exist', function () {
 
 it('does nothing when the account is suspended', function () {
     $user = passwordResetRequestUser();
-    $user->suspend('fraud');
+    $user->suspend();
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);

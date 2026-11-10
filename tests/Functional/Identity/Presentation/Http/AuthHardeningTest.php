@@ -106,7 +106,7 @@ it('rejects a password reset for an account suspended after the request', functi
     $this->api->post('app_auth_password_forgot', ['email' => $email]);
     $token = (string) authTestMailer($this)->lastToken('password_reset', $email);
 
-    $user->suspend('fraud');
+    $user->suspend();
     authTestUserRepository($this)->save($user);
 
     $response = $this->api->post('app_auth_password_reset', [

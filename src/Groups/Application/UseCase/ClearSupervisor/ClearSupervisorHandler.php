@@ -43,12 +43,17 @@ final readonly class ClearSupervisorHandler
             $changed = $clear->value();
 
             if ($changed) {
+                $supervisorId = $group->supervisor()?->userId()->value();
+
                 $this->groupRepository->save($group);
 
-                $this->eventDispatcher->dispatch(SupervisorRemoved::now(
-                    groupId: $group->id()->value(),
-                    actorId: $command->actorId->value(),
-                ));
+                if (null !== $supervisorId) {
+                    $this->eventDispatcher->dispatch(SupervisorRemoved::now(
+                        groupId: $group->id()->value(),
+                        supervisorId: $supervisorId,
+                        actorId: $command->actorId->value(),
+                    ));
+                }
             }
 
             return Result::success($changed);

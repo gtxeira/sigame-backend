@@ -29,7 +29,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | 4 | Groups | Concluída |
 | 5 | Activities | Concluída |
 | 6 | Gamification | Em andamento (núcleo implementado; recálculo pendente) |
-| 7 | Notifications + Moderation | Não iniciada |
+| 7 | Notifications + Administração de contas | Concluída |
 | 8 | Sponsorship + Reports | Não iniciada |
 
 ### 1.2 Capacidades
@@ -48,7 +48,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Logout e logout de todos os dispositivos | Implementado | `src/Identity/Application/UseCase/Logout/` |
 | Dados do usuário autenticado | Implementado | `src/Identity/Presentation/Http/Controller/MeController.php` |
 | Definição de CPF write-once | Implementado | `AssignCpfHandler` e `PATCH /api/v1/users/me/cpf` |
-| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF, perfil, fotos, grupos e atividades | Implementado | `config/packages/rate_limiter.php` |
+| Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF, perfil, fotos, grupos, atividades, notificações e administração | Implementado | `config/packages/rate_limiter.php` |
 | Health checks | Implementado | `src/Monitoring/` |
 | Onboarding de modalidades | Implementado | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding` |
 | Edição parcial de perfil | Implementado | `UpdateProfileHandler` e `PATCH /api/v1/users/me/profile` |
@@ -59,7 +59,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Criador independente e múltiplos admins | Implementado | `groups.created_by`, `Membership.role` e invariante do último admin |
 | Supervisor do grupo | Implementado | `DesignateSupervisorHandler`, `ClearSupervisorHandler` e `PUT`/`DELETE .../supervisor` |
 | Comunicação externa do grupo | Implementado | `communicationLink` visível apenas para membros aprovados |
-| CRUD administrativo de usuários | Não iniciado | Planejado |
+| CRUD administrativo completo de usuários | Parcial | Listagem, busca, detalhe, suspensão e reativação implementados; edição/exclusão fora da V1 |
 | Atividades e ciclo de vida | Implementado | `Activity`, `ActivityController`, `ActivityLifecycleController` e migration `Version20261109224939` |
 | Inscrição e conflito de horário | Implementado | `EnrollInActivityHandler`, `DoctrineActivityRepository::hasConflictingAttendance()` |
 | Check-in e validação de presença | Implementado | `CheckInHandler`, `ValidateAttendanceHandler` e `AttendanceValidated` |
@@ -69,7 +69,11 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Deleveling por inatividade | Implementado | `DelevelingPolicy`, `ApplyInactivityDecayHandler` e schedule diário |
 | API de progresso e histórico de XP | Implementado | `GET /users/me/progress` e `/progress/history` |
 | Versionamento e recálculo de XP | Parcial | `rule_version` gravado; comando `app:gamification:recalculate` pendente |
-| Demais módulos de negócio | Não iniciados | Notifications, Moderation, Sponsorship, Reports |
+| Notificações in-app, leitura e sino | Implementado | `Notification`, `NotificationController`, `CreateNotificationsHandler` e migration `Version20261110145733` |
+| Notificações em tempo real via Mercure | Implementado | `MercureRealtimePublisher`, `MercureStreamAuthorizationProvider` e `GET /api/v1/notifications/realtime` |
+| Canal e-mail para eventos de conta | Implementado | `EmailNotificationChannel` e `notification_deliveries` |
+| Administração global de contas | Implementado | `AdminUserController`, `ListUsersHandler`, `SuspendUserHandler`, `ReactivateUserHandler` e `user_suspensions` |
+| Demais módulos de negócio | Não iniciados | Sponsorship, Reports |
 
 ### 1.3 O que existe hoje no HTTP
 
@@ -127,6 +131,16 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET` | `/api/v1/users/me/activities` | Bearer JWT |
 | `GET` | `/api/v1/users/me/progress` | Bearer JWT |
 | `GET` | `/api/v1/users/me/progress/history` | Bearer JWT |
+| `GET` | `/api/v1/notifications` | Bearer JWT |
+| `GET` | `/api/v1/notifications/unread-count` | Bearer JWT |
+| `POST` | `/api/v1/notifications/{id}/read` | Bearer JWT |
+| `POST` | `/api/v1/notifications/read-all` | Bearer JWT |
+| `GET` | `/api/v1/notifications/realtime` | Bearer JWT |
+| `GET` | `/api/v1/admin/users` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/users/{id}` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/users/{id}/status-history` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `POST` | `/api/v1/admin/users/{id}/suspend` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `POST` | `/api/v1/admin/users/{id}/reactivate` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
 | `GET` | `/api/health/liveness` | Pública |
 | `GET` | `/api/health/readiness` | Pública |
 
@@ -365,10 +379,68 @@ a projeção. A dívida está detalhada no [ADR-036](decisoes.md#adr-036--nível
 - [x] Testes de auditoria, reparo, criação de progresso ausente e projeção divergente.
 - [x] Teste de idempotência do reparo e do `--repair` sem flag.
 
-### Fase 7 — Notifications + Moderation
+### Fase 7 — Notificações + Administração de contas
 
-- [ ] Notificações internas de atividades e mudanças de grupo.
-- [ ] Denúncias, bloqueio entre usuários e suspensão global.
+A especificação detalhada do catálogo, canais e regras está em
+[requisitos/levantamento-de-requisitos.md](requisitos/levantamento-de-requisitos.md#rf15--notificar-eventos-relevantes)
+e [RF18](requisitos/levantamento-de-requisitos.md#rf18--suspender-e-reativar-conta-globalmente).
+
+#### 7.1 Fundação de Notifications
+
+- [x] Criar o módulo `Notifications` com `Domain`, `Application`, `Infrastructure` e `Presentation`.
+- [x] `Notification` e `NotificationDelivery` com tipo, categoria, título, corpo, payload, leitura e idempotência.
+- [x] VOs de tipo, categoria, canal, status de entrega, título, corpo e chave de deduplicação.
+- [x] Repositórios Doctrine, tipos DBAL e migration `Version20261110145733`.
+- [x] Portas `RealtimePublisherInterface`, `StreamAuthorizationProviderInterface` e `NotificationChannelInterface`.
+
+#### 7.2 Público e conteúdo
+
+- [x] Portas `UserContactReaderInterface`, `UserActiveReaderInterface`, `GroupSummaryReaderInterface` e `ActivitySummaryReaderInterface` no `Shared`.
+- [x] Adapters em Identity, Groups e Activities.
+- [x] `NotificationAudienceResolver`, `NotificationContentFactory`, `NotificationPlanner` e `NotificationChannelPolicy`.
+- [x] Catálogo de 21 tipos aprovado, com exclusão do ator e filtro de suspensos.
+
+#### 7.3 Pipeline assíncrono
+
+- [x] Listeners de grupos, atividades, gamificação e conta publicando `CreateNotificationsMessage`.
+- [x] `CreateNotificationsHandler` idempotente, com resolução de público no worker.
+- [x] `DeliverNotificationMessage` e handler de entrega com tentativas e status.
+- [x] Falha de notificação não reverte a operação principal.
+- [x] Roteamento de `CreateNotificationsMessage` e `DeliverNotificationMessage` para `async`.
+
+#### 7.4 Canal e-mail
+
+- [x] `EmailNotificationChannel` e template `email/notification.html.twig`.
+- [x] E-mail apenas para `ACCOUNT_SUSPENDED` e `ACCOUNT_REACTIVATED`.
+- [x] Entrega registrada em `notification_deliveries` com `SENT`, `FAILED` ou `SKIPPED`.
+
+#### 7.5 API, leitura e Mercure
+
+- [x] `GET /api/v1/notifications`, `/unread-count`, `/{id}/read`, `/read-all` e `/realtime`.
+- [x] Filtro `all|unread|read`, categoria e paginação; frontend pode ocultar lidas.
+- [x] Marcar uma e marcar todas idempotentes, isoladas por destinatário.
+- [x] Mercure com tópico privado por usuário e token de assinatura de curta duração, somente leitura.
+- [x] Publicação de `notification.created`, `notification.read` e `notifications.read_all`.
+- [x] Configuração do bundle, protocolo legado 0.x, envs e CORS do hub.
+
+#### 7.6 Administração de contas
+
+- [x] `UserSuspension` append-only, `UserSuspended` e `UserReactivated`.
+- [x] `User::suspend()`/`reactivate()` e `grantAdminRole()`/`revokeAdminRole()`.
+- [x] `SuspendUser`, `ReactivateUser`, `ListUsers`, `GetUser` e `ListStatusHistory`.
+- [x] Revogação de todas as sessões na suspensão.
+- [x] Endpoints `/api/v1/admin/users...`, tag `Usuários`, grupo `Administração`.
+- [x] Comandos `app:identity:grant-admin` e `app:identity:revoke-admin`.
+- [x] `ApproveMembershipHandler` recusa aprovação de usuário suspenso.
+- [x] Migration `Version20261110150000` amplia `users.role` para suportar `ADMIN_SIGAME`.
+
+#### 7.7 Testes e documentação
+
+- [x] Testes unitários de notificação, planejador, canais, Mercure e suspensão.
+- [x] Testes funcionais de inbox, leitura, atividade, administração e e-mail.
+- [x] Teste de integração do repositório de notificações.
+- [x] `ApiDocumentationTest` atualizado com tags, rotas e summaries.
+- [x] Fechar `just composer quality` e atualizar os documentos correlatos (suíte completa verde em 2026-11-10).
 
 ### Fase 8 — Sponsorship + Reports
 
@@ -383,8 +455,6 @@ As decisões abaixo ainda precisam ser fechadas antes da implementação do mód
 
 | ID | Questão | Impacto | Prioridade | Status |
 |---|---|---|---|---|
-| `DEC04` | Comportamento das notificações lidas/arquivadas | Notificações | Média | Pendente |
-| `DEC05` | Efeitos do bloqueio entre usuários | Moderação | Alta | Pendente |
 | `DEC06` | Matriz final de visibilidade de dados | Privacidade | Alta | Pendente |
 | `DEC07` | Público, distribuição e limites de vouchers | Vouchers | Alta | Pendente |
 | `DEC08` | Fórmula e periodicidade do indicador mensal | Indicadores | Média | Pendente |
@@ -407,6 +477,15 @@ Decisões fechadas na Fase 6:
 | `DEC02` | Curva de níveis, XP por atividade, bônus de grupo/fim de semana e ofensiva semanal | [ADR-032](decisoes.md#adr-032--modelo-de-xp-em-duas-camadas-e-ledger-append-only), [ADR-033](decisoes.md#adr-033--curva-de-níveis-e-xp-por-atividade) e [ADR-034](decisoes.md#adr-034--ofensiva-semanal-e-bônus-de-constância) |
 | `DEC03` | Fórmula exata do deleveling | [ADR-035](decisoes.md#adr-035--deleveling-e-piso-no-nível-2) |
 
+Decisões fechadas na Fase 7:
+
+| ID | Decisão | ADR |
+|---|---|---|
+| `DEC04` | Notificações multicanal, inbox, leitura e Mercure | [ADR-037](decisoes.md#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) |
+| `DEC05` | Denúncias e bloqueios adiados; administração de contas em Identity | [ADR-038](decisoes.md#adr-038--denúncias-e-bloqueios-fora-da-v1) |
+| — | Suspensão global: sessões, vínculos e histórico | [ADR-039](decisoes.md#adr-039--suspensão-global-de-contas) |
+| — | Mercure como transporte em tempo real do sino | [ADR-040](decisoes.md#adr-040--mercure-como-transporte-em-tempo-real-do-sino) |
+
 Decisões técnicas da Fase 5:
 
 - [ADR-028](decisoes.md#adr-028--modelo-de-activities-janela-inscrição-presença-e-histórico) — modelo de Activities;
@@ -423,7 +502,6 @@ As demais decisões já fechadas (`DEC09`, `DEC13` e `DEC14`) e os ADRs arquitet
 | Rate limiter em produção | Com mais de uma instância, o pool `cache.rate_limiter` precisa apontar para armazenamento compartilhado (Redis ou banco). Hoje o padrão é o cache da aplicação. |
 | Limpeza de refresh tokens | Não há rotina para remover tokens expirados ou revogados antigos. |
 | Processamento de imagem | Não há GD/Imagick: falta resize/thumbnail, leitura de EXIF e detecção de imagem corrompida no servidor. |
-| Mercure | O template sobe um hub Mercure, mas a aplicação ainda não publica nem consome tópicos. |
 
 ---
 
@@ -447,6 +525,8 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261109224939` | 2026-11-09 | Cria `activities`, `activity_attendances` e `activity_reschedules`; índice único parcial de inscrição ativa. |
 | `Version20261109230000` | 2026-11-09 | Corrige os índices parciais de `group_memberships` para os valores minúsculos dos enums. |
 | `Version20261110000000` | 2026-11-10 | Cria `user_progress` e `xp_events`; backfill a partir de `users.level` e das presenças validadas. |
+| `Version20261110145733` | 2026-11-10 | Cria `notifications`, `notification_deliveries` e `user_suspensions`; índices de inbox e histórico. |
+| `Version20261110150000` | 2026-11-10 | Amplia `users.role` para 20 caracteres para suportar `ADMIN_SIGAME`. |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou de URL para chave de objeto em `Version20261108120000`.
 
@@ -471,7 +551,6 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | Item | Evidência | Ação sugerida |
 |---|---|---|
 | Troca de modalidade principal ausente | RN03.5/CA03.5 exigem alterar a principal preservando histórico, mas `completeOnboarding()` só aceita uma conclusão | Criar caso de uso e endpoint próprios, com teste de preservação de XP. |
-| Motivo da suspensão não é persistido | `User::suspend(string $reason)` ignora o argumento | Criar histórico de suspensões com autor, motivo e datas. |
 | Imagem sem pós-processamento | O endpoint só valida e armazena; o enquadramento em 512×512 é feito pelo cliente e o arquivo original é persistido | Ver [§5.1](#51-processamento-de-imagem). |
 | Objetos órfãos em falha abrupta | A compensação cobre falha de persistência, mas um processo morto entre o upload e o save deixa o objeto no bucket | Criar rotina de limpeza por referência/idade ou lifecycle policy no provedor. |
 | Leitura pública da foto | O bucket local usa website público com chave não adivinhável; a matriz definitiva do `DEC06` segue aberta | Reavaliar quando a visibilidade de perfil for fechada; a chave persistida permite migrar para proxy ou URL assinada sem migration. |
@@ -479,9 +558,7 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | `doctrine:schema:validate` acusa índices parciais | O DBAL compara o texto do `WHERE` do mapping com o `pg_get_expr` do PostgreSQL, que reescreve `IN` como `= ANY (ARRAY[...])` e `TRUE` como `true`; por isso `uniq_group_memberships_active`, `uniq_group_memberships_supervisor` e `uniq_activity_attendances_active` aparecem sempre como divergência | Tratar como falso positivo: conferir o diff com `doctrine:schema:update --dump-sql` e nunca gerar migration a partir dele. O teste `SchemaDriftTest` falha se aparecer divergência nova; só reativar o `schema:validate` no CI com um comparador que normalize o predicado. |
 | Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
-| CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
-| Notificações de grupo sem consumidor | Eventos `GroupCreated`, `MembershipApproved`, `MemberRemoved` etc. são publicados, mas Notifications só existe na Fase 7 | Implementar listeners quando o módulo existir. |
-| Eventos de Activities sem consumidor em Notifications | `AttendanceValidated` e `ActivityInvalidated` já são consumidos pela Gamification; `ActivityCreated`, `ActivityFinished` etc. ainda não têm consumidor em Notifications | Implementar listeners na Fase 7. |
+| CRUD administrativo completo ausente | A Fase 7 entregou listagem, busca, detalhe, suspensão e reativação; não há edição/exclusão de contas | Implementar os demais fluxos quando o produto exigir. |
 | Schedulers dependem do serviço | Se o serviço `scheduler` estiver parado, o fechamento automático de atividades e o deleveling atrasam até a próxima execução | Monitorar o serviço e documentar a operação em produção. |
 | Sem fechamento automático de validação | A janela de validação é validada na requisição; não há job para encerrar pendências de validação | Avaliar rotina de fechamento após 48 h. |
 | Busca de grupos com `LIKE` | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE` | Avaliar índice textual ou busca por trigramas se o volume crescer. |
@@ -494,7 +571,20 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | **Ofensiva de grupo** | O foguinho é individual; não existe ofensiva coletiva do grupo | Avaliar na V1.1 ou na Fase 8, junto com os indicadores mensais. |
 | **XP em lote na finalização** | O XP é concedido na validação individual e o bônus de grupo usa check-ins | Avaliar consolidar o XP na finalização da atividade para usar apenas presenças validadas. |
 | **Validação própria** | Admin/supervisor pode validar a própria presença; a regra atual não impede explicitamente | Decidir se o XP deve exigir um validador diferente do participante (`DEC16`). |
-| **Ofensiva em risco sem notificação** | `StreakAtRisk` e `WeeklyGoalCompleted` dependem da Fase 7 | Implementar os consumidores junto com Notifications. |
+| **Sem retenção de notificações** | `notifications` cresce indefinidamente; não há cleanup | Adicionar scheduler de retenção (ex.: 180 dias) quando o volume justificar. |
+| **WhatsApp e push não implementados** | A V1 só entrega e-mail para eventos de conta | Coletar telefone/opt-in e device tokens antes de habilitar novos canais. |
+| **Sem preferências de notificação** | A política de canais é fixa por tipo | Criar `notification_preferences` por usuário/tipo/canal em versão futura. |
+| **Mercure é best-effort** | Falha de publicação não desfaz a notificação e a revogação do token ocorre por expiração | Monitorar o hub e manter o fallback de consulta da API. |
+| **Notificações dependem do worker** | Criação e entrega são assíncronas | Monitorar `async`; mensagens permanecem na fila se o worker parar. |
+| **Conteúdo PT-BR fixo** | Título e corpo são renderizados no backend sem i18n | Adicionar locale/preferência quando houver mais idiomas. |
+| **Sem digest/agrupamento** | Cada evento gera um item; grupos pequenos limitam o ruído hoje | Avaliar agrupamento se o volume por usuário crescer. |
+| **Busca administrativa com LIKE** | `LOWER(name/email) LIKE` sem índice textual | Avaliar índice de trigramas se a base crescer. |
+| **Único admin suspenso** | A suspensão não transfere o grupo e pode deixá-lo sem administrador ativo | Tratar junto do `DEC15` (exclusão/transferência). |
+| **Motivo público vs. nota interna** | O motivo é exibido ao titular e não há campo separado para anotação interna | Definir política de moderação antes de adicionar notas internas. |
+| **Protocolo Mercure legado** | O hub do Caddy usa `protocol_version_compatibility 8` (0.x) | Migrar para 1.0 quando o hub e o bundle forem atualizados. |
+| **CORS do hub** | O hub SSE é servido pelo Caddy fora do NelmioCors | Configurar `cors_origins` no hub para a origem do frontend. |
+| **Admin provisionado por CLI** | Não há endpoint para elevar privilégios | Manter `app:identity:grant-admin`/`revoke-admin` e documentar a operação. |
+| **Sem métricas de notificação** | Não há contadores de criação, entrega, falha ou lag | Adicionar logs estruturados/métricas no Monitoring. |
 
 ### 5.1 Processamento de imagem
 
@@ -553,10 +643,15 @@ Identificadas na revisão da Fase 6 depois do fechamento do núcleo. Não bloque
 - [x] Definir que não haverá ofensiva diária na V1.
 - [x] Definir permissões de gestão do supervisor na V1 (sem poderes de membros).
 - [x] Definir poderes de atividade do supervisor na Fase 5.
-- [ ] Definir efeito do bloqueio entre usuários.
+- [x] Definir que denúncias e bloqueios ficam adiados na V1 ([ADR-038](decisoes.md#adr-038--denúncias-e-bloqueios-fora-da-v1)).
+- [x] Definir catálogo de notificações, público e canais ([ADR-037](decisoes.md#adr-037--notificações-multicanal-com-inbox-canais-e-mercure)).
+- [x] Definir leitura, filtro e “marcar todas” (`DEC04`).
+- [x] Definir Mercure/SSE como transporte em tempo real do sino ([ADR-040](decisoes.md#adr-040--mercure-como-transporte-em-tempo-real-do-sino)).
+- [x] Definir suspensão/reativação, sessões, vínculos e histórico ([ADR-039](decisoes.md#adr-039--suspensão-global-de-contas)).
 - [ ] Definir visibilidade de cada campo de perfil.
 - [ ] Definir regras de geração e resgate de vouchers.
 - [ ] Definir fórmula do indicador mensal.
 - [ ] Validar se todos os critérios de aceitação serão convertidos em testes.
+- [x] Fechar a Fase 7 com `just composer quality`.
 
 Cada item fechado deve virar uma entrada em [decisoes.md](decisoes.md) e atualizar o requisito correspondente em [requisitos/levantamento-de-requisitos.md](requisitos/levantamento-de-requisitos.md).

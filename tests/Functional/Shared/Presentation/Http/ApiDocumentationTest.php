@@ -121,6 +121,10 @@ it('follows the summary writing convention', function () {
         'Inscrever-se',
         'Fazer',
         'Validar',
+        'Suspender',
+        'Reativar',
+        'Marcar',
+        'Autorizar',
     ];
 
     $problems = [];
@@ -293,6 +297,16 @@ it('documents every public api operation', function () {
             '/api/v1/activities/{id}/attendances',
             '/api/v1/activities/{id}/attendances/{attendanceId}/validate',
             '/api/v1/users/me/activities',
+            '/api/v1/admin/users',
+            '/api/v1/admin/users/{id}',
+            '/api/v1/admin/users/{id}/status-history',
+            '/api/v1/admin/users/{id}/suspend',
+            '/api/v1/admin/users/{id}/reactivate',
+            '/api/v1/notifications',
+            '/api/v1/notifications/unread-count',
+            '/api/v1/notifications/{id}/read',
+            '/api/v1/notifications/read-all',
+            '/api/v1/notifications/realtime',
             '/api/health/liveness',
             '/api/health/readiness',
         ]);

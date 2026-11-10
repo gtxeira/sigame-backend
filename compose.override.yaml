@@ -42,7 +42,7 @@ services:
         }
       # O hub do FrankenPHP atual não aceita mais a diretiva `demo`. O Caddyfile
       # já injeta `{$MERCURE_EXTRA_DIRECTIVES}`; defina extras aqui se precisar.
-      MERCURE_EXTRA_DIRECTIVES: ""
+      MERCURE_EXTRA_DIRECTIVES: "${MERCURE_EXTRA_DIRECTIVES:-cors_origins http://localhost:3000}"
       # See https://xdebug.org/docs/all_settings#mode
       XDEBUG_MODE: "${XDEBUG_MODE:-debug,develop}"
       APP_ENV: "${APP_ENV:-dev}"

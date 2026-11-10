@@ -34,7 +34,7 @@ it('returns the same invalid credentials error for unknown email and wrong passw
 
 it('rejects login from a suspended account', function () {
     $user = authTestCreateUser($this);
-    $user->suspend('violation');
+    $user->suspend();
     /* @phpstan-ignore-next-line */
     $this->api->getKernelBrowser()->getContainer()->get(UserRepositoryInterface::class)->save($user);
 
@@ -48,7 +48,7 @@ it('rejects refresh from a suspended account', function () {
     $user = authTestCreateUser($this, 'suspended-refresh@example.com');
     authTestLogin($this, 'suspended-refresh@example.com');
 
-    $user->suspend('violation');
+    $user->suspend();
     // @phpstan-ignore-next-line
     $this->api->getKernelBrowser()->getContainer()->get(UserRepositoryInterface::class)->save($user);
 

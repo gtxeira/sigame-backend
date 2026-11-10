@@ -117,6 +117,31 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:GAMIFICATION_READ_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
+            'notifications_read' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:NOTIFICATIONS_READ_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'notifications_write' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:NOTIFICATIONS_WRITE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'notifications_realtime' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:NOTIFICATIONS_REALTIME_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'admin_users_read' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:ADMIN_USERS_READ_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'admin_users_manage' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:ADMIN_USERS_MANAGE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
         ],
     ]);
 

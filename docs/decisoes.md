@@ -58,8 +58,12 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-034](#adr-034--ofensiva-semanal-e-bônus-de-constância) | Ofensiva semanal e bônus de constância | Vigente |
 | [ADR-035](#adr-035--deleveling-e-piso-no-nível-2) | Deleveling e piso no nível 2 | Vigente |
 | [ADR-036](#adr-036--nível-como-projeção-de-identity) | Nível como projeção de Identity | Vigente (dívida assumida) |
+| [ADR-037](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) | Notificações multicanal com inbox, canais e Mercure | Vigente |
+| [ADR-038](#adr-038--denúncias-e-bloqueios-fora-da-v1) | Denúncias e bloqueios fora da V1 | Vigente |
+| [ADR-039](#adr-039--suspensão-global-de-contas) | Suspensão global de contas | Vigente |
+| [ADR-040](#adr-040--mercure-como-transporte-em-tempo-real-do-sino) | Mercure como transporte em tempo real do sino | Vigente |
 
-Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade) e [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2).
+Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
 ---
 
@@ -967,6 +971,141 @@ o nível completamente para Gamification exigiria alterar Groups, segurança e r
 - O piso do nível 2 garante que Groups não perca acesso por deleveling.
 - A dívida está registrada em `implementacao.md`; os gatilhos para pagá-la são necessidade de XP em Identity ou
   regras de nível dinâmicas.
+
+---
+
+## ADR-037 — Notificações multicanal com inbox, canais e Mercure
+
+### Contexto
+
+O produto precisa de um sino no frontend, mas a notificação não pode ficar presa a ele: o app nativo e canais
+futuros (WhatsApp, push) devem consumir o mesmo fato. Ao mesmo tempo, denúncias e bloqueios foram adiados, então a
+Fase 7 se concentra em notificações e administração de contas.
+
+### Decisão
+
+- `Notification` é o registro canônico: tipo estável, categoria, título, corpo PT-BR, `data` estruturado, `readAt`
+  e chave de idempotência.
+- O canal interno é o próprio registro; canais externos são adaptadores (`NotificationChannelInterface`) com
+  `NotificationDelivery` por canal, status, tentativas e último erro.
+- A criação é assíncrona via Messenger; falha de notificação não reverte a operação de negócio.
+- O catálogo da V1 cobre grupos, atividades, gamificação e conta; e-mail é usado apenas para suspensão/reativação.
+- Leitura é `readAt` + filtro `all|unread|read`; o frontend oculta as lidas, sem arquivamento/exclusão na V1.
+- Mercure publica atualizações privadas no tópico do usuário; ver ADR-040.
+
+### Alternativas consideradas
+
+- Notificação apenas em tabela lida pelo frontend: simples, mas não atende app nativo nem canais externos.
+- Usar somente Symfony Notifier: útil para canais, mas não resolve inbox, leitura, idempotência e deep link.
+- Notificar todos os eventos de atividade e XP: gera ruído e foi rejeitado no catálogo.
+
+### Consequências
+
+- O worker passa a ser dependência para criação/entrega; mensagens ficam na fila se ele parar.
+- O catálogo é um contrato estável (`NotificationType`); novos tipos exigem requisito e teste.
+- Sem preferências por usuário na V1; a política é fixa por tipo.
+- Sem retenção/limpeza automática na V1; dívida registrada em `implementacao.md`.
+- Testes: `NotificationTest`, `NotificationPlannerTest`, `NotificationChannelPolicyTest`,
+  `DoctrineNotificationRepositoryTest` e `ApiDocumentationTest`.
+
+---
+
+## ADR-038 — Denúncias e bloqueios fora da V1
+
+### Contexto
+
+O levantamento inicial previa denúncias (RF16) e bloqueio entre usuários (RF17). A decisão de produto é que a V1
+tenha apenas administração global de contas, sem fila de denúncias nem bloqueio. O tema pode voltar quando houver
+necessidade e estrutura de moderação.
+
+### Decisão
+
+- RF16 e RF17 ficam **adiados** na V1, mantendo os identificadores para rastreabilidade.
+- Não será criado um módulo `Moderation` na V1; a administração de contas fica em `Identity`, dono de
+  `users.status`, do histórico e dos refresh tokens.
+- A moderação global se limita a listar/buscar contas, suspender e reativar (ADR-039).
+- O tema deve ser reavaliado futuramente; se voltar, exige novo requisito, catálogo de denúncias e política de
+  bloqueio.
+
+### Alternativas consideradas
+
+- Manter denúncias sem tratamento: cria fila sem operação e sem dono.
+- Criar `Moderation` apenas para suspensão: adiciona indireção e transação entre módulos sem ganho.
+- Manter bloqueio entre usuários: exigiria definir efeitos em solicitações, perfis e atividades.
+
+### Consequências
+
+- README, requisitos e arquitetura deixam de anunciar denúncias/bloqueios como escopo da V1.
+- A tag `Usuários` e o grupo `Administração` cobrem a gestão global de contas.
+- `DEC05` fica encerrado.
+
+---
+
+## ADR-039 — Suspensão global de contas
+
+### Contexto
+
+Conta suspensa já era bloqueada pelo `ActiveUserChecker`, mas o motivo não era persistido e não havia endpoint
+administrativo. A V1 precisa de suspensão e reativação auditáveis, sem transformar suspensão em exclusão.
+
+### Decisão
+
+- Apenas `ADMIN_SIGAME` suspende e reativa; contas `ADMIN_SIGAME` não podem ser suspensas pela API.
+- A suspensão exige motivo público (3–500 caracteres); a reativação aceita motivo opcional.
+- `user_suspensions` é append-only com usuário, autor, ação, motivo e data.
+- Suspender revoga todas as famílias de refresh tokens; o access token existente deixa de valer pelo
+  `ActiveUserChecker`.
+- A suspensão é indefinida até reativação manual; não há auto-reativação na V1.
+- Grupos, participações, inscrições, XP, recompensas e vouchers são preservados.
+- Suspender conta já suspensa ou reativar conta ativa é no-op idempotente.
+- A aprovação de solicitação de usuário suspenso é recusada com `GROUP_MEMBERSHIP_SUSPENDED`.
+- A provisão de `ADMIN_SIGAME` é feita por CLI (`app:identity:grant-admin`/`revoke-admin`), não por HTTP.
+
+### Alternativas consideradas
+
+- Suspensão com prazo e auto-reativação: adiciona scheduler e testes de tempo sem necessidade na V1.
+- Remover o usuário de grupos e cancelar inscrições: confunde suspensão com exclusão.
+- Permitir suspender outro admin: aumenta risco de lockout; contas privilegiadas ficam para operação manual.
+
+### Consequências
+
+- O histórico de status é auditável e não editável.
+- A suspensão do único admin de um grupo pode deixar o grupo sem gestão; limitação registrada no `DEC15`.
+- O motivo é público ao titular; notas internas exigirão campo próprio no futuro.
+- Testes: `AdminUserTest`, `SuspendUserHandlerTest` e `DoctrineUserSuspensionRepositoryTest` (quando adicionado).
+
+---
+
+## ADR-040 — Mercure como transporte em tempo real do sino
+
+### Contexto
+
+O sino precisa refletir novas notificações e leituras em tempo real, inclusive em múltiplos dispositivos e no
+futuro app nativo. O template já sobe um hub Mercure no Caddy, mas a aplicação ainda não o usava.
+
+### Decisão
+
+- O canal interno continua sendo a API; Mercure é apenas o transporte SSE.
+- Cada usuário tem um tópico privado `.../notifications/{userId}`.
+- `GET /api/v1/notifications/realtime` devolve `subscribeUrl`, token de curta duração e expiração.
+- O token concede apenas `subscribe` no tópico do usuário; publicação é exclusiva do servidor.
+- O cliente usa `Authorization: Bearer` no SSE (fetch-event-source ou equivalente); não há token na URL.
+- A publicação ocorre após o commit e é best-effort; falha do hub não desfaz a notificação.
+- O hub é usado em protocolo legado 0.x enquanto o Caddy estiver com `protocol_version_compatibility 8`.
+
+### Alternativas consideradas
+
+- Polling apenas: mais simples, mas pior latência e mais requisições.
+- Cookie de assinatura: funciona em same-site, mas é frágil em frontend separado e app nativo.
+- Mercure como canal de notificação: confunde transporte com persistência e perde leitura/idempotência.
+
+### Consequências
+
+- O bundle Mercure passa a ser dependência e exige `MERCURE_URL`, `MERCURE_PUBLIC_URL`, `MERCURE_JWT_SECRET`,
+  `MERCURE_TOPIC_BASE` e `MERCURE_SUBSCRIBER_TOKEN_TTL`.
+- O CORS do hub precisa permitir a origem do frontend.
+- A revogação do token é por expiração; a conexão SSE pode sobreviver por alguns minutos após suspensão.
+- Testes: `MercureRealtimePublisherTest`, `MercureStreamAuthorizationProviderTest` e `NotificationTest`.
 
 ---
 

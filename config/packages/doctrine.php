@@ -30,7 +30,11 @@ use App\Identity\Infrastructure\Persistence\ORM\Type\TokenHashType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdentityIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\UserLevelType;
+use App\Identity\Infrastructure\Persistence\ORM\Type\UserSuspensionIdType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\WeightType;
+use App\Notifications\Infrastructure\Persistence\ORM\Type\NotificationDeliveryIdType;
+use App\Notifications\Infrastructure\Persistence\ORM\Type\NotificationIdType;
+use App\Notifications\Infrastructure\Persistence\ORM\Type\NotificationRecipientIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
@@ -55,6 +59,10 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'user_level' => UserLevelType::class,
                 'height' => HeightType::class,
                 'weight' => WeightType::class,
+                'user_suspension_id' => UserSuspensionIdType::class,
+                'notification_id' => NotificationIdType::class,
+                'notification_delivery_id' => NotificationDeliveryIdType::class,
+                'notification_recipient_id' => NotificationRecipientIdType::class,
                 'instant' => InstantType::class,
                 'user_identity_id' => UserIdentityIdType::class,
                 'identity_token_id' => IdentityTokenIdType::class,
@@ -117,6 +125,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'dir' => '%kernel.project_dir%/src/Gamification/Domain',
                     'prefix' => 'App\Gamification\Domain',
                     'alias' => 'Gamification',
+                ],
+                'Notifications' => [
+                    'type' => 'attribute',
+                    'is_bundle' => false,
+                    'dir' => '%kernel.project_dir%/src/Notifications/Domain',
+                    'prefix' => 'App\Notifications\Domain',
+                    'alias' => 'Notifications',
                 ],
             ],
         ],

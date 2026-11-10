@@ -40,6 +40,18 @@ function authTestCreateUser(
     return $user;
 }
 
+function authTestCreateAdmin(
+    FunctionalTestCase $test,
+    string $email = 'admin@example.com',
+    string $password = 'secret123',
+): User {
+    $user = authTestCreateUser($test, $email, $password);
+    $user->grantAdminRole();
+    authTestUserRepository($test)->save($user);
+
+    return $user;
+}
+
 function authTestLogin(
     FunctionalTestCase $test,
     string $email = 'auth@example.com',
@@ -190,7 +202,7 @@ function authTestCreateSocialUser(
     );
 
     if ($suspended) {
-        $user->suspend('fraud');
+        $user->suspend();
     }
 
     authTestUserRepository($test)->save($user);

@@ -11,6 +11,7 @@ use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Shared\Application\Event\EventDispatcherInterface;
+use App\Shared\Application\User\UserActiveReaderInterface;
 use App\Shared\Domain\ValueObject\Modality;
 use Mockery as m;
 
@@ -51,6 +52,8 @@ it('approves a pending request and activates the group at three members', functi
 
     $repository = m::mock(GroupRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $activeReader = m::mock(UserActiveReaderInterface::class);
+    $activeReader->shouldReceive('isActive')->andReturnTrue();
 
     $repository->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -62,7 +65,7 @@ it('approves a pending request and activates the group at three members', functi
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(MembershipApproved::class));
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(GroupActivated::class));
 
-    $result = (new ApproveMembershipHandler($repository, $dispatcher))(new ApproveMembershipCommand(
+    $result = (new ApproveMembershipHandler($repository, $activeReader, $dispatcher))(new ApproveMembershipCommand(
         groupId: $group->id(),
         membershipId: $target->id(),
         actorId: $admin,
@@ -80,6 +83,8 @@ it('rejects approval by a non admin', function () {
 
     $repository = m::mock(GroupRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $activeReader = m::mock(UserActiveReaderInterface::class);
+    $activeReader->shouldReceive('isActive')->andReturnTrue();
 
     $repository->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -90,7 +95,7 @@ it('rejects approval by a non admin', function () {
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
 
-    $result = (new ApproveMembershipHandler($repository, $dispatcher))(new ApproveMembershipCommand(
+    $result = (new ApproveMembershipHandler($repository, $activeReader, $dispatcher))(new ApproveMembershipCommand(
         groupId: $group->id(),
         membershipId: $target->id(),
         actorId: $target->userId(),
@@ -106,6 +111,8 @@ it('rejects approval when the group is full', function () {
 
     $repository = m::mock(GroupRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $activeReader = m::mock(UserActiveReaderInterface::class);
+    $activeReader->shouldReceive('isActive')->andReturnTrue();
 
     $repository->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -116,7 +123,7 @@ it('rejects approval when the group is full', function () {
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
 
-    $result = (new ApproveMembershipHandler($repository, $dispatcher))(new ApproveMembershipCommand(
+    $result = (new ApproveMembershipHandler($repository, $activeReader, $dispatcher))(new ApproveMembershipCommand(
         groupId: $group->id(),
         membershipId: $target->id(),
         actorId: $admin,
@@ -132,6 +139,8 @@ it('rejects approval when the user reached the group limit', function () {
 
     $repository = m::mock(GroupRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $activeReader = m::mock(UserActiveReaderInterface::class);
+    $activeReader->shouldReceive('isActive')->andReturnTrue();
 
     $repository->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -142,7 +151,7 @@ it('rejects approval when the user reached the group limit', function () {
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
 
-    $result = (new ApproveMembershipHandler($repository, $dispatcher))(new ApproveMembershipCommand(
+    $result = (new ApproveMembershipHandler($repository, $activeReader, $dispatcher))(new ApproveMembershipCommand(
         groupId: $group->id(),
         membershipId: $target->id(),
         actorId: $admin,

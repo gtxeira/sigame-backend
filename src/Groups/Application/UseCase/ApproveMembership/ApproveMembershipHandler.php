@@ -11,6 +11,7 @@ use App\Groups\Domain\Group\Event\MembershipApproved;
 use App\Groups\Domain\Group\Exception\MembershipAlreadyExistsException;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
+use App\Shared\Application\User\UserActiveReaderInterface;
 use App\Shared\Domain\Functional\Result;
 
 /**
@@ -20,6 +21,7 @@ final readonly class ApproveMembershipHandler
 {
     public function __construct(
         private GroupRepositoryInterface $groupRepository,
+        private UserActiveReaderInterface $userActiveReader,
         private EventDispatcherInterface $eventDispatcher,
     ) {
     }
@@ -40,6 +42,10 @@ final readonly class ApproveMembershipHandler
 
             if (null === $membership) {
                 return Result::failure([GroupErrors::membershipNotFound()]);
+            }
+
+            if (!$this->userActiveReader->isActive($membership->userId()->value())) {
+                return Result::failure([GroupErrors::membershipSuspended()]);
             }
 
             $this->groupRepository->lockUser($membership->userId());

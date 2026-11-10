@@ -11,6 +11,7 @@ services:
       MESSENGER_MAIL_ENCRYPTION_KEY: ${MESSENGER_MAIL_ENCRYPTION_KEY}
       MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
+      MERCURE_EXTRA_DIRECTIVES: "${MERCURE_EXTRA_DIRECTIVES:-cors_origins https://sigame.com.br}"
     healthcheck:
       test: ["CMD-SHELL", "php -r 'exit(false === @file_get_contents(\"http://localhost:2019/metrics\") ? 1 : 0);'"]
       start_period: 60s

@@ -1,8 +1,8 @@
 # SIGAME — Arquitetura do Sistema
 
-> **Status:** implementado para os módulos Identity, Groups e Activities; demais módulos de negócio planejados
+> **Status:** implementado para Identity, Groups, Activities, Gamification e Notifications; Sponsorship e Reports planejados
 >
-> **Versão:** 0.4
+> **Versão:** 0.5
 >
 > **Última atualização:** 2026-11-10
 >
@@ -18,7 +18,7 @@ O SIGAME é um **monolito modular** estruturado com **Clean Architecture**. Cada
 
 O módulo `Shared` funciona como kernel: concentra value objects, catálogo de erros, eventos, persistência base e a infraestrutura HTTP comum. Módulos funcionais importam apenas a si próprios e `Shared`.
 
-Hoje os módulos de negócio implementados são **Identity**, **Groups** e **Activities**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
+Hoje os módulos de negócio implementados são **Identity**, **Groups**, **Activities**, **Gamification** e **Notifications**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
 
 ### 1.1 Stack tecnológica
 
@@ -232,17 +232,15 @@ src/Activities/
                                            # ActivityRescheduleResponse
 ```
 
-### 3.3 Módulos planejados
+### 3.3 Módulos em evolução e planejados
 
-Quando implementados, devem seguir o mesmo padrão:
-
-| Módulo | Responsabilidade |
-|---|---|
-| `Gamification` | XP, níveis, ofensiva semanal, deleveling e recompensas |
-| `Moderation` | Denúncias, bloqueios e suspensão global |
-| `Sponsorship` | Patrocinadores, benefícios e vouchers |
-| `Notifications` | Alertas internos |
-| `Reports` | Indicadores mensais dos grupos |
+| Módulo | Estado | Responsabilidade |
+|---|---|---|
+| `Gamification` | Implementado | XP, níveis, ofensiva semanal, deleveling e recálculo |
+| `Notifications` | Implementado | Inbox, leitura, canais e tempo real do sino |
+| `Moderation` | Adiado | Denúncias e bloqueios; administração de contas fica em Identity |
+| `Sponsorship` | Planejado | Patrocinadores, benefícios e vouchers |
+| `Reports` | Planejado | Indicadores mensais dos grupos |
 
 O estado de cada módulo está em [implementacao.md](implementacao.md).
 
@@ -455,51 +453,62 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 |---|---|---|
 | `UserRegistered` | Após cadastro local ou social | `CreateProgressOnUserRegistered` cria `UserProgress` |
 | `OnboardingCompleted` | Após onboarding válido | `GrantOnboardingXpOnOnboardingCompleted` concede 100 XP e nível 2 |
-| `GroupCreated` | Após criar um grupo | Nenhum implementado; previsto para Notifications |
-| `GroupUpdated` | Após atualizar dados do grupo | Nenhum implementado |
-| `MembershipRequested` | Após solicitação pendente | Nenhum implementado; previsto para Notifications |
-| `MembershipApproved` | Após aprovar solicitação | Nenhum implementado; previsto para Notifications |
-| `MembershipRejected` | Após rejeitar solicitação | Nenhum implementado |
-| `MemberRemoved` | Após remover membro | Nenhum implementado; previsto para Notifications |
-| `MembershipPromoted` | Após promover membro a admin | Nenhum implementado |
-| `MembershipDemoted` | Após rebaixar admin | Nenhum implementado |
-| `SupervisorDesignated` | Após designar supervisor | Nenhum implementado |
-| `SupervisorRemoved` | Após remover designação | Nenhum implementado |
-| `GroupActivated` | Ao atingir 3 membros aprovados | Nenhum implementado; previsto para Activities |
-| `ActivityCreated` | Após criar atividade | Nenhum implementado; previsto para Notifications |
-| `ActivityUpdated` | Após alterar dados da atividade | Nenhum implementado |
-| `ActivityRescheduled` | Após remarcar atividade | Nenhum implementado; previsto para Notifications |
-| `ActivityCancelled` | Após cancelamento manual ou automático | Nenhum implementado; previsto para Notifications |
-| `ActivityStarted` | Após iniciar atividade | Nenhum implementado |
-| `ActivityFinished` | Após finalização manual ou automática | Nenhum implementado; previsto para Notifications |
-| `ActivityInvalidated` | Após invalidar atividade | `ReverseActivityXpOnActivityInvalidated` estorna o XP |
-| `ActivityEnrollmentCreated` | Após inscrição | Nenhum implementado |
-| `ActivityEnrollmentCancelled` | Após cancelar inscrição | Nenhum implementado |
-| `AttendanceCheckedIn` | Após check-in | Nenhum implementado |
-| `AttendanceValidated` | Após validar presença | `AwardActivityXpOnAttendanceValidated` concede XP |
-| `XpAwarded` | Após conceder ou estornar XP | Nenhum implementado; previsto para Notifications |
-| `LevelReached` | Ao subir de nível | `SyncUserLevelOnLevelChanged` projeta `users.level`; Sponsorship avaliará recompensas |
-| `LevelLost` | Ao cair de nível | `SyncUserLevelOnLevelChanged` projeta `users.level` |
-| `WeeklyGoalCompleted` | Ao completar 2 atividades na semana | Nenhum implementado; previsto para Notifications |
-| `StreakUpdated` | Ao manter, completar ou perder a ofensiva semanal | Nenhum implementado; previsto para Notifications |
+| `GroupCreated` | Após criar um grupo | Nenhum (não notificado na V1) |
+| `GroupUpdated` | Após atualizar dados do grupo | Nenhum (não notificado na V1) |
+| `MembershipRequested` | Após solicitação pendente | Notifications (listener do catálogo) |
+| `MembershipApproved` | Após aprovar solicitação | Notifications (listener do catálogo) |
+| `MembershipRejected` | Após rejeitar solicitação | Notifications (listener do catálogo) |
+| `MemberRemoved` | Após remover membro | Notifications (listener do catálogo) |
+| `MembershipPromoted` | Após promover membro a admin | Notifications (listener do catálogo) |
+| `MembershipDemoted` | Após rebaixar admin | Notifications (listener do catálogo) |
+| `SupervisorDesignated` | Após designar supervisor | Notifications (listener do catálogo) |
+| `SupervisorRemoved` | Após remover designação | Notifications (listener do catálogo) |
+| `GroupActivated` | Ao atingir 3 membros aprovados | Notifications (grupo ativo) |
+| `ActivityCreated` | Após criar atividade | Notifications (listener do catálogo) |
+| `ActivityUpdated` | Após alterar dados da atividade | Notifications (listener do catálogo) |
+| `ActivityRescheduled` | Após remarcar atividade | Notifications (listener do catálogo) |
+| `ActivityCancelled` | Após cancelamento manual ou automático | Notifications (listener do catálogo) |
+| `ActivityStarted` | Após iniciar atividade | Nenhum (não notificado na V1) |
+| `ActivityFinished` | Após finalização manual ou automática | Notifications (listener do catálogo) |
+| `ActivityInvalidated` | Após invalidar atividade | `ReverseActivityXpOnActivityInvalidated` estorna o XP; Notifications |
+| `ActivityEnrollmentCreated` | Após inscrição | Nenhum (não notificado na V1) |
+| `ActivityEnrollmentCancelled` | Após cancelar inscrição | Nenhum (não notificado na V1) |
+| `AttendanceCheckedIn` | Após check-in | Nenhum (não notificado na V1) |
+| `AttendanceValidated` | Após validar presença | `AwardActivityXpOnAttendanceValidated` concede XP; Notifications |
+| `XpAwarded` | Após conceder ou estornar XP | Nenhum (não notificado na V1) |
+| `LevelReached` | Ao subir de nível | `SyncUserLevelOnLevelChanged` projeta `users.level`; Notifications |
+| `LevelLost` | Ao cair de nível | `SyncUserLevelOnLevelChanged` projeta `users.level`; Notifications |
+| `WeeklyGoalCompleted` | Ao completar 2 atividades na semana | Notifications (level/meta) |
+| `StreakUpdated` | Ao manter, completar ou perder a ofensiva semanal | Nenhum (não notificado na V1) |
+| `UserSuspended` | Após suspender uma conta | Notifications (e-mail de conta) |
+| `UserReactivated` | Após reativar uma conta | Notifications (e-mail e sino) |
 
 ### 5.3 Fluxos planejados
 
 ```text
 Identity  --UserRegistered--------> Gamification   (cria UserProgress, nível 1)
 Identity  --OnboardingCompleted---> Gamification   (+100 XP; nível 2)
+Identity  --UserSuspended---------> Notifications  (e-mail de conta)
+Identity  --UserReactivated-------> Notifications  (e-mail e sino)
 Activities --AttendanceValidated--> Gamification   (XP de atividade e bônus semanal)
 Activities --ActivityInvalidated--> Gamification   (estorno de XP)
+Activities --AttendanceValidated--> Notifications  (presença validada)
+Activities --ActivityCreated------> Notifications  (membros aprovados)
+Activities --ActivityRescheduled--> Notifications  (inscritos)
+Activities --ActivityCancelled----> Notifications  (inscritos)
+Activities --ActivityInvalidated--> Notifications  (inscritos)
+Activities --ActivityFinished-----> Notifications  (admins/supervisor)
+Groups    --MembershipRequested---> Notifications  (admins)
+Groups    --MembershipApproved----> Notifications  (solicitante)
+Groups    --MembershipRejected----> Notifications  (solicitante)
+Groups    --MemberRemoved---------> Notifications  (removido)
+Groups    --GroupActivated--------> Notifications  (membros aprovados)
 Gamification --LevelReached-------> Identity       (projeta users.level)
 Gamification --LevelLost----------> Identity       (projeta users.level)
-Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
+Gamification --LevelReached-------> Notifications
+Gamification --LevelLost----------> Notifications
 Gamification --WeeklyGoalCompleted--> Notifications
-Gamification --StreakUpdated------> Notifications
-Activities --ActivityCreated------> Notifications  (alerta participantes)
-Groups    --GroupCreated----------> Notifications
-Groups    --MembershipApproved----> Notifications  (aviso ao membro aprovado)
-Groups    --MemberRemoved---------> Notifications  (aviso ao membro removido)
-Groups    --GroupActivated--------> Activities     (grupo apto a receber atividades)
+Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 ```
 
 ### 5.4 Implementação
@@ -534,6 +543,13 @@ Groups    --GroupActivated--------> Activities     (grupo apto a receber ativida
 | `GroupModalityReaderInterface` | `DoctrineGroupModalityReader` | `doctrine/orm` (adapter em Groups) |
 | `ActivityRepositoryInterface` | `DoctrineActivityRepository` | `doctrine/orm` |
 | `ActivityXpReaderInterface` | `DoctrineActivityXpReader` | `doctrine/orm` (adapter em Activities) |
+| `UserActiveReaderInterface` | `DoctrineUserContactReader` | `doctrine/orm` (adapter em Identity) |
+| `UserContactReaderInterface` | `DoctrineUserContactReader` | `doctrine/orm` (adapter em Identity) |
+| `GroupSummaryReaderInterface` | `DoctrineGroupSummaryReader` | `doctrine/orm` (adapter em Groups) |
+| `ActivitySummaryReaderInterface` | `DoctrineActivitySummaryReader` | `doctrine/orm` (adapter em Activities) |
+| `RealtimePublisherInterface` | `MercureRealtimePublisher` | `symfony/mercure` |
+| `StreamAuthorizationProviderInterface` | `MercureStreamAuthorizationProvider` | `symfony/mercure` + `lcobucci/jwt` |
+| `NotificationChannelInterface` | `EmailNotificationChannel` | `symfony/mailer` |
 
 O storage usa o mesmo contrato S3 em desenvolvimento (Garage) e produção. A decisão de upload e o formato da chave estão no [ADR-016](decisoes.md#adr-016--upload-de-foto-de-perfil-com-chave-em-s3); a escolha do adapter está no [ADR-010](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
 
@@ -583,6 +599,29 @@ scheduler_gamification
 Os transportes `scheduler_activities` e `scheduler_gamification` são consumidos pelo serviço `scheduler` do Compose.
 Em produção, esse serviço precisa estar sempre ativo; se ele parar, o fechamento automático e o deleveling atrasam
 até a próxima execução.
+
+---
+
+### 6.3 Notificações e Mercure
+
+O módulo `Notifications` persiste o inbox e publica atualizações em um tópico privado por usuário:
+
+```text
+Domain Event -> listener -> CreateNotificationsMessage -> worker
+  -> resolve público/conteúdo -> notifications + notification_deliveries
+  -> Mercure (notification.created / notification.read / notifications.read_all)
+  -> entrega externa (e-mail)
+```
+
+- O canal interno é o próprio registro persistido; Mercure é apenas transporte SSE.
+- `GET /api/v1/notifications/realtime` devolve `subscribeUrl`, token de curta duração e expiração.
+- O token concede apenas `subscribe` no tópico `.../notifications/{userId}`; publicação é exclusiva do servidor.
+- O frontend usa `Authorization: Bearer` no SSE (fetch-event-source ou equivalente), sem token na URL.
+- A publicação é best-effort: falha do hub não desfaz a notificação e a API continua sendo a fonte de verdade.
+- E-mail é usado apenas para suspensão/reativação de conta; WhatsApp e push ficam como extensões.
+
+O hub do Caddy usa protocolo legado 0.x (`protocol_version_compatibility 8`). O bundle está configurado com
+`ProtocolVersion::Legacy`; a migração para 1.0 deve ser feita junto com a atualização do hub.
 
 ---
 
@@ -660,6 +699,16 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `GET` | `/api/v1/activities/{id}/attendances` | `ActivityParticipationController::listAttendances` | Bearer JWT + admin/supervisor/admin SIGAME |
 | `POST` | `/api/v1/activities/{id}/attendances/{attendanceId}/validate` | `ActivityParticipationController::validateAttendance` | Bearer JWT + admin/supervisor/admin SIGAME |
 | `GET` | `/api/v1/users/me/activities` | `MyActivitiesController::list` | Bearer JWT |
+| `GET` | `/api/v1/notifications` | `NotificationController::list` | Bearer JWT |
+| `GET` | `/api/v1/notifications/unread-count` | `NotificationController::unreadCount` | Bearer JWT |
+| `POST` | `/api/v1/notifications/{id}/read` | `NotificationController::markRead` | Bearer JWT |
+| `POST` | `/api/v1/notifications/read-all` | `NotificationController::markAllRead` | Bearer JWT |
+| `GET` | `/api/v1/notifications/realtime` | `NotificationController::realtime` | Bearer JWT |
+| `GET` | `/api/v1/admin/users` | `AdminUserController::list` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/users/{id}` | `AdminUserController::show` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/users/{id}/status-history` | `AdminUserController::statusHistory` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `POST` | `/api/v1/admin/users/{id}/suspend` | `AdminUserController::suspend` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `POST` | `/api/v1/admin/users/{id}/reactivate` | `AdminUserController::reactivate` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
 | `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |
 | `GET` | `/api/health/readiness` | `HealthController::index` | Pública |
 
@@ -712,6 +761,10 @@ tests/
 │   │   │   ├── Entity/ActivityTest.php
 │   │   │   └── Policy/ActivityPolicyTest.php
 │   │   └── Application/UseCase/CloseExpiredActivities/CloseExpiredActivitiesHandlerTest.php
+│   ├── Notifications/
+│   │   ├── Domain/Notification/Entity/NotificationTest.php
+│   │   ├── Application/Service/{NotificationPlannerTest,NotificationChannelPolicyTest}
+│   │   └── Infrastructure/Mercure/{MercureRealtimePublisherTest,MercureStreamAuthorizationProviderTest}
 │   └── Shared/
 │       ├── Domain/{Error,Exception,Functional,ValueObject}
 │       ├── Infrastructure/{OpenApi,Persistence/ORM/Type}
@@ -727,6 +780,8 @@ tests/
 │   │   ├── GroupTest.php
 │   │   └── GroupMembershipTest.php
 │   ├── Activities/Presentation/Http/ActivityTest.php
+│   ├── Notifications/Presentation/Http/NotificationTest.php
+│   ├── Identity/Presentation/Http/AdminUserTest.php
 │   └── Shared/Presentation/Http/
 │       ├── ApiDocumentationTest.php
 │       └── HttpErrorHandlingTest.php
@@ -734,9 +789,11 @@ tests/
 ├── Integration/                        # grupo "integration" (adaptadores reais, sem HTTP)
 │   ├── Identity/Infrastructure/Persistence/
 │   │   ├── DoctrineUserRepositoryTest.php
-│   │   └── DoctrineRefreshTokenRepositoryTest.php
+│   │   ├── DoctrineRefreshTokenRepositoryTest.php
+│   │   └── DoctrineUserSuspensionRepositoryTest.php
 │   ├── Groups/Infrastructure/Persistence/DoctrineGroupRepositoryTest.php
-│   └── Activities/Infrastructure/Persistence/DoctrineActivityRepositoryTest.php
+│   ├── Activities/Infrastructure/Persistence/DoctrineActivityRepositoryTest.php
+│   └── Notifications/Infrastructure/Persistence/DoctrineNotificationRepositoryTest.php
 │
 └── Helpers/                            # infraestrutura transversal de testes
     ├── ApiClient.php

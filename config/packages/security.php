@@ -43,6 +43,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             ['path' => '^/api/v1/auth/email/verification/resend$', 'roles' => 'ROLE_USER'],
             ['path' => '^/api/v1/auth/(register|login|refresh|social|email|password)', 'roles' => 'PUBLIC_ACCESS'],
             ['path' => '^/api/v1/auth/logout$', 'roles' => 'PUBLIC_ACCESS'],
+            ['path' => '^/api/v1/admin', 'roles' => 'ROLE_ADMIN_SIGAME'],
             ['path' => '^/doc', 'roles' => 'PUBLIC_ACCESS'],
             ['path' => '^/api', 'roles' => 'ROLE_USER'],
         ],

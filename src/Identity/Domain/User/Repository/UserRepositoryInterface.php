@@ -28,4 +28,19 @@ interface UserRepositoryInterface
         IdentityProvider $provider,
         ProviderSubject $subject,
     ): ?User;
+
+    /**
+     * Executa a operação em transação, reutilizando a transação já aberta.
+     *
+     * @template T
+     *
+     * @param callable(): T $operation
+     *
+     * @return T
+     */
+    public function transactional(callable $operation): mixed;
+
+    public function search(UserSearchCriteria $criteria): UserPage;
+
+    public function countActiveAdmins(): int;
 }

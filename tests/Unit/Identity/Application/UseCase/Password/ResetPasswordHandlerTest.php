@@ -277,7 +277,7 @@ it('rejects a reset for a suspended account', function () {
         password: HashedPassword::fromHash('old-hash'),
         name: 'Suspended',
     );
-    $user->suspend('fraud');
+    $user->suspend();
     $token = resetPasswordTestToken($user);
 
     $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);

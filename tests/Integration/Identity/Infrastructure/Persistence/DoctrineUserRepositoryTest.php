@@ -6,6 +6,7 @@ use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
 use App\Identity\Domain\User\Exception\SocialIdentityAlreadyLinkedException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\Repository\UserSearchCriteria;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\Height;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
@@ -265,4 +266,38 @@ it('translates a duplicate social identity into a domain conflict', function () 
     );
 
     expect(fn () => $repository->save($second))->toThrow(SocialIdentityAlreadyLinkedException::class);
+});
+
+it('searches accounts and counts active admins', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+
+    $admin = makeUserWith(
+        cpf: '52998224725',
+        email: 'admin-count@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Ana Admin',
+    );
+    $admin->grantAdminRole();
+    $repository->save($admin);
+
+    $user = makeUserWith(
+        cpf: '47705122014',
+        email: 'user-count@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Bruno User',
+    );
+    $repository->save($user);
+
+    expect($repository->countActiveAdmins())->toBe(1);
+
+    $admins = $repository->search(new UserSearchCriteria(role: UserRole::ADMIN_SIGAME));
+    expect($admins->total)->toBe(1)
+        ->and($admins->items[0]->id()->value())->toBe($admin->id()->value());
+
+    $search = $repository->search(new UserSearchCriteria(query: 'bruno'));
+    expect($search->total)->toBe(1)
+        ->and($search->items[0]->id()->value())->toBe($user->id()->value());
+
+    $suspended = $repository->search(new UserSearchCriteria(status: UserStatus::SUSPENDED));
+    expect($suspended->total)->toBe(0);
 });

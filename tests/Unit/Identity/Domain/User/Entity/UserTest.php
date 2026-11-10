@@ -232,7 +232,7 @@ it('can create group after the level projection reaches 2', function () {
 it('suspends and reactivates user', function () {
     $user = makeUser();
 
-    expect($user->suspend('Violation of terms'))->toBeTrue();
+    expect($user->suspend())->toBeTrue();
 
     expect($user->isSuspended())->toBeTrue()
         ->and($user->isActive())->toBeFalse()
@@ -246,10 +246,10 @@ it('suspends and reactivates user', function () {
 
 it('keeps the suspended state when suspending twice', function () {
     $user = makeUser();
-    $user->suspend('Violation of terms');
+    $user->suspend();
     $updatedAt = $user->updatedAt();
 
-    expect($user->suspend('Another violation'))->toBeFalse()
+    expect($user->suspend())->toBeFalse()
         ->and($user->isSuspended())->toBeTrue()
         ->and($user->updatedAt()->equals($updatedAt))->toBeTrue();
 });
@@ -304,4 +304,15 @@ it('rejects changing an already defined cpf', function () {
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::UserCpfAlreadySet->value)
         ->and($user->cpf()?->value())->toBe($originalCpf);
+});
+
+it('promotes and demotes an admin account idempotently', function () {
+    $user = makeUser();
+
+    expect($user->grantAdminRole())->toBeTrue()
+        ->and($user->role())->toBe(\App\Identity\Domain\User\ValueObject\UserRole::ADMIN_SIGAME)
+        ->and($user->grantAdminRole())->toBeFalse()
+        ->and($user->revokeAdminRole())->toBeTrue()
+        ->and($user->role())->toBe(\App\Identity\Domain\User\ValueObject\UserRole::USER)
+        ->and($user->revokeAdminRole())->toBeFalse();
 });
