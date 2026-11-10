@@ -39,6 +39,7 @@ use LogicException;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
+#[ORM\UniqueConstraint(name: 'uniq_users_email', fields: ['email'])]
 #[ORM\UniqueConstraint(
     name: 'uniq_users_cpf',
     fields: ['cpf'],
@@ -69,7 +70,7 @@ final class User
         #[ORM\Column(type: 'user_id', unique: true)]
         private UserId $id,
 
-        #[ORM\Column(type: 'email', length: 255, unique: true)]
+        #[ORM\Column(type: 'email', length: 255)]
         private Email $email,
 
         #[ORM\Column(type: 'instant', nullable: true)]

@@ -20,6 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'xp_events')]
+#[ORM\UniqueConstraint(name: 'uniq_xp_events_idempotency', fields: ['idempotencyKey'])]
 #[ORM\Index(name: 'idx_xp_events_user_created', columns: ['user_id', 'created_at'])]
 #[ORM\Index(name: 'idx_xp_events_user_activity_date', columns: ['user_id', 'activity_date'])]
 #[ORM\Index(name: 'idx_xp_events_activity', columns: ['activity_id'])]
@@ -61,7 +62,7 @@ final class XpEvent
         #[ORM\Column(type: 'json', nullable: true)]
         private readonly ?array $metadata,
 
-        #[ORM\Column(type: 'string', length: 191, unique: true)]
+        #[ORM\Column(type: 'string', length: 191)]
         private readonly string $idempotencyKey,
 
         #[ORM\Column(type: 'instant', nullable: true)]

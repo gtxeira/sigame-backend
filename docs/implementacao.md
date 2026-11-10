@@ -460,6 +460,7 @@ A Fase 6 criará a migration de `user_progress` e `xp_events`; o nome será gera
 3. Cada teste de integração/funcional roda dentro de uma transação com rollback (DAMA). Não abra transações explícitas, não use `TRUNCATE` e não chame `commit()`/`rollBack()` dentro do teste.
 4. A migration `Version20261104120000` é **parcialmente irreversível**: usuários sem CPF ou sem identidade local impedem restaurar as colunas `NOT NULL` originais. O `down()` deve ser tratado como melhor esforço.
 5. Ao adicionar um novo tipo Doctrine, registre-o em `config/packages/doctrine.php` e crie o teste do tipo.
+6. `doctrine:schema:validate` nunca fica verde por causa dos três índices parciais: é falso positivo do DBAL (ver §5) e não deve gerar migration. Use `doctrine:schema:update --dump-sql` para conferir divergências reais; o teste `SchemaDriftTest` cobre o restante.
 
 ---
 
@@ -475,6 +476,7 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | Objetos órfãos em falha abrupta | A compensação cobre falha de persistência, mas um processo morto entre o upload e o save deixa o objeto no bucket | Criar rotina de limpeza por referência/idade ou lifecycle policy no provedor. |
 | Leitura pública da foto | O bucket local usa website público com chave não adivinhável; a matriz definitiva do `DEC06` segue aberta | Reavaliar quando a visibilidade de perfil for fechada; a chave persistida permite migrar para proxy ou URL assinada sem migration. |
 | CI não roda testes | `.github/workflows/ci.yaml` tem os passos de migrations/PHPUnit comentados | Reativar migrations, testes e `doctrine:schema:validate` no CI. |
+| `doctrine:schema:validate` acusa índices parciais | O DBAL compara o texto do `WHERE` do mapping com o `pg_get_expr` do PostgreSQL, que reescreve `IN` como `= ANY (ARRAY[...])` e `TRUE` como `true`; por isso `uniq_group_memberships_active`, `uniq_group_memberships_supervisor` e `uniq_activity_attendances_active` aparecem sempre como divergência | Tratar como falso positivo: conferir o diff com `doctrine:schema:update --dump-sql` e nunca gerar migration a partir dele. O teste `SchemaDriftTest` falha se aparecer divergência nova; só reativar o `schema:validate` no CI com um comparador que normalize o predicado. |
 | Refresh tokens e tokens de identidade acumulam | Não há comando de limpeza | Criar comando agendado para remover tokens expirados/consumidos. |
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
