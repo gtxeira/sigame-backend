@@ -82,7 +82,7 @@ it('completes onboarding and dispatches the domain event', function () {
     expect($result->isSuccess())->toBeTrue()
         ->and($result->value())->toBe($user)
         ->and($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
-        ->and($user->level()->value())->toBe(2)
+        ->and($user->level()->value())->toBe(1)
         ->and($user->modalities())->toBe([Modality::WALKING]);
 });
 

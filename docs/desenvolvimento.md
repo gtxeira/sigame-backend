@@ -90,7 +90,7 @@ MESSENGER_MAIL_ENCRYPTION_KEY=<base64 de 32 bytes>
 
 O worker do Messenger sobe junto com `just up`. Se ele estiver parado, os e-mails de verificação e reset ficam na fila `messenger_messages` até o worker voltar. Para rodar um consumidor manual use `just worker`; para acompanhar o serviço, `just worker-logs`.
 
-O serviço `scheduler` consome `scheduler_activities` e executa o fechamento automático de atividades a cada 5 minutos. Se ele estiver parado, atividades vencidas permanecem abertas até a próxima execução. Use `just scheduler-logs` e `just scheduler` para acompanhar ou rodar manualmente.
+O serviço `scheduler` consome `scheduler_activities` e `scheduler_gamification`. O primeiro executa o fechamento automático de atividades a cada 5 minutos; o segundo aplica a perda por inatividade uma vez por dia. Se ele estiver parado, atividades vencidas permanecem abertas e o deleveling atrasa até a próxima execução. Use `just scheduler-logs` e `just scheduler` para acompanhar ou rodar manualmente.
 
 ## 4. Comandos do dia a dia
 

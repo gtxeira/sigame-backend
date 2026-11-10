@@ -26,7 +26,7 @@ O `justfile` carrega `.env`, `.env.dev` e `.env.local` automaticamente.
 |---|---|---|---|
 | `php` | `frankenphp_dev` | `8000/tcp` (HTTP), `8443/tcp` (HTTPS), `8443/udp` (HTTP/3) | Código montado em `/app`; worker com watch/hot reload |
 | `worker` | `frankenphp_dev` | — | Consome `messenger:consume async`; espera o `php` ficar saudável |
-| `scheduler` | `frankenphp_dev` | — | Consome `messenger:consume scheduler_activities`; executa o fechamento automático de atividades |
+| `scheduler` | `frankenphp_dev` | — | Consome `scheduler_activities` e `scheduler_gamification`; executa o fechamento automático de atividades e o deleveling |
 | `postgres` | `postgres:18-alpine` | `5432` | Volume `pgdata`; padrão `POSTGRES_DB=sigame` |
 | `garage` | `dxflrs/garage:v2.4.1` | `3900` (S3 API), `3902` (Web) | Configuração em `garage.toml`; volumes `garage-meta` e `garage-data` |
 
@@ -165,7 +165,7 @@ Em produção com múltiplas instâncias, prefira um store compartilhado (por ex
 - O transporte `async` usa a tabela `messenger_messages`, criada pela migration `Version20261106100000`; `auto_setup` fica desativado.
 - O transporte `failed` usa a mesma tabela com `queue_name=failed`.
 - O worker roda `php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just worker` executa manualmente e `just worker-logs` acompanha o serviço.
-- O scheduler roda `php bin/console messenger:consume scheduler_activities --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just scheduler` executa manualmente e `just scheduler-logs` acompanha o serviço. Se ele estiver parado, o fechamento automático de atividades atrasa.
+- O scheduler roda `php bin/console messenger:consume scheduler_activities scheduler_gamification --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just scheduler` executa manualmente e `just scheduler-logs` acompanha o serviço. Se ele estiver parado, o fechamento automático de atividades e o deleveling atrasam.
 - Inspecione a fila de falhas com `just messenger-failed` (`messenger:failed:show`). Mensagens de reset nessa fila já tiveram o token consumido: remova-as, não faça retry.
 - A chave `MESSENGER_MAIL_ENCRYPTION_KEY` deve ser idêntica no `php` e no `worker`. Rotação exige parar o worker, drenar `async` e só então trocar a chave.
 - A V1 roda uma réplica do worker para preservar a ordem FIFO entre reenvios do mesmo usuário.

@@ -47,15 +47,15 @@ worker-logs:
 worker:
     @{{ _php }} php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M -vv
 
-# Mostra os logs do scheduler de atividades
+# Mostra os logs dos schedulers de atividades e gamificação
 [group('Docker')]
 scheduler-logs:
     @{{ _compose }} logs --tail=0 --follow scheduler
 
-# Executa o consumidor do scheduler manualmente no container PHP
+# Executa o consumidor dos schedulers manualmente no container PHP
 [group('Docker')]
 scheduler:
-    @{{ _php }} php bin/console messenger:consume scheduler_activities --time-limit=3600 --memory-limit=128M -vv
+    @{{ _php }} php bin/console messenger:consume scheduler_activities scheduler_gamification --time-limit=3600 --memory-limit=128M -vv
 
 # Lista as mensagens que falharam definitivamente
 [group('Docker')]

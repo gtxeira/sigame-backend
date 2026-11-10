@@ -2,7 +2,7 @@
 
 > **Status:** registro vivo
 >
-> **Última atualização:** 2026-11-09
+> **Última atualização:** 2026-11-10
 >
 > **Finalidade:** preservar o contexto e o porquê das decisões já tomadas, para orientar mudanças futuras.
 

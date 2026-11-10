@@ -267,6 +267,8 @@ it('documents every public api operation', function () {
             '/api/v1/users/me/profile',
             '/api/v1/users/me/photo',
             '/api/v1/users/me/groups',
+            '/api/v1/users/me/progress',
+            '/api/v1/users/me/progress/history',
             '/api/v1/auth/email/verification/resend',
             '/api/v1/users/me/password',
             '/api/v1/groups',

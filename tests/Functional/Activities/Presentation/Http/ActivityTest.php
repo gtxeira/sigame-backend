@@ -165,6 +165,43 @@ it('validates attendance after finish and lists my activities', function () {
     expect($again->getStatusCode())->toBe(Response::HTTP_OK)
         ->and(authTestBody($again)['data']['id'])->toBe($attendanceId);
 
+    $validatedUserId = authTestBody($validate)['data']['userId'];
+    $validatedEmail = array_search($validatedUserId, $context['userIds'], true);
+    expect($validatedEmail)->toBeString();
+
+    $progress = $this->api->get(
+        'app_my_progress',
+        server: groupTestServer($context['members'][$validatedEmail]),
+    );
+    $progressData = authTestBody($progress)['data'];
+
+    expect($progressData['xpBalance'])->toBeGreaterThanOrEqual(145)
+        ->and($progressData['xpLifetime'])->toBeGreaterThanOrEqual(145)
+        ->and($progressData['weeklyActivities'])->toBe(1)
+        ->and($progressData['currentWeeklyStreak'])->toBe(1)
+        ->and($progressData['streakState'])->toBe('ACESO');
+
+    $invalidate = $this->api->post(
+        'app_activity_invalidate',
+        ['reason' => 'Atividade registrada em duplicidade.'],
+        ['id' => $activity->id()->value()],
+        groupTestServer($context['adminToken']),
+    );
+
+    expect($invalidate->getStatusCode())->toBe(Response::HTTP_OK);
+
+    $reversedProgress = $this->api->get(
+        'app_my_progress',
+        server: groupTestServer($context['members'][$validatedEmail]),
+    );
+    $reversedData = authTestBody($reversedProgress)['data'];
+
+    expect($reversedData['xpBalance'])->toBe(100)
+        ->and($reversedData['xpLifetime'])->toBe(100)
+        ->and($reversedData['weeklyActivities'])->toBe(0)
+        ->and($reversedData['currentWeeklyStreak'])->toBe(0)
+        ->and($reversedData['streakState'])->toBe('APAGADO');
+
     $mine = $this->api->get('app_my_activity_list', server: groupTestServer($firstToken));
 
     expect($mine->getStatusCode())->toBe(Response::HTTP_OK)

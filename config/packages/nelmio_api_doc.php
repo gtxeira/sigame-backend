@@ -50,6 +50,10 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'description' => 'Criação, ciclo de vida, inscrição, check-in e presença em atividades.',
                 ],
                 [
+                    'name' => 'Gamificação',
+                    'description' => 'Progresso de XP, níveis, ofensiva semanal e histórico.',
+                ],
+                [
                     'name' => 'Saúde',
                     'description' => 'Endpoints operacionais de saúde e diagnóstico da aplicação.',
                 ], // Sempre em último, pois é utilitário do sistema
@@ -70,6 +74,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'tags' => [
                         'Minha conta',
                         'Onboarding',
+                        'Gamificação',
                     ],
                 ],
                 [

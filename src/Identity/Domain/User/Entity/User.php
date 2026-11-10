@@ -268,7 +268,6 @@ final class User
         }
 
         $this->onboardingStatus = OnboardingStatus::COMPLETED;
-        $this->level = $this->level->next();
         $this->touch();
 
         return Result::success($this);
@@ -536,6 +535,22 @@ final class User
     public function level(): UserLevel
     {
         return $this->level;
+    }
+
+    /**
+     * Sincroniza o nível projetado a partir da gamificação.
+     *
+     * A fonte de verdade é `user_progress.level`; este método apenas mantém a
+     * projeção usada por Groups e pela segurança. A dívida está no ADR-036.
+     */
+    public function syncLevel(UserLevel $level): void
+    {
+        if ($this->level->equals($level)) {
+            return;
+        }
+
+        $this->level = $level;
+        $this->touch();
     }
 
     public function onboardingStatus(): OnboardingStatus

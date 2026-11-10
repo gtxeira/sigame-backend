@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Event\OnboardingCompleted;
+use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\ValueObject\Modality;
 use Tests\FunctionalTestCase;
 
@@ -16,6 +18,11 @@ function groupTestCreateUser(FunctionalTestCase $test, string $email, int $level
             primaryModality: null,
         );
         authTestUserRepository($test)->save($user);
+
+        /* @phpstan-ignore-next-line */
+        $test->api->getKernelBrowser()->getContainer()
+            ->get(EventDispatcherInterface::class)
+            ->dispatch(OnboardingCompleted::now($user->id()->value()));
     }
 
     return $user;

@@ -39,7 +39,7 @@ services:
       APP_SECRET: ${APP_SECRET}
       MESSENGER_MAIL_ENCRYPTION_KEY: ${MESSENGER_MAIL_ENCRYPTION_KEY}
     entrypoint: ["docker-php-entrypoint"]
-    command: ["php", "bin/console", "messenger:consume", "scheduler_activities", "--time-limit=3600", "--memory-limit=128M", "--no-interaction"]
+    command: ["php", "bin/console", "messenger:consume", "scheduler_activities", "scheduler_gamification", "--time-limit=3600", "--memory-limit=128M", "--no-interaction"]
     depends_on:
       php:
         condition: service_healthy

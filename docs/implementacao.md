@@ -2,7 +2,7 @@
 
 > **Status:** documento de trabalho
 >
-> **Última atualização:** 2026-11-09
+> **Última atualização:** 2026-11-10
 >
 > **Finalidade:** registrar o estado da implementação, o roadmap, as decisões ainda abertas, o histórico de migrations e as dívidas técnicas.
 
@@ -28,7 +28,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | 3 | Identity: onboarding | Concluída |
 | 4 | Groups | Concluída |
 | 5 | Activities | Concluída |
-| 6 | Gamification | Não iniciada |
+| 6 | Gamification | Em andamento (núcleo implementado; recálculo pendente) |
 | 7 | Notifications + Moderation | Não iniciada |
 | 8 | Sponsorship + Reports | Não iniciada |
 
@@ -64,11 +64,11 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Inscrição e conflito de horário | Implementado | `EnrollInActivityHandler`, `DoctrineActivityRepository::hasConflictingAttendance()` |
 | Check-in e validação de presença | Implementado | `CheckInHandler`, `ValidateAttendanceHandler` e `AttendanceValidated` |
 | Fechamento automático de atividades | Implementado | `ActivityClosingSchedule`, `CloseExpiredActivitiesHandler` e serviço `scheduler` |
-| Gamificação — fundação, ledger e XP | Não iniciada | Fase 6.1–6.3: `UserProgress`, `XpEvent`, `LevelCurve`, `ActivityXpPolicy` |
-| Ofensiva semanal | Não iniciada | Fase 6.4: `WEEKLY_START`, `WEEKLY_GOAL` e `StreakCalculator` |
-| Deleveling por inatividade | Não iniciada | Fase 6.5: `DelevelingPolicy` e scheduler |
-| API de progresso e histórico de XP | Não iniciada | Fase 6.7: `GET /users/me/progress` e `/progress/history` |
-| Versionamento e recálculo de XP | Não iniciada | Fase 6.8: `rule_version` e `LEGACY_BONUS` |
+| Gamificação — fundação, ledger e XP | Implementado | `UserProgress`, `XpEvent`, `LevelCurve` e `ActivityXpPolicy` |
+| Ofensiva semanal | Implementado | `WEEKLY_START`, `WEEKLY_GOAL`, `StreakCalculator` e `WeeklyBonusAwarder` |
+| Deleveling por inatividade | Implementado | `DelevelingPolicy`, `ApplyInactivityDecayHandler` e schedule diário |
+| API de progresso e histórico de XP | Implementado | `GET /users/me/progress` e `/progress/history` |
+| Versionamento e recálculo de XP | Parcial | `rule_version` gravado; comando `app:gamification:recalculate` pendente |
 | Demais módulos de negócio | Não iniciados | Notifications, Moderation, Sponsorship, Reports |
 
 ### 1.3 O que existe hoje no HTTP
@@ -125,15 +125,10 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET` | `/api/v1/activities/{id}/attendances` | Bearer JWT + admin/supervisor/admin SIGAME |
 | `POST` | `/api/v1/activities/{id}/attendances/{attendanceId}/validate` | Bearer JWT + admin/supervisor/admin SIGAME |
 | `GET` | `/api/v1/users/me/activities` | Bearer JWT |
-| `GET` | `/api/health/liveness` | Pública |
-| `GET` | `/api/health/readiness` | Pública |
-
-Rotas planejadas para a Fase 6 (ainda não implementadas):
-
-| Método | Rota | Autenticação |
-|---|---|---|
 | `GET` | `/api/v1/users/me/progress` | Bearer JWT |
 | `GET` | `/api/v1/users/me/progress/history` | Bearer JWT |
+| `GET` | `/api/health/liveness` | Pública |
+| `GET` | `/api/health/readiness` | Pública |
 
 Não existe página inicial (o front-end é separado). A documentação interativa fica em `/doc` e o JSON OpenAPI em `/doc.json`.
 
@@ -267,76 +262,76 @@ semanal.
 
 #### 6.1 Fundação e regras
 
-- [ ] Criar o módulo `Gamification` com `Domain`, `Application`, `Infrastructure` e `Presentation`.
-- [ ] `GamificationRules` versionada (`2026-11-v1`): curva, XP de atividade, bônus semanais, grupo, fim de semana, fator diário, teto e fuso.
-- [ ] `LevelCurve`, `ActivityXpPolicy`, `EngagementXpPolicy` (semanal), `StreakPolicy` e `DelevelingPolicy`.
-- [ ] `UserProgress`, `XpEvent` (ledger append-only) e `PlayerId`.
-- [ ] Migration de `user_progress` e `xp_events`, com índices e `idempotency_key` único apenas para lançamentos ativos (`reversed_at IS NULL`).
-- [ ] Backfill a partir de `users.level` e do histórico de presenças.
-- [ ] Registrar mapping e tipos DBAL em `config/packages/doctrine.php`.
-- [ ] Catálogo de erros e teste do catálogo.
+- [x] Criar o módulo `Gamification` com `Domain`, `Application`, `Infrastructure` e `Presentation`.
+- [x] `GamificationRules` versionada (`2026-11-v1`): curva, XP de atividade, bônus semanais, grupo, fim de semana, fator diário, teto e fuso.
+- [x] `LevelCurve`, `ActivityXpPolicy`, `WeeklyXpPolicy`, `StreakCalculator` e `DelevelingPolicy`.
+- [x] `UserProgress`, `XpEvent` (ledger append-only) e `PlayerId`.
+- [x] Migration de `user_progress` e `xp_events`, com índices e `idempotency_key` único; bônus semanais reawardados usam a atividade como sufixo da chave.
+- [x] Backfill a partir de `users.level` e do histórico de presenças.
+- [x] Registrar mapping e tipos DBAL em `config/packages/doctrine.php`.
+- [x] Catálogo de erros: a fase não expõe erros de domínio públicos; os endpoints de leitura não retornam erros de negócio.
 
 #### 6.2 Registro e onboarding
 
-- [ ] Listener `UserRegistered → CreateProgress` (0 XP, nível 1).
-- [ ] Listener `OnboardingCompleted → GrantOnboardingXp` (+100 XP, idempotente).
-- [ ] Remover `level->next()` de `User::completeOnboarding()`.
-- [ ] Adicionar `User::syncLevel()` e listener `SyncUserLevel` em Identity.
-- [ ] Ajustar testes de domínio, handler e funcionais do onboarding.
-- [ ] Garantir que a resposta do onboarding já retorne nível 2.
+- [x] Listener `UserRegistered → CreateProgress` (0 XP, nível 1).
+- [x] Listener `OnboardingCompleted → GrantOnboardingXp` (+100 XP, idempotente).
+- [x] Remover `level->next()` de `User::completeOnboarding()`.
+- [x] Adicionar `User::syncLevel()` e listener `SyncUserLevel` em Identity.
+- [x] Ajustar testes de domínio, handler e funcionais do onboarding.
+- [x] Garantir que a resposta do onboarding já retorne nível 2.
 
 #### 6.3 XP por atividade
 
-- [ ] Porta `ActivityXpReaderInterface` + `ActivityXpContext` + adapter em Activities.
-- [ ] Porta de modalidade do grupo.
-- [ ] Listener `AttendanceValidated → AwardActivityXp` (só `xpEligible=true`).
-- [ ] Fórmula de base, distância, duração, grupo e fim de semana.
-- [ ] Fator diário: 1ª–3ª atividade a 100%, 4ª a 25%, 5ª em diante a 0.
-- [ ] Teto de 100 XP por atividade.
-- [ ] Ledger com origem, data da atividade, semana e versão da regra.
-- [ ] Publicação de `XpAwarded`, `LevelReached` e `LevelLost`.
-- [ ] Testes de tabela, idempotência e limites.
+- [x] Porta `ActivityXpReaderInterface` + `ActivityXpContext` + adapter em Activities.
+- [x] Porta de modalidade do grupo.
+- [x] Listener `AttendanceValidated → AwardActivityXp` (só `xpEligible=true`).
+- [x] Fórmula de base, distância, duração, grupo e fim de semana.
+- [x] Fator diário: 1ª–3ª atividade a 100%, 4ª a 25%, 5ª em diante a 0.
+- [x] Teto de 100 XP por atividade.
+- [x] Ledger com origem, data da atividade, semana e versão da regra.
+- [x] Publicação de `XpAwarded`, `LevelReached` e `LevelLost`.
+- [x] Testes de tabela, idempotência e limites.
 
 #### 6.4 Ofensiva semanal
 
-- [ ] `StreakCalculator` baseado no ledger.
-- [ ] `WEEKLY_START` (+10) na primeira atividade da semana.
-- [ ] `WEEKLY_GOAL` (20 a 50 XP conforme a sequência) na segunda atividade.
-- [ ] 1 atividade mantém o foguinho; 0 apaga; recorde preservado.
-- [ ] `ActivityDate` e `WeekKey` no fuso `America/Sao_Paulo`.
-- [ ] Recalcular após validação tardia e estorno.
-- [ ] Publicar `WeeklyGoalCompleted` e `StreakUpdated`.
-- [ ] **Não implementar ofensiva diária nem bônus de primeira atividade do dia.**
+- [x] `StreakCalculator` baseado no ledger.
+- [x] `WEEKLY_START` (+10) na primeira atividade da semana.
+- [x] `WEEKLY_GOAL` (20 a 50 XP conforme a sequência) na segunda atividade.
+- [x] 1 atividade mantém o foguinho; 0 apaga; recorde preservado.
+- [x] `ActivityDate` e `WeekKey` no fuso `America/Sao_Paulo`.
+- [x] Recalcular após validação tardia e estorno.
+- [x] Publicar `WeeklyGoalCompleted` e `StreakUpdated`.
+- [x] **Não implementar ofensiva diária nem bônus de primeira atividade do dia.**
 
 #### 6.5 Deleveling
 
-- [ ] `DelevelingPolicy`: 7 dias de tolerância, 2% a cada 2 dias, 98% ao cair, piso 2.
-- [ ] `ApplyInactivityDecayMessage` + handler + schedule diário.
-- [ ] Idempotência por `userId + periodEnd`.
-- [ ] XP vitalício preservado.
-- [ ] Publicar `LevelLost` e `XpDecayed`.
-- [ ] Testes de datas, múltiplos períodos, piso e idempotência.
+- [x] `DelevelingPolicy`: 7 dias de tolerância, 2% a cada 2 dias, 98% ao cair, piso 2.
+- [x] `ApplyInactivityDecayMessage` + handler + schedule diário.
+- [x] Idempotência por `userId + periodEnd`.
+- [x] XP vitalício preservado.
+- [x] Publicar `LevelLost` e `XpDecayed`.
+- [x] Testes de datas, múltiplos períodos, piso e idempotência.
 
 #### 6.6 Estorno por invalidação
 
-- [ ] Listener `ActivityInvalidated → ReverseActivityXp`.
-- [ ] Estornar atividade e bônus semanais vinculados.
-- [ ] Recalcular nível e ofensiva.
-- [ ] Unique de estorno por lançamento.
-- [ ] Testes de estorno único e de queda de nível.
+- [x] Listener `ActivityInvalidated → ReverseActivityXp`.
+- [x] Estornar atividade e bônus semanais vinculados.
+- [x] Recalcular nível e ofensiva.
+- [x] Unique de estorno por lançamento.
+- [x] Testes de estorno único e de queda de nível.
 
 #### 6.7 API e consulta
 
-- [ ] `GET /api/v1/users/me/progress`.
-- [ ] `GET /api/v1/users/me/progress/history`.
-- [ ] Response com nível, saldo, XP vitalício, barra, foguinho, meta semanal e bônus aplicáveis.
-- [ ] Tag OpenAPI `Gamificação` e `x-tagGroups`.
-- [ ] Rate limit de leitura.
-- [ ] Testes funcionais de autenticação, payload e isolamento por usuário.
+- [x] `GET /api/v1/users/me/progress`.
+- [x] `GET /api/v1/users/me/progress/history`.
+- [x] Response com nível, saldo, XP vitalício, barra, foguinho, meta semanal e bônus aplicáveis.
+- [x] Tag OpenAPI `Gamificação` e `x-tagGroups`.
+- [x] Rate limit de leitura.
+- [x] Testes funcionais de autenticação, payload e isolamento por usuário.
 
 #### 6.8 Versionamento e recálculo
 
-- [ ] `rule_version` em `user_progress` e `xp_events`.
+- [x] `rule_version` em `user_progress` e `xp_events`.
 - [ ] Comando `app:gamification:recalculate`.
 - [ ] `LEGACY_BONUS` para não reduzir XP antigo.
 - [ ] Teste de mudança de regra.
@@ -344,13 +339,14 @@ semanal.
 
 #### 6.9 Qualidade
 
-- [ ] Executar `just composer quality` no fechamento da fase.
+- [x] Executar `just composer quality` no fechamento da fase (901 testes verdes em 2026-11-10).
 
 #### 6.10 Dívida assumida — `users.level`
 
 O nível continua em `users.level` porque Groups e a segurança já dependem dele. A fonte de verdade é
-`user_progress.level`, e `users.level` é uma projeção atualizada por `LevelReached`/`LevelLost`. A dívida está
-detalhada no [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity) e na
+`user_progress.level`, e `users.level` é uma projeção atualizada por `LevelReached`/`LevelLost`. O comando
+`app:gamification:check-level-projection` compara as duas fontes e reporta divergências. A dívida está detalhada
+no [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity) e na
 [tabela de dívidas](#5-dívidas-técnicas-e-próximos-passos).
 
 ### Fase 7 — Notifications + Moderation
@@ -434,6 +430,7 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 | `Version20261109120000` | 2026-11-09 | Cria `groups` (com `created_by`) e `group_memberships` (episódios, índices parciais de duplicidade e supervisor). |
 | `Version20261109224939` | 2026-11-09 | Cria `activities`, `activity_attendances` e `activity_reschedules`; índice único parcial de inscrição ativa. |
 | `Version20261109230000` | 2026-11-09 | Corrige os índices parciais de `group_memberships` para os valores minúsculos dos enums. |
+| `Version20261110000000` | 2026-11-10 | Cria `user_progress` e `xp_events`; backfill a partir de `users.level` e das presenças validadas. |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou de URL para chave de objeto em `Version20261108120000`.
 
@@ -454,9 +451,7 @@ A Fase 6 criará a migration de `user_progress` e `xp_events`; o nome será gera
 
 | Item | Evidência | Ação sugerida |
 |---|---|---|
-| `OnboardingCompleted` sem consumidor | O evento é publicado na conclusão do onboarding, mas a Gamification ainda não existe | Implementar o listener da Fase 6. |
 | Troca de modalidade principal ausente | RN03.5/CA03.5 exigem alterar a principal preservando histórico, mas `completeOnboarding()` só aceita uma conclusão | Criar caso de uso e endpoint próprios, com teste de preservação de XP. |
-| `UserRegistered` sem consumidor | O evento é publicado no cadastro e no login social | Implementar listener de Gamification quando o módulo existir. |
 | Motivo da suspensão não é persistido | `User::suspend(string $reason)` ignora o argumento | Criar histórico de suspensões com autor, motivo e datas. |
 | Imagem sem pós-processamento | O endpoint só valida e armazena; o enquadramento em 512×512 é feito pelo cliente e o arquivo original é persistido | Ver [§5.1](#51-processamento-de-imagem). |
 | Objetos órfãos em falha abrupta | A compensação cobre falha de persistência, mas um processo morto entre o upload e o save deixa o objeto no bucket | Criar rotina de limpeza por referência/idade ou lifecycle policy no provedor. |
@@ -466,12 +461,14 @@ A Fase 6 criará a migration de `user_progress` e `xp_events`; o nome será gera
 | Cache de fluxo OAuth por instância | `cache.social_flow` usa o cache local | Em múltiplas instâncias, apontar `cache.social_flow` e `cache.rate_limiter` para Redis/banco. |
 | CRUD administrativo ausente | Tag `Usuários` planejada em `api-documentation.md` | Implementar quando o módulo de administração existir. |
 | Notificações de grupo sem consumidor | Eventos `GroupCreated`, `MembershipApproved`, `MemberRemoved` etc. são publicados, mas Notifications só existe na Fase 7 | Implementar listeners quando o módulo existir. |
-| Eventos de Activities sem consumidor | `ActivityCreated`, `ActivityFinished`, `AttendanceValidated` etc. são publicados, mas Gamification/Notifications ainda não existem | Implementar listeners nas Fases 6 e 7. |
-| Scheduler de atividades depende do serviço | Se o serviço `scheduler` estiver parado, o fechamento automático atrasa até a próxima execução | Monitorar o serviço e documentar a operação em produção. |
+| Eventos de Activities sem consumidor em Notifications | `AttendanceValidated` e `ActivityInvalidated` já são consumidos pela Gamification; `ActivityCreated`, `ActivityFinished` etc. ainda não têm consumidor em Notifications | Implementar listeners na Fase 7. |
+| Schedulers dependem do serviço | Se o serviço `scheduler` estiver parado, o fechamento automático de atividades e o deleveling atrasam até a próxima execução | Monitorar o serviço e documentar a operação em produção. |
 | Sem fechamento automático de validação | A janela de validação é validada na requisição; não há job para encerrar pendências de validação | Avaliar rotina de fechamento após 48 h. |
 | Busca de grupos com `LIKE` | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE` | Avaliar índice textual ou busca por trigramas se o volume crescer. |
 | Sem exclusão ou transferência de grupo | O grupo não é excluído e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro | Abrir `DEC15` se o produto exigir esses fluxos. |
-| **Nível com dupla fonte** | `users.level` é usado por Groups e segurança, mas a fonte de verdade será `user_progress.level`; um listener falho ou um caminho que altere o nível sem publicar evento pode divergir | Manter `SyncUserLevel` transacional, criar `app:gamification:check-level-projection` e teste de consistência. Reavaliar quando houver divergência, necessidade de XP em Identity ou regras dinâmicas. Ver [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity). |
+| **Nível com dupla fonte** | `users.level` é usado por Groups e segurança, mas a fonte de verdade é `user_progress.level`; a projeção `SyncUserLevel` e o comando `app:gamification:check-level-projection` já existem, mas um listener falho ou um caminho que altere o nível sem publicar evento pode divergir | Adicionar teste de consistência automatizado e definir política de reparo. Reavaliar quando houver divergência, necessidade de XP em Identity ou regras dinâmicas. Ver [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity). |
+| **Comando de recálculo pendente** | `rule_version` já é gravado, mas não existe `app:gamification:recalculate` nem `LEGACY_BONUS` | Implementar o replay do XP de atividade e o bônus de fidelidade antes de mudar a versão das regras. |
+| **Consistência do ledger** | O saldo e o nível são materializados; não há rotina de conferência contra a soma dos lançamentos | Criar comando de auditoria que recalcula saldo/nível a partir de `xp_events` e reporta divergências. |
 | **Bônus de grupo por check-in** | O bônus usa check-ins para que todos os participantes recebam o mesmo valor, mas um check-in não validado ainda pode influenciar o bônus | Avaliar cálculo em lote na finalização ou reajuste após a validação de todos. |
 | **Sem escudo/freeze** | Uma semana atípica apaga a ofensiva semanal, mesmo com histórico consistente | Implementar na V1.1: 1 escudo a cada 4 semanas, máximo 2, consumido automaticamente. |
 | **Recálculo retroativo de engajamento** | O comando de recálculo da Fase 6 cobre XP de atividade; bônus semanais antigos não são recalculados | Fazer replay completo do ledger em uma versão futura, se as regras semanais mudarem. |

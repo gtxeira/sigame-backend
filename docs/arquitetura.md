@@ -4,7 +4,7 @@
 >
 > **Versão:** 0.4
 >
-> **Última atualização:** 2026-11-09
+> **Última atualização:** 2026-11-10
 >
 > **Autor:** Gustavo Teixeira de Sousa
 
@@ -246,7 +246,7 @@ Quando implementados, devem seguir o mesmo padrão:
 
 O estado de cada módulo está em [implementacao.md](implementacao.md).
 
-### 3.4 Estrutura prevista do módulo Gamification
+### 3.4 Estrutura do módulo Gamification
 
 ```text
 src/Gamification/
@@ -440,8 +440,8 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 
 | Evento | Disparado quando | Consumidores |
 |---|---|---|
-| `UserRegistered` | Após cadastro local ou social | Nenhum implementado; Gamification criará `UserProgress` |
-| `OnboardingCompleted` | Após onboarding válido | Nenhum implementado; Gamification concederá 100 XP e nível 2 |
+| `UserRegistered` | Após cadastro local ou social | `CreateProgressOnUserRegistered` cria `UserProgress` |
+| `OnboardingCompleted` | Após onboarding válido | `GrantOnboardingXpOnOnboardingCompleted` concede 100 XP e nível 2 |
 | `GroupCreated` | Após criar um grupo | Nenhum implementado; previsto para Notifications |
 | `GroupUpdated` | Após atualizar dados do grupo | Nenhum implementado |
 | `MembershipRequested` | Após solicitação pendente | Nenhum implementado; previsto para Notifications |
@@ -459,14 +459,14 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 | `ActivityCancelled` | Após cancelamento manual ou automático | Nenhum implementado; previsto para Notifications |
 | `ActivityStarted` | Após iniciar atividade | Nenhum implementado |
 | `ActivityFinished` | Após finalização manual ou automática | Nenhum implementado; previsto para Notifications |
-| `ActivityInvalidated` | Após invalidar atividade | Nenhum implementado; Gamification estornará o XP |
+| `ActivityInvalidated` | Após invalidar atividade | `ReverseActivityXpOnActivityInvalidated` estorna o XP |
 | `ActivityEnrollmentCreated` | Após inscrição | Nenhum implementado |
 | `ActivityEnrollmentCancelled` | Após cancelar inscrição | Nenhum implementado |
 | `AttendanceCheckedIn` | Após check-in | Nenhum implementado |
-| `AttendanceValidated` | Após validar presença | Nenhum implementado; Gamification concederá XP |
+| `AttendanceValidated` | Após validar presença | `AwardActivityXpOnAttendanceValidated` concede XP |
 | `XpAwarded` | Após conceder ou estornar XP | Nenhum implementado; previsto para Notifications |
-| `LevelReached` | Ao subir de nível | Nenhum implementado; Identity projeta `users.level` e Sponsorship avalia recompensas |
-| `LevelLost` | Ao cair de nível | Nenhum implementado; Identity projeta `users.level` |
+| `LevelReached` | Ao subir de nível | `SyncUserLevelOnLevelChanged` projeta `users.level`; Sponsorship avaliará recompensas |
+| `LevelLost` | Ao cair de nível | `SyncUserLevelOnLevelChanged` projeta `users.level` |
 | `WeeklyGoalCompleted` | Ao completar 2 atividades na semana | Nenhum implementado; previsto para Notifications |
 | `StreakUpdated` | Ao manter, completar ou perder a ofensiva semanal | Nenhum implementado; previsto para Notifications |
 
@@ -518,9 +518,9 @@ Groups    --GroupActivated--------> Activities     (grupo apto a receber ativida
 | `UserLevelReaderInterface` | `DoctrineUserLevelReader` | `doctrine/orm` (adapter em Identity) |
 | `GroupRepositoryInterface` | `DoctrineGroupRepository` | `doctrine/orm` |
 | `GroupAccessReaderInterface` | `DoctrineGroupAccessReader` | `doctrine/orm` (adapter em Groups) |
-| `GroupModalityReaderInterface` | `DoctrineGroupModalityReader` | `doctrine/orm` (adapter em Groups; planejada para a Fase 6) |
+| `GroupModalityReaderInterface` | `DoctrineGroupModalityReader` | `doctrine/orm` (adapter em Groups) |
 | `ActivityRepositoryInterface` | `DoctrineActivityRepository` | `doctrine/orm` |
-| `ActivityXpReaderInterface` | `DoctrineActivityXpReader` | `doctrine/orm` (adapter em Activities; planejada para a Fase 6) |
+| `ActivityXpReaderInterface` | `DoctrineActivityXpReader` | `doctrine/orm` (adapter em Activities) |
 
 O storage usa o mesmo contrato S3 em desenvolvimento (Garage) e produção. A decisão de upload e o formato da chave estão no [ADR-016](decisoes.md#adr-016--upload-de-foto-de-perfil-com-chave-em-s3); a escolha do adapter está no [ADR-010](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
 
@@ -545,7 +545,7 @@ Request -> token + hash no banco
 
 ---
 
-### 6.2 Scheduler de atividades
+### 6.2 Schedulers de atividades e gamificação
 
 O módulo Activities usa `symfony/scheduler` para executar `CloseExpiredActivitiesMessage` a cada 5 minutos:
 
@@ -557,7 +557,19 @@ scheduler_activities
   -> ActivityFinished / ActivityCancelled (automatic=true)
 ```
 
-O transporte `scheduler_activities` é consumido pelo serviço `scheduler` do Compose. Em produção, esse serviço precisa estar sempre ativo; se ele parar, o fechamento automático atrasa até a próxima execução.
+O módulo Gamification usa o mesmo componente para executar `ApplyInactivityDecayMessage` uma vez por dia:
+
+```text
+scheduler_gamification
+  -> ApplyInactivityDecayHandler
+  -> findDueForDecay
+  -> DelevelingPolicy
+  -> InactivityDecay events + XpDecayed + LevelLost
+```
+
+Os transportes `scheduler_activities` e `scheduler_gamification` são consumidos pelo serviço `scheduler` do Compose.
+Em produção, esse serviço precisa estar sempre ativo; se ele parar, o fechamento automático e o deleveling atrasam
+até a próxima execução.
 
 ---
 

@@ -11,6 +11,8 @@ use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityTitleType;
 use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityUserIdType;
 use App\Activities\Infrastructure\Persistence\ORM\Type\AttendanceIdType;
 use App\Activities\Infrastructure\Persistence\ORM\Type\MeetingPointType;
+use App\Gamification\Infrastructure\Persistence\ORM\Type\PlayerIdType;
+use App\Gamification\Infrastructure\Persistence\ORM\Type\XpEventIdType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\CommunicationLinkType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupDescriptionType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupIdType;
@@ -76,6 +78,8 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'activity_description' => ActivityDescriptionType::class,
                 'meeting_point' => MeetingPointType::class,
                 'activity_route' => ActivityRouteType::class,
+                'player_id' => PlayerIdType::class,
+                'xp_event_id' => XpEventIdType::class,
             ],
         ],
         'orm' => [
@@ -106,6 +110,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'dir' => '%kernel.project_dir%/src/Activities/Domain',
                     'prefix' => 'App\Activities\Domain',
                     'alias' => 'Activities',
+                ],
+                'Gamification' => [
+                    'type' => 'attribute',
+                    'is_bundle' => false,
+                    'dir' => '%kernel.project_dir%/src/Gamification/Domain',
+                    'prefix' => 'App\Gamification\Domain',
+                    'alias' => 'Gamification',
                 ],
             ],
         ],

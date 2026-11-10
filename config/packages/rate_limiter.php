@@ -112,6 +112,11 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:ACTIVITY_ENROLL_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
+            'gamification_read' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:GAMIFICATION_READ_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
         ],
     ]);
 

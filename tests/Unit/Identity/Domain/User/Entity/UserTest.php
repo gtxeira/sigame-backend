@@ -90,7 +90,7 @@ it('advances updatedAt on mutations', function () {
         ->and($user->updatedAt()->isBefore($user->createdAt()))->toBeFalse();
 });
 
-it('completes onboarding and advances to level 2', function () {
+it('completes onboarding without changing the level directly', function () {
     $user = makeUser();
 
     $user->completeOnboarding(
@@ -99,7 +99,7 @@ it('completes onboarding and advances to level 2', function () {
     );
 
     expect($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
-        ->and($user->level()->value())->toBe(2)
+        ->and($user->level()->value())->toBe(1)
         ->and($user->height())->toBeNull()
         ->and($user->weight())->toBeNull()
         ->and($user->photoKey())->toBeNull()
@@ -207,11 +207,11 @@ it('rejects completing onboarding twice', function () {
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::OnboardingAlreadyCompleted->value)
         ->and($user->onboardingStatus())->toBe(OnboardingStatus::COMPLETED)
-        ->and($user->level()->value())->toBe(2)
+        ->and($user->level()->value())->toBe(1)
         ->and($user->modalities())->toBe([Modality::WALKING]);
 });
 
-it('can create group after completing onboarding (level 2)', function () {
+it('can create group after the level projection reaches 2', function () {
     $user = makeUser();
 
     expect($user->canCreateGroup())->toBeFalse();
@@ -221,7 +221,12 @@ it('can create group after completing onboarding (level 2)', function () {
         primaryModality: null,
     );
 
-    expect($user->canCreateGroup())->toBeTrue();
+    expect($user->canCreateGroup())->toBeFalse();
+
+    $user->syncLevel(UserLevel::fromInt(2)->value());
+
+    expect($user->canCreateGroup())->toBeTrue()
+        ->and($user->level()->value())->toBe(2);
 });
 
 it('suspends and reactivates user', function () {
