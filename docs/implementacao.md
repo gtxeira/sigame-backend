@@ -68,6 +68,7 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Ofensiva semanal | Implementado | `WEEKLY_START`, `WEEKLY_GOAL`, `StreakCalculator` e `WeeklyBonusAwarder` |
 | Deleveling por inatividade | Implementado | `DelevelingPolicy`, `ApplyInactivityDecayHandler` e schedule diário |
 | API de progresso e histórico de XP | Implementado | `GET /users/me/progress` e `/progress/history` |
+| Catálogo de regras de gamificação | Implementado | `GET /api/v1/gamification/rules`, `GetGamificationRulesHandler` e `ActivityXpTable` |
 | Versionamento e recálculo de XP | Parcial | `rule_version` gravado; comando `app:gamification:recalculate` pendente |
 | Notificações in-app, leitura e sino | Implementado | `Notification`, `NotificationController`, `CreateNotificationsHandler` e migration `Version20261110145733` |
 | Notificações em tempo real via Mercure | Implementado | `MercureRealtimePublisher`, `MercureStreamAuthorizationProvider` e `GET /api/v1/notifications/realtime` |
@@ -131,6 +132,7 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET` | `/api/v1/users/me/activities` | Bearer JWT |
 | `GET` | `/api/v1/users/me/progress` | Bearer JWT |
 | `GET` | `/api/v1/users/me/progress/history` | Bearer JWT |
+| `GET` | `/api/v1/gamification/rules` | Bearer JWT |
 | `GET` | `/api/v1/notifications` | Bearer JWT |
 | `GET` | `/api/v1/notifications/unread-count` | Bearer JWT |
 | `POST` | `/api/v1/notifications/{id}/read` | Bearer JWT |
@@ -379,6 +381,22 @@ a projeção. A dívida está detalhada no [ADR-036](decisoes.md#adr-036--nível
 - [x] Testes de auditoria, reparo, criação de progresso ausente e projeção divergente.
 - [x] Teste de idempotência do reparo e do `--repair` sem flag.
 
+#### 6.12 Catálogo de regras
+
+- [x] `ActivityXpTable` como fonte única das faixas de XP de atividade.
+- [x] `GET /api/v1/gamification/rules` com curva de níveis, fontes de XP, fórmula, bônus semanais, decay e estados do foguinho.
+- [x] Payload gerado do domínio, com `ruleVersion`, `ETag` e cache privado.
+- [x] Rótulos PT-BR como hint de exibição, reutilizando `XpKind::label()` e `WeeklyStreakState::label()`.
+- [x] Testes de unidade, funcionais, de cache e de documentação.
+
+#### 6.13 Simulador de XP (V1.1)
+
+- [ ] `POST /api/v1/gamification/xp-simulator` autenticado e sem persistência.
+- [ ] Entrada: modalidade, distância, duração, check-ins, início e sequência diária.
+- [ ] Saída: componentes do cálculo, total e explicação.
+- [ ] Reutilizar `ActivityXpPolicy`/`ActivityXpTable`, extraídos em 6.12.
+- [ ] Exibir "até 100 XP" na V1 enquanto o simulador não existe.
+
 ### Fase 7 — Notificações + Administração de contas
 
 A especificação detalhada do catálogo, canais e regras está em
@@ -460,6 +478,8 @@ As decisões abaixo ainda precisam ser fechadas antes da implementação do mód
 | `DEC08` | Fórmula e periodicidade do indicador mensal | Indicadores | Média | Pendente |
 | `DEC15` | Exclusão ou transferência de grupo | Grupos | Baixa | Pendente |
 | `DEC16` | Validação própria e elegibilidade de XP | Gamificação | Média | Pendente |
+
+Adiado para a V1.1: o simulador de XP (`POST /api/v1/gamification/xp-simulator`) descrito na subseção 6.13 do roadmap. Na V1, o catálogo de regras permite exibir a faixa de XP e o histórico entrega o valor real concedido.
 
 Decisões fechadas na Fase 5:
 
@@ -604,7 +624,7 @@ O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento 
 
 Identificadas na revisão da Fase 6 depois do fechamento do núcleo. Não bloqueiam a V1 atual, mas devem ser endereçadas antes de mudanças de regra, escala ou produção.
 
-**Resolvidas em 2026-11-10:** snapshot do contexto de atividade e dos bônus semanais no `metadata`; leitura de progresso sem escrita a cada GET; auditoria e reparo do ledger; verificação de integridade referencial do ledger; teste e reparo da projeção `users.level`.
+**Resolvidas em 2026-11-10:** snapshot do contexto de atividade e dos bônus semanais no `metadata`; leitura de progresso sem escrita a cada GET; auditoria e reparo do ledger; verificação de integridade referencial do ledger; teste e reparo da projeção `users.level`; catálogo de regras exposto em `GET /api/v1/gamification/rules` (`ActivityXpTable` e `GetGamificationRulesHandler`).
 
 | Item | Evidência | Ação sugerida |
 |---|---|---|
@@ -616,7 +636,6 @@ Identificadas na revisão da Fase 6 depois do fechamento do núcleo. Não bloque
 | **Decay sem horário fixo** | `InactivityDecaySchedule` usa `RecurringMessage::every('1 day')`, que conta a partir do start do worker, não às 03:00 de `America/Sao_Paulo` | Usar `RecurringMessage::cron('0 3 * * *', ...)` com timezone ou um `Trigger` diário no horário local. |
 | **Dois schedulers no mesmo worker** | O serviço `scheduler` consome `scheduler_activities` e `scheduler_gamification` no mesmo processo; um handler lento atrasa o outro | Separar em dois serviços ou workers dedicados quando o volume crescer. |
 | **XP depende de distância e duração autodeclaradas** | `estimatedDistanceMeters` e `estimatedDurationMinutes` são informados pelo usuário; não há GPS nem validação independente | Manter na V1, mas prever limites por modalidade, auditoria de atividades suspeitas e integração futura com GPS/Strava. |
-| **Regras de XP não expostas como metadados** | O frontend recebe `nextLevelXp`, `weeklyGoal` e `ruleVersion`, mas não a tabela completa de XP, bônus e faixas | Criar `GET /api/v1/gamification/rules` ou um bloco `rules` no progresso, gerado a partir de `GamificationRules`. |
 | **Sem endpoints administrativos de gamificação** | Não há como um admin SIGAME consultar o progresso de um usuário, ajustar XP manualmente ou disparar um recálculo | Criar endpoints administrativos com auditoria para leitura, ajuste manual (`XP_ADJUSTMENT`) e recálculo. |
 | **Histórico de XP com paginação por offset** | `findHistory` usa `setFirstResult`/`setMaxResults`; páginas profundas ficam lentas | Migrar para cursor por `(created_at, id)` e expor `nextCursor` na resposta. |
 | **Sem índice composto para bônus semanal** | `findActiveWeeklyEvent` filtra `user_id`, `week_key`, `kind` e `reversed_at`, mas o índice existente é `(user_id, created_at)` | Criar índice `(user_id, week_key, kind)` parcial `WHERE reversed_at IS NULL`. |

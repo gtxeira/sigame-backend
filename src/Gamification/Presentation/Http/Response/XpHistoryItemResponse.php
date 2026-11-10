@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Gamification\Presentation\Http\Response;
 
 use App\Gamification\Application\UseCase\ListXpHistory\XpHistoryItemView;
+use App\Gamification\Domain\Xp\ValueObject\XpKind;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(description: 'Lançamento do histórico de XP.')]
@@ -68,16 +69,6 @@ final readonly class XpHistoryItemResponse
 
     private static function description(string $kind): string
     {
-        return match ($kind) {
-            'onboarding' => 'Onboarding concluído',
-            'activity' => 'Atividade validada',
-            'weekly_start' => 'Início de semana',
-            'weekly_goal' => 'Meta semanal',
-            'reversal' => 'Estorno',
-            'inactivity_decay' => 'Perda por inatividade',
-            'legacy_bonus' => 'Bônus de fidelidade',
-            'backfill' => 'Progresso inicial',
-            default => 'XP',
-        };
+        return XpKind::tryFrom($kind)?->label() ?? 'XP';
     }
 }

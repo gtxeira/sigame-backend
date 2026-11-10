@@ -40,4 +40,18 @@ enum XpKind: string
             self::BACKFILL,
         ], true);
     }
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::ONBOARDING => 'Onboarding concluído',
+            self::ACTIVITY => 'Atividade validada',
+            self::WEEKLY_START => 'Início de semana',
+            self::WEEKLY_GOAL => 'Meta semanal',
+            self::REVERSAL => 'Estorno',
+            self::INACTIVITY_DECAY => 'Perda por inatividade',
+            self::LEGACY_BONUS => 'Bônus de fidelidade',
+            self::BACKFILL => 'Progresso inicial',
+        };
+    }
 }

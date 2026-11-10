@@ -69,7 +69,10 @@ final readonly class DelevelingPolicy
                             $xpBalance,
                         );
                     } else {
-                        $xpBalance = $this->levelCurve->xpForBar($level, 0.98);
+                        $xpBalance = $this->levelCurve->xpForBar(
+                            $level,
+                            GamificationRules::DECAY_DROP_BAR_PERCENT / 100,
+                        );
                     }
                 }
             }

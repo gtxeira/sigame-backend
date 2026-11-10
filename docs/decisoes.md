@@ -62,6 +62,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-038](#adr-038--denúncias-e-bloqueios-fora-da-v1) | Denúncias e bloqueios fora da V1 | Vigente |
 | [ADR-039](#adr-039--suspensão-global-de-contas) | Suspensão global de contas | Vigente |
 | [ADR-040](#adr-040--mercure-como-transporte-em-tempo-real-do-sino) | Mercure como transporte em tempo real do sino | Vigente |
+| [ADR-041](#adr-041--catálogo-de-regras-de-gamificação-pela-api) | Catálogo de regras de gamificação pela API | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
@@ -1106,6 +1107,46 @@ futuro app nativo. O template já sobe um hub Mercure no Caddy, mas a aplicaçã
 - O CORS do hub precisa permitir a origem do frontend.
 - A revogação do token é por expiração; a conexão SSE pode sobreviver por alguns minutos após suspensão.
 - Testes: `MercureRealtimePublisherTest`, `MercureStreamAuthorizationProviderTest` e `NotificationTest`.
+
+---
+
+## ADR-041 — Catálogo de regras de gamificação pela API
+
+### Contexto
+
+O front-end precisa exibir a curva de níveis, as fontes de XP, a fórmula de atividade, os bônus semanais e o
+deleveling. O progresso (`GET /users/me/progress`) já entrega o estado do jogador e o histórico
+(`/progress/history`) entrega o que foi concedido, mas não existe uma fonte para as regras. Reconstruí-las no
+front duplicaria os valores de `GamificationRules` e faria a interface divergir do servidor em cada ajuste.
+
+### Decisão
+
+- Expor `GET /api/v1/gamification/rules`, autenticado com `ROLE_USER`, reutilizando o rate limit
+  `gamification_read`.
+- O payload é único, atômico em relação a `ruleVersion`, e gerado a partir do domínio (`LevelCurve`,
+  `ActivityXpTable`, `WeeklyXpPolicy`, `GamificationRules`); nada é digitado no controller.
+- Rótulos PT-BR (`label`/`description`) são enviados como *hint* de exibição; o cliente pode substituí-los.
+- `ruleVersion` é o `ETag`; a resposta usa `Cache-Control: private, max-age=3600` e responde 304 por
+  `If-None-Match`.
+- O contrato é aditivo: novos campos podem aparecer sem mudança de URL; mudanças de valor exigem bump de
+  `GamificationRules::VERSION`.
+- O simulador de XP fica para a V1.1; na V1 o cliente exibe a faixa ("até 100 XP") e o valor real vem do
+  histórico.
+
+### Alternativas consideradas
+
+- Hardcode no front: duplica as regras e diverge a cada ajuste.
+- Bloco `rules` dentro de `/users/me/progress`: mistura dado imutável com estado do usuário e impede cache.
+- Um endpoint por seção (`/levels`, `/xp-sources`, ...): múltiplas chamadas e risco de versões diferentes.
+- GraphQL: fora do escopo da V1.
+
+### Consequências
+
+- A tela inicial de gamificação faz duas chamadas (progresso + catálogo); o catálogo fica cacheado por
+  `ruleVersion`.
+- `ActivityXpPolicy` passa a consumir `ActivityXpTable`, a mesma fonte usada pelo catálogo; um teste de
+  tabela garante que o valor exibido e o concedido não divirjam.
+- Testes: `ActivityXpTableTest`, `GamificationRulesTest` e `ApiDocumentationTest`.
 
 ---
 

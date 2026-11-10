@@ -53,7 +53,7 @@ final readonly class GetMyProgressHandler
             barPercent: $this->levelCurve->barPercent($level, $progress->xpBalance()),
             currentWeeklyStreak: $currentStreak,
             bestWeeklyStreak: $bestStreak,
-            weeklyGoal: 2,
+            weeklyGoal: GamificationRules::WEEKLY_GOAL_ACTIVITIES,
             weeklyActivities: $weeklyActivities,
             weekKey: $weekKey,
             weekStart: $weekKey,

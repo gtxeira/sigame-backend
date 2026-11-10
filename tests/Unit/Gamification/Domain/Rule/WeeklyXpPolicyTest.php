@@ -17,3 +17,11 @@ it('scales the weekly goal bonus with the streak', function () {
         ->and($policy->goal(7))->toBe(50)
         ->and($policy->goal(30))->toBe(50);
 });
+
+it('builds the weekly goal progression until the cap', function () {
+    $progression = (new WeeklyXpPolicy())->goalProgression();
+
+    expect($progression)->toHaveCount(7)
+        ->and($progression[0])->toBe(['streak' => 1, 'amount' => 20])
+        ->and($progression[6])->toBe(['streak' => 7, 'amount' => 50]);
+});

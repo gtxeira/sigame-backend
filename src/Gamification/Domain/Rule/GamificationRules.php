@@ -20,9 +20,11 @@ final class GamificationRules
     public const int ONBOARDING_XP = 100;
 
     public const int WEEKLY_START_XP = 10;
+    public const int WEEKLY_GOAL_ACTIVITIES = 2;
     public const int WEEKLY_GOAL_BASE_XP = 20;
     public const int WEEKLY_GOAL_STEP_XP = 5;
     public const int WEEKLY_GOAL_MAX_XP = 50;
+    public const int WEEKLY_GOAL_STREAK_STEPS = 6;
 
     public const int WEEKEND_MULTIPLIER_PERCENT = 120;
     public const int MAX_XP_PER_ACTIVITY = 100;
@@ -33,6 +35,7 @@ final class GamificationRules
     public const int DECAY_PERIOD_DAYS = 2;
     public const int DECAY_PERCENT = 2;
     public const int DECAY_FLOOR_LEVEL = 2;
+    public const int DECAY_DROP_BAR_PERCENT = 98;
 
     public const int MIN_CHECKED_IN_FOR_XP = 2;
 }

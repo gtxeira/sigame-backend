@@ -51,7 +51,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 ],
                 [
                     'name' => 'Gamificação',
-                    'description' => 'Progresso de XP, níveis, ofensiva semanal e histórico.',
+                    'description' => 'Regras, progresso de XP, níveis, ofensiva semanal e histórico.',
                 ],
                 [
                     'name' => 'Notificações',
