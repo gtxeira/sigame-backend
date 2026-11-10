@@ -449,6 +449,8 @@ A Fase 6 criará a migration de `user_progress` e `xp_events`; o nome será gera
 
 ## 5. Dívidas técnicas e próximos passos
 
+As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52-dívidas-adicionais-da-gamificação).
+
 | Item | Evidência | Ação sugerida |
 |---|---|---|
 | Troca de modalidade principal ausente | RN03.5/CA03.5 exigem alterar a principal preservando histórico, mas `completeOnboarding()` só aceita uma conclusão | Criar caso de uso e endpoint próprios, com teste de preservação de XP. |
@@ -490,6 +492,34 @@ O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento 
 **Gatilhos para pagar a dívida:** primeira tela que lista avatares, primeiro cliente fora do controle, ou primeiro relato de metadados vazando.
 
 **Forma de implementação:** a 512 px o custo é baixo (buffer de ~1 MiB, ~30–60 ms por imagem), então o processamento pode ser síncrono no próprio endpoint, sem passar pelo `worker`. A fila só volta a fazer sentido se o upload aceitar originais grandes de novo ou se a geração de derivadas crescer em volume.
+
+### 5.2 Dívidas adicionais da gamificação
+
+Identificadas na revisão da Fase 6 depois do fechamento do núcleo. Não bloqueiam a V1 atual, mas devem ser endereçadas antes de mudanças de regra, escala ou produção.
+
+| Item | Evidência | Ação sugerida |
+|---|---|---|
+| **Contexto da atividade não versionado no ledger** | `XpEvent` guarda `activity_id`, `activity_date` e `week_key`, mas não modalidade, distância, duração, check-ins e sequência diária; um recálculo futuro depende dos dados atuais da atividade, que podem ter sido editados | Gravar um snapshot no `metadata` no momento da concessão e usá-lo no recálculo; para eventos antigos, consultar `ActivityXpReaderInterface` como aproximação. |
+| **`GET /users/me/progress` escreve no banco** | `GetMyProgressHandler` chama `progressRepository->save()` sempre, mesmo quando o progresso já existe | Separar leitura de criação; salvar apenas quando o `UserProgress` for criado. |
+| **Cálculo de ofensiva O(n) sobre o ledger** | `StreakCalculator` e `findActiveActivityDates` percorrem todos os eventos ativos a cada validação e a cada leitura de progresso | Materializar contadores e/ou cachear a lista de datas; recalcular do ledger apenas em auditoria e estorno. |
+| **Ledger sem retenção ou particionamento** | `xp_events` cresce indefinidamente; não há arquivamento, partição ou TTL | Particionar por ano ou arquivar eventos antigos, mantendo os agregados em `user_progress` e um histórico resumido. |
+| **Sem FKs para `users` e para `reversal_of_id`** | As FKs foram removidas para manter o `doctrine:schema:validate` alinhado ao mapping; o banco não impede órfãos | Reintroduzir as FKs via migration (com mapeamento de relação ou `schema_filter`) ou criar uma rotina periódica de limpeza/validação. |
+| **Sem CHECK constraints em saldo, lifetime e nível** | O domínio clampa, mas o banco aceita `xp_balance < 0`, `xp_lifetime < 0` e `level` fora de 1–10 | Adicionar `CHECK` constraints na migration. |
+| **Decay sem horário fixo** | `InactivityDecaySchedule` usa `RecurringMessage::every('1 day')`, que conta a partir do start do worker, não às 03:00 de `America/Sao_Paulo` | Usar `RecurringMessage::cron('0 3 * * *', ...)` com timezone ou um `Trigger` diário no horário local. |
+| **Dois schedulers no mesmo worker** | O serviço `scheduler` consome `scheduler_activities` e `scheduler_gamification` no mesmo processo; um handler lento atrasa o outro | Separar em dois serviços ou workers dedicados quando o volume crescer. |
+| **XP depende de distância e duração autodeclaradas** | `estimatedDistanceMeters` e `estimatedDurationMinutes` são informados pelo usuário; não há GPS nem validação independente | Manter na V1, mas prever limites por modalidade, auditoria de atividades suspeitas e integração futura com GPS/Strava. |
+| **Regras de XP não expostas como metadados** | O frontend recebe `nextLevelXp`, `weeklyGoal` e `ruleVersion`, mas não a tabela completa de XP, bônus e faixas | Criar `GET /api/v1/gamification/rules` ou um bloco `rules` no progresso, gerado a partir de `GamificationRules`. |
+| **Sem endpoints administrativos de gamificação** | Não há como um admin SIGAME consultar o progresso de um usuário, ajustar XP manualmente ou disparar um recálculo | Criar endpoints administrativos com auditoria para leitura, ajuste manual (`XP_ADJUSTMENT`) e recálculo. |
+| **Histórico de XP com paginação por offset** | `findHistory` usa `setFirstResult`/`setMaxResults`; páginas profundas ficam lentas | Migrar para cursor por `(created_at, id)` e expor `nextCursor` na resposta. |
+| **Sem índice composto para bônus semanal** | `findActiveWeeklyEvent` filtra `user_id`, `week_key`, `kind` e `reversed_at`, mas o índice existente é `(user_id, created_at)` | Criar índice `(user_id, week_key, kind)` parcial `WHERE reversed_at IS NULL`. |
+| **Cobertura de testes de gamificação** | Faltam testes dos tipos DBAL `player_id`/`xp_event_id`, da segunda atividade da semana (meta semanal), da projeção de nível após estorno/decay e da idempotência do bônus semanal após estorno | Adicionar testes unitários, de integração e funcionais para esses cenários. |
+| **Campos de decay redundantes** | `last_decay_period_end` e `decayedPeriods` guardam a mesma informação; só `decayedPeriods` é usado no cálculo | Manter apenas `decayedPeriods` ou usar `last_decay_period_end` somente como diagnóstico e documentar a escolha. |
+| **Projeção de nível fora de transação no onboarding** | `CompleteOnboardingHandler` salva o usuário e publica o evento; a concessão de XP e a projeção de nível ocorrem em flushes separados, sem uma transação única | Envolver o handler em `transactional` ou criar uma unidade de trabalho que abranja usuário, XP e projeção. |
+| **Gamificação sem feature flag** | Não há como desligar XP, ofensiva ou deleveling por configuração em um rollout | Adicionar `GAMIFICATION_ENABLED` e verificar nos listeners/endpoints; útil para rollback e testes A/B. |
+| **Sem métricas ou observabilidade de gamificação** | Não há contadores de XP concedido, decays, estornos, erros de listener ou lag do scheduler | Adicionar logs estruturados e métricas (XP/dia, decay/dia, erros) no `Monitoring` ou no provedor de observabilidade. |
+| **Exclusão de conta e retenção do ledger** | Não há fluxo de exclusão de conta; sem FK, o ledger e o progresso podem ficar órfãos | Definir a política de retenção/anonimização junto com privacidade (`DEC06`) e implementar cascade ou anonimização. |
+| **Idempotência global em vez de índice parcial** | `idempotency_key` é único globalmente; reawards de bônus semanal usam sufixo de atividade, e um reaward para a mesma atividade colidiria | Se o caso aparecer, migrar para índice único parcial `WHERE reversed_at IS NULL` e chaves naturais sem sufixo. |
+| **Saldo clampado no domínio pode esconder divergência** | `UserProgress::award()` faz `max(0, ...)`, então um estorno maior que o saldo zera o saldo em vez de falhar; o ledger pode ficar com soma negativa | A auditoria do ledger deve detectar e reportar; considerar lançar exceção em estorno que deixaria saldo negativo. |
 
 ---
 
