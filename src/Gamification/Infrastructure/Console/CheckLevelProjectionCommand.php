@@ -6,16 +6,19 @@ namespace App\Gamification\Infrastructure\Console;
 
 use App\Gamification\Domain\Progress\Repository\UserProgressRepositoryInterface;
 use App\Gamification\Domain\Rule\LevelCurve;
+use App\Shared\Application\User\UserLevelProjectionInterface;
 use App\Shared\Application\User\UserLevelReaderInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Compara o nível projetado em `users.level` com o saldo de XP.
  *
- * Não corrige divergências: apenas reporta para que a causa seja investigada.
+ * O `--repair` corrige apenas a projeção de Identity. Divergências em
+ * `user_progress.level` são encaminhadas para `app:gamification:audit-ledger`.
  */
 #[AsCommand(
     name: 'app:gamification:check-level-projection',
@@ -26,35 +29,55 @@ final class CheckLevelProjectionCommand extends Command
     public function __construct(
         private readonly UserProgressRepositoryInterface $progressRepository,
         private readonly UserLevelReaderInterface $levelReader,
+        private readonly UserLevelProjectionInterface $projection,
         private readonly LevelCurve $levelCurve,
     ) {
         parent::__construct();
     }
 
+    protected function configure(): void
+    {
+        $this->addOption(
+            'repair',
+            null,
+            InputOption::VALUE_NONE,
+            'Corrige users.level a partir do saldo de XP.',
+        );
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $repair = (bool) $input->getOption('repair');
         $divergences = [];
+        $errors = 0;
 
         foreach ($this->progressRepository->findAll() as $progress) {
             $userId = $progress->userId()->value();
-            $projected = $this->levelReader->levelOf($userId);
             $expected = $this->levelCurve->levelFor($progress->xpBalance());
+            $projected = $this->levelReader->levelOf($userId);
 
-            if (null === $projected) {
-                $divergences[] = sprintf('user=%s sem projeção em users.level', $userId);
-
-                continue;
+            if ($projected !== $expected) {
+                if ($repair && $this->projection->project($userId, $expected)) {
+                    $projected = $expected;
+                } else {
+                    $divergences[] = sprintf(
+                        'user=%s projected=%s expected=%d',
+                        $userId,
+                        null === $projected ? 'null' : (string) $projected,
+                        $expected,
+                    );
+                    ++$errors;
+                }
             }
 
-            if ($projected !== $expected || $progress->level() !== $expected) {
+            if ($progress->level() !== $expected) {
                 $divergences[] = sprintf(
-                    'user=%s balance=%d progress_level=%d projected_level=%d expected_level=%d',
+                    'user=%s progress_level=%d expected=%d; use app:gamification:audit-ledger --repair',
                     $userId,
-                    $progress->xpBalance(),
                     $progress->level(),
-                    $projected,
                     $expected,
                 );
+                ++$errors;
             }
         }
 
@@ -70,6 +93,6 @@ final class CheckLevelProjectionCommand extends Command
 
         $output->writeln(sprintf('<comment>%d divergência(s) encontrada(s).</comment>', count($divergences)));
 
-        return Command::FAILURE;
+        return $errors > 0 ? Command::FAILURE : Command::SUCCESS;
     }
 }

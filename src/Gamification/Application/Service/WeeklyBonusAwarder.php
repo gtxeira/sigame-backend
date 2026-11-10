@@ -50,11 +50,11 @@ final readonly class WeeklyBonusAwarder
         $weeklyCount = $this->streakCalculator->weeklyCount($activityDates, $weekKey);
 
         if ($weeklyCount >= 1) {
-            $this->awardStart($progress, $weekKey, $triggerActivityId, $triggerActivityDate);
+            $this->awardStart($progress, $weekKey, $triggerActivityId, $triggerActivityDate, $weeklyCount);
         }
 
         if ($weeklyCount >= 2) {
-            $this->awardGoal($progress, $weekKey, $activityDates, $triggerActivityId, $triggerActivityDate);
+            $this->awardGoal($progress, $weekKey, $activityDates, $triggerActivityId, $triggerActivityDate, $weeklyCount);
         }
 
         $current = $this->streakCalculator->current($activityDates, $today);
@@ -86,6 +86,7 @@ final readonly class WeeklyBonusAwarder
         string $weekKey,
         string $activityId,
         string $activityDate,
+        int $weeklyCount,
     ): void {
         if (null !== $this->xpEventRepository->findActiveWeeklyEvent(
             $progress->userId(),
@@ -108,6 +109,10 @@ final readonly class WeeklyBonusAwarder
             activityId: $activityId,
             activityDate: $activityDate,
             weekKey: $weekKey,
+            metadata: [
+                'weeklyCount' => $weeklyCount,
+                'calculatedAmount' => $amount,
+            ],
         );
 
         $this->xpEventRepository->save($event);
@@ -133,6 +138,7 @@ final readonly class WeeklyBonusAwarder
         array $activityDates,
         string $activityId,
         string $activityDate,
+        int $weeklyCount,
     ): void {
         if (null !== $this->xpEventRepository->findActiveWeeklyEvent(
             $progress->userId(),
@@ -156,6 +162,11 @@ final readonly class WeeklyBonusAwarder
             activityId: $activityId,
             activityDate: $activityDate,
             weekKey: $weekKey,
+            metadata: [
+                'weeklyCount' => $weeklyCount,
+                'streak' => $streak,
+                'calculatedAmount' => $amount,
+            ],
         );
 
         $this->xpEventRepository->save($event);

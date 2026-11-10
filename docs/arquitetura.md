@@ -258,10 +258,15 @@ src/Gamification/
 │   ├── Streak/            # ActivityDate, WeekKey, StreakState, StreakCalculator
 │   └── Error/             # GamificationErrorCode, GamificationErrors
 ├── Application/
+│   ├── ReadModel/         # XpLedgerTotals, LedgerDivergence, LedgerAuditReport
+│   ├── Service/           # ProgressLeveler, ProgressProvider, WeeklyBonusAwarder,
+│   │                      # LedgerAuditor, LedgerRepairer, LedgerTotalsReader
 │   └── UseCase/           # CreateProgress, GrantOnboardingXp, AwardActivityXp,
 │                          # ReverseActivityXp, ApplyInactivityDecay,
 │                          # GetMyProgress, ListXpHistory, RecalculateProgress
 ├── Infrastructure/
+│   ├── Console/           # check-level-projection, audit-ledger
+│   ├── Persistence/Doctrine/Reader/   # totais e integridade do ledger
 │   ├── Persistence/Doctrine/Repository/
 │   ├── Persistence/ORM/Type/
 │   ├── Event/             # listeners de Identity e Activities
@@ -273,7 +278,15 @@ src/Gamification/
 
 O XP é registrado em um ledger append-only (`xp_events`), com o saldo e o nível materializados em `user_progress`.
 A fonte de verdade do nível é `user_progress.level`; `users.level` é uma projeção mantida por eventos, conforme o
-[ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity). As regras de XP e níveis estão nos
+[ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity).
+
+O saldo do ledger soma **todos** os lançamentos: o estorno é um lançamento negativo e o original permanece com
+`reversed_at`; filtrar os revertidos produziria um saldo incorreto. A auditoria compara esse total com
+`user_progress`, recalcula o nível pela `LevelCurve` e confere a projeção. O reparo (`--repair`) usa
+`UserLevelProjectionInterface` para atualizar `users.level` sem publicar eventos, pois corrige a materialização,
+não concede XP.
+
+As regras de XP e níveis estão nos
 [ADR-032](decisoes.md#adr-032--modelo-de-xp-em-duas-camadas-e-ledger-append-only),
 [ADR-033](decisoes.md#adr-033--curva-de-níveis-e-xp-por-atividade),
 [ADR-034](decisoes.md#adr-034--ofensiva-semanal-e-bônus-de-constância) e
@@ -301,7 +314,7 @@ Comportamentos principais de `User`:
 - `registerWithProvider()` — cadastro social, sem senha e sem CPF.
 - `linkSocialIdentity()` — vincula um provedor a uma conta existente.
 - `assignCpf()` — define o CPF uma única vez (write-once).
-- `completeOnboarding()` — valida dados, define modalidades e concede nível 2.
+- `completeOnboarding()` — valida dados e define modalidades; o nível 2 vem do XP de onboarding concedido pela gamificação.
 - `suspend()` / `reactivate()` — alteram o estado de acesso.
 - `canCreateGroup()` — exige nível ≥ 2 e conta ativa.
 

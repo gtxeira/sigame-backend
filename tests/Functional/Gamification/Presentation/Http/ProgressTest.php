@@ -5,13 +5,13 @@ declare(strict_types=1);
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @return array{token: string, server: array<string, string>}
+ * @return array{token: string, server: array<string, string>, userId: string}
  */
 function gamificationTestOnboardedUser(
     \Tests\FunctionalTestCase $test,
     string $email = 'progress@example.com',
 ): array {
-    authTestCreateUser($test, $email);
+    $user = authTestCreateUser($test, $email);
     $token = authTestAccessToken(authTestLogin($test, $email));
     $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$token];
 
@@ -23,7 +23,7 @@ function gamificationTestOnboardedUser(
 
     expect($onboarding->getStatusCode())->toBe(Response::HTTP_OK);
 
-    return ['token' => $token, 'server' => $server];
+    return ['token' => $token, 'server' => $server, 'userId' => $user->id()->value()];
 }
 
 it('returns the progress after onboarding', function () {
@@ -50,6 +50,8 @@ it('returns the progress after onboarding', function () {
         ->and($data['ruleVersion'])->toBe('2026-11-v1')
         ->and($data['weekStart'])->toMatch('/^\d{4}-\d{2}-\d{2}$/')
         ->and($data['weekEnd'])->toMatch('/^\d{4}-\d{2}-\d{2}$/');
+
+    ledgerTestAssertProjectionConsistent($this, $context['userId']);
 });
 
 it('lists the xp history', function () {

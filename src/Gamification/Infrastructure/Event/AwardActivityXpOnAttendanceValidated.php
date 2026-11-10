@@ -81,6 +81,15 @@ final readonly class AwardActivityXpOnAttendanceValidated
             activityId: $context->activityId,
             activityDate: $activityDate,
             weekKey: $weekKey,
+            metadata: [
+                'modality' => $context->modality->value,
+                'distanceMeters' => $context->distanceMeters,
+                'durationMinutes' => $context->durationMinutes,
+                'checkedInParticipants' => $context->checkedInParticipants,
+                'startsAt' => $context->startsAt->toIsoStringWithMilliseconds(),
+                'dailySequence' => $dailySequence,
+                'calculatedAmount' => $amount,
+            ],
         );
 
         $this->xpEventRepository->save($xpEvent);

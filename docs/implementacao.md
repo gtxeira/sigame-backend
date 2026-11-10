@@ -289,6 +289,7 @@ semanal.
 - [x] Fator diário: 1ª–3ª atividade a 100%, 4ª a 25%, 5ª em diante a 0.
 - [x] Teto de 100 XP por atividade.
 - [x] Ledger com origem, data da atividade, semana e versão da regra.
+- [x] Snapshot em `metadata`: modalidade, distância, duração, check-ins, sequência diária e valor calculado.
 - [x] Publicação de `XpAwarded`, `LevelReached` e `LevelLost`.
 - [x] Testes de tabela, idempotência e limites.
 
@@ -300,6 +301,7 @@ semanal.
 - [x] 1 atividade mantém o foguinho; 0 apaga; recorde preservado.
 - [x] `ActivityDate` e `WeekKey` no fuso `America/Sao_Paulo`.
 - [x] Recalcular após validação tardia e estorno.
+- [x] Snapshot em `metadata`: `weeklyCount`, `streak` e valor calculado.
 - [x] Publicar `WeeklyGoalCompleted` e `StreakUpdated`.
 - [x] **Não implementar ofensiva diária nem bônus de primeira atividade do dia.**
 
@@ -339,15 +341,29 @@ semanal.
 
 #### 6.9 Qualidade
 
-- [x] Executar `just composer quality` no fechamento da fase (901 testes verdes em 2026-11-10).
+- [x] Executar `just composer quality` no fechamento da fase (914 testes verdes em 2026-11-10).
 
 #### 6.10 Dívida assumida — `users.level`
 
 O nível continua em `users.level` porque Groups e a segurança já dependem dele. A fonte de verdade é
 `user_progress.level`, e `users.level` é uma projeção atualizada por `LevelReached`/`LevelLost`. O comando
-`app:gamification:check-level-projection` compara as duas fontes e reporta divergências. A dívida está detalhada
-no [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity) e na
+`app:gamification:check-level-projection` compara as duas fontes e reporta divergências; com `--repair`, corrige
+a projeção. A dívida está detalhada no [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity) e na
 [tabela de dívidas](#5-dívidas-técnicas-e-próximos-passos).
+
+#### 6.11 Integridade, auditoria e reparo
+
+- [x] Porta `UserLevelProjectionInterface` com adapter em Identity para reparo explícito da projeção.
+- [x] `UserProgress::reconcile()` para alinhar saldo e XP vitalício ao ledger.
+- [x] `app:gamification:audit-ledger` (somente leitura por padrão, com `--user-id` e `--repair`).
+- [x] Auditoria de saldo, XP vitalício, nível materializado e projeção `users.level`.
+- [x] Auditoria de integridade referencial: reversal sem original e original revertido sem reversal.
+- [x] Snapshot de modalidade, distância, duração, check-ins, sequência diária e valor calculado no `metadata` do `XpEvent`.
+- [x] Snapshot de `weeklyCount`, `streak` e valor calculado nos bônus semanais.
+- [x] `GET /users/me/progress` deixa de escrever no banco a cada leitura; o progresso só é persistido quando criado.
+- [x] Testes de consistência após onboarding, validação, estorno e decay.
+- [x] Testes de auditoria, reparo, criação de progresso ausente e projeção divergente.
+- [x] Teste de idempotência do reparo e do `--repair` sem flag.
 
 ### Fase 7 — Notifications + Moderation
 
@@ -468,9 +484,8 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | Sem fechamento automático de validação | A janela de validação é validada na requisição; não há job para encerrar pendências de validação | Avaliar rotina de fechamento após 48 h. |
 | Busca de grupos com `LIKE` | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE` | Avaliar índice textual ou busca por trigramas se o volume crescer. |
 | Sem exclusão ou transferência de grupo | O grupo não é excluído e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro | Abrir `DEC15` se o produto exigir esses fluxos. |
-| **Nível com dupla fonte** | `users.level` é usado por Groups e segurança, mas a fonte de verdade é `user_progress.level`; a projeção `SyncUserLevel` e o comando `app:gamification:check-level-projection` já existem, mas um listener falho ou um caminho que altere o nível sem publicar evento pode divergir | Adicionar teste de consistência automatizado e definir política de reparo. Reavaliar quando houver divergência, necessidade de XP em Identity ou regras dinâmicas. Ver [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity). |
+| **Nível com dupla fonte (mitigada)** | `users.level` continua sendo a projeção usada por Groups e segurança; a fonte de verdade é `user_progress.level`. A consistência agora é coberta por testes e pelos comandos `app:gamification:check-level-projection --repair` e `app:gamification:audit-ledger --repair` | A dupla fonte permanece por decisão do [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity); reavaliar apenas se houver necessidade de XP em Identity ou regras dinâmicas. |
 | **Comando de recálculo pendente** | `rule_version` já é gravado, mas não existe `app:gamification:recalculate` nem `LEGACY_BONUS` | Implementar o replay do XP de atividade e o bônus de fidelidade antes de mudar a versão das regras. |
-| **Consistência do ledger** | O saldo e o nível são materializados; não há rotina de conferência contra a soma dos lançamentos | Criar comando de auditoria que recalcula saldo/nível a partir de `xp_events` e reporta divergências. |
 | **Bônus de grupo por check-in** | O bônus usa check-ins para que todos os participantes recebam o mesmo valor, mas um check-in não validado ainda pode influenciar o bônus | Avaliar cálculo em lote na finalização ou reajuste após a validação de todos. |
 | **Sem escudo/freeze** | Uma semana atípica apaga a ofensiva semanal, mesmo com histórico consistente | Implementar na V1.1: 1 escudo a cada 4 semanas, máximo 2, consumido automaticamente. |
 | **Recálculo retroativo de engajamento** | O comando de recálculo da Fase 6 cobre XP de atividade; bônus semanais antigos não são recalculados | Fazer replay completo do ledger em uma versão futura, se as regras semanais mudarem. |
@@ -497,13 +512,14 @@ O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento 
 
 Identificadas na revisão da Fase 6 depois do fechamento do núcleo. Não bloqueiam a V1 atual, mas devem ser endereçadas antes de mudanças de regra, escala ou produção.
 
+**Resolvidas em 2026-11-10:** snapshot do contexto de atividade e dos bônus semanais no `metadata`; leitura de progresso sem escrita a cada GET; auditoria e reparo do ledger; verificação de integridade referencial do ledger; teste e reparo da projeção `users.level`.
+
 | Item | Evidência | Ação sugerida |
 |---|---|---|
-| **Contexto da atividade não versionado no ledger** | `XpEvent` guarda `activity_id`, `activity_date` e `week_key`, mas não modalidade, distância, duração, check-ins e sequência diária; um recálculo futuro depende dos dados atuais da atividade, que podem ter sido editados | Gravar um snapshot no `metadata` no momento da concessão e usá-lo no recálculo; para eventos antigos, consultar `ActivityXpReaderInterface` como aproximação. |
-| **`GET /users/me/progress` escreve no banco** | `GetMyProgressHandler` chama `progressRepository->save()` sempre, mesmo quando o progresso já existe | Separar leitura de criação; salvar apenas quando o `UserProgress` for criado. |
+| **Contexto de eventos antigos não versionado** | Eventos gravados a partir de 2026-11-10 guardam modalidade, distância, duração, check-ins, sequência diária e valor calculado em `metadata`; eventos anteriores permanecem sem snapshot | Usar o snapshot no recálculo futuro; para eventos antigos, consultar `ActivityXpReaderInterface` como aproximação. |
 | **Cálculo de ofensiva O(n) sobre o ledger** | `StreakCalculator` e `findActiveActivityDates` percorrem todos os eventos ativos a cada validação e a cada leitura de progresso | Materializar contadores e/ou cachear a lista de datas; recalcular do ledger apenas em auditoria e estorno. |
 | **Ledger sem retenção ou particionamento** | `xp_events` cresce indefinidamente; não há arquivamento, partição ou TTL | Particionar por ano ou arquivar eventos antigos, mantendo os agregados em `user_progress` e um histórico resumido. |
-| **Sem FKs para `users` e para `reversal_of_id`** | As FKs foram removidas para manter o `doctrine:schema:validate` alinhado ao mapping; o banco não impede órfãos | Reintroduzir as FKs via migration (com mapeamento de relação ou `schema_filter`) ou criar uma rotina periódica de limpeza/validação. |
+| **Sem FKs para `users` e para `reversal_of_id`** | As FKs foram removidas para manter o `doctrine:schema:validate` alinhado ao mapping; o `app:gamification:audit-ledger` agora reporta reversal sem original e original revertido sem reversal, mas o banco continua sem impedir órfãos | Reintroduzir as FKs via migration (com mapeamento de relação ou `schema_filter`) ou manter a validação periódica no comando. |
 | **Sem CHECK constraints em saldo, lifetime e nível** | O domínio clampa, mas o banco aceita `xp_balance < 0`, `xp_lifetime < 0` e `level` fora de 1–10 | Adicionar `CHECK` constraints na migration. |
 | **Decay sem horário fixo** | `InactivityDecaySchedule` usa `RecurringMessage::every('1 day')`, que conta a partir do start do worker, não às 03:00 de `America/Sao_Paulo` | Usar `RecurringMessage::cron('0 3 * * *', ...)` com timezone ou um `Trigger` diário no horário local. |
 | **Dois schedulers no mesmo worker** | O serviço `scheduler` consome `scheduler_activities` e `scheduler_gamification` no mesmo processo; um handler lento atrasa o outro | Separar em dois serviços ou workers dedicados quando o volume crescer. |
@@ -512,14 +528,14 @@ Identificadas na revisão da Fase 6 depois do fechamento do núcleo. Não bloque
 | **Sem endpoints administrativos de gamificação** | Não há como um admin SIGAME consultar o progresso de um usuário, ajustar XP manualmente ou disparar um recálculo | Criar endpoints administrativos com auditoria para leitura, ajuste manual (`XP_ADJUSTMENT`) e recálculo. |
 | **Histórico de XP com paginação por offset** | `findHistory` usa `setFirstResult`/`setMaxResults`; páginas profundas ficam lentas | Migrar para cursor por `(created_at, id)` e expor `nextCursor` na resposta. |
 | **Sem índice composto para bônus semanal** | `findActiveWeeklyEvent` filtra `user_id`, `week_key`, `kind` e `reversed_at`, mas o índice existente é `(user_id, created_at)` | Criar índice `(user_id, week_key, kind)` parcial `WHERE reversed_at IS NULL`. |
-| **Cobertura de testes de gamificação** | Faltam testes dos tipos DBAL `player_id`/`xp_event_id`, da segunda atividade da semana (meta semanal), da projeção de nível após estorno/decay e da idempotência do bônus semanal após estorno | Adicionar testes unitários, de integração e funcionais para esses cenários. |
+| **Cobertura de testes de gamificação** | Projeção após estorno/decay, auditoria e reparo já têm testes; ainda faltam testes dos tipos DBAL `player_id`/`xp_event_id`, da segunda atividade da semana (meta semanal) e da idempotência do bônus semanal após estorno | Adicionar os testes restantes. |
 | **Campos de decay redundantes** | `last_decay_period_end` e `decayedPeriods` guardam a mesma informação; só `decayedPeriods` é usado no cálculo | Manter apenas `decayedPeriods` ou usar `last_decay_period_end` somente como diagnóstico e documentar a escolha. |
 | **Projeção de nível fora de transação no onboarding** | `CompleteOnboardingHandler` salva o usuário e publica o evento; a concessão de XP e a projeção de nível ocorrem em flushes separados, sem uma transação única | Envolver o handler em `transactional` ou criar uma unidade de trabalho que abranja usuário, XP e projeção. |
 | **Gamificação sem feature flag** | Não há como desligar XP, ofensiva ou deleveling por configuração em um rollout | Adicionar `GAMIFICATION_ENABLED` e verificar nos listeners/endpoints; útil para rollback e testes A/B. |
 | **Sem métricas ou observabilidade de gamificação** | Não há contadores de XP concedido, decays, estornos, erros de listener ou lag do scheduler | Adicionar logs estruturados e métricas (XP/dia, decay/dia, erros) no `Monitoring` ou no provedor de observabilidade. |
 | **Exclusão de conta e retenção do ledger** | Não há fluxo de exclusão de conta; sem FK, o ledger e o progresso podem ficar órfãos | Definir a política de retenção/anonimização junto com privacidade (`DEC06`) e implementar cascade ou anonimização. |
 | **Idempotência global em vez de índice parcial** | `idempotency_key` é único globalmente; reawards de bônus semanal usam sufixo de atividade, e um reaward para a mesma atividade colidiria | Se o caso aparecer, migrar para índice único parcial `WHERE reversed_at IS NULL` e chaves naturais sem sufixo. |
-| **Saldo clampado no domínio pode esconder divergência** | `UserProgress::award()` faz `max(0, ...)`, então um estorno maior que o saldo zera o saldo em vez de falhar; o ledger pode ficar com soma negativa | A auditoria do ledger deve detectar e reportar; considerar lançar exceção em estorno que deixaria saldo negativo. |
+| **Saldo clampado no domínio pode esconder divergência** | `UserProgress::award()` faz `max(0, ...)`, então um estorno maior que o saldo zera o saldo em vez de falhar; o ledger pode ficar com soma negativa | A auditoria detecta e reporta; o reparo recusa ledger negativo. Avaliar lançar exceção em estorno que deixaria saldo negativo. |
 
 ---
 

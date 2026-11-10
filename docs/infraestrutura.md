@@ -166,6 +166,7 @@ Em produção com múltiplas instâncias, prefira um store compartilhado (por ex
 - O transporte `failed` usa a mesma tabela com `queue_name=failed`.
 - O worker roda `php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just worker` executa manualmente e `just worker-logs` acompanha o serviço.
 - O scheduler roda `php bin/console messenger:consume scheduler_activities scheduler_gamification --time-limit=3600 --memory-limit=128M`. Em desenvolvimento, `just scheduler` executa manualmente e `just scheduler-logs` acompanha o serviço. Se ele estiver parado, o fechamento automático de atividades e o deleveling atrasam.
+- A integridade do XP é conferida com `just sf app:gamification:audit-ledger` (somente leitura) e reparada com `--repair`. O comando alinha `user_progress` e `users.level` ao ledger, sem gravar evento de XP. A projeção isolada pode ser corrigida com `just sf app:gamification:check-level-projection --repair`.
 - Inspecione a fila de falhas com `just messenger-failed` (`messenger:failed:show`). Mensagens de reset nessa fila já tiveram o token consumido: remova-as, não faça retry.
 - A chave `MESSENGER_MAIL_ENCRYPTION_KEY` deve ser idêntica no `php` e no `worker`. Rotação exige parar o worker, drenar `async` e só então trocar a chave.
 - A V1 roda uma réplica do worker para preservar a ordem FIFO entre reenvios do mesmo usuário.

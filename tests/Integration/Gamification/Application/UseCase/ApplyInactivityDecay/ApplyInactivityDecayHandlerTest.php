@@ -14,6 +14,7 @@ use App\Gamification\Domain\Xp\Repository\XpEventRepositoryInterface;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
+use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
@@ -35,6 +36,7 @@ it('applies inactivity decay once per period', function () {
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'Decay User',
     );
+    $user->syncLevel(UserLevel::fromInt(5)->value());
     $userRepository->save($user);
 
     $userId = PlayerId::fromString($user->id()->value());
@@ -65,5 +67,53 @@ it('applies inactivity decay once per period', function () {
         ->and($decayed->decayedPeriods())->toBe(1);
 
     expect($handler(new ApplyInactivityDecayMessage()))->toBe(0)
-        ->and($progressRepository->findByUserId($userId)?->xpBalance())->toBe(1240);
+        ->and($progressRepository->findByUserId($userId)?->xpBalance())->toBe(1240)
+        ->and($userRepository->findById($user->id())?->level()->value())->toBe(5);
+});
+
+it('projects the level after a decay that drops a level', function () {
+    /** @var UserRepositoryInterface $userRepository */
+    $userRepository = $this->service(UserRepositoryInterface::class);
+    /** @var UserProgressRepositoryInterface $progressRepository */
+    $progressRepository = $this->service(UserProgressRepositoryInterface::class);
+    /** @var XpEventRepositoryInterface $xpEventRepository */
+    $xpEventRepository = $this->service(XpEventRepositoryInterface::class);
+    /** @var EventDispatcherInterface $eventDispatcher */
+    $eventDispatcher = $this->service(EventDispatcherInterface::class);
+
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('decay-level@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'Decay Level User',
+    );
+    $user->syncLevel(UserLevel::fromInt(5)->value());
+    $userRepository->save($user);
+
+    $userId = PlayerId::fromString($user->id()->value());
+    $progress = UserProgress::create($userId);
+    $progress->award(1000, true);
+    $progress->changeLevel(5);
+    $progress->recordActivityValidation(
+        Instant::fromString('2026-11-09T12:00:00+00:00')->value(),
+    );
+    $progressRepository->save($progress);
+
+    $handler = new ApplyInactivityDecayHandler(
+        progressRepository: $progressRepository,
+        xpEventRepository: $xpEventRepository,
+        delevelingPolicy: new DelevelingPolicy(new LevelCurve()),
+        progressLeveler: new ProgressLeveler(new LevelCurve(), $eventDispatcher),
+        eventDispatcher: $eventDispatcher,
+        clock: new MockClock('2026-11-19T12:00:00+00:00'),
+    );
+
+    expect($handler(new ApplyInactivityDecayMessage()))->toBe(1);
+
+    $decayed = $progressRepository->findByUserId($userId);
+
+    expect($decayed)->not->toBeNull()
+        ->and($decayed->xpBalance())->toBe(992)
+        ->and($decayed->level())->toBe(4)
+        ->and($userRepository->findById($user->id())?->level()->value())->toBe(4);
 });

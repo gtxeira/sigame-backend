@@ -181,6 +181,42 @@ it('validates attendance after finish and lists my activities', function () {
         ->and($progressData['currentWeeklyStreak'])->toBe(1)
         ->and($progressData['streakState'])->toBe('ACESO');
 
+    ledgerTestAssertProjectionConsistent($this, $validatedUserId);
+
+    $history = $this->api->get(
+        'app_my_xp_history',
+        server: groupTestServer($context['members'][$validatedEmail]),
+    );
+    /** @var list<array<string, mixed>> $historyItems */
+    $historyItems = authTestBody($history)['data'];
+    $activityMetadata = [];
+    $weeklyStartMetadata = [];
+
+    foreach ($historyItems as $item) {
+        $metadata = $item['metadata'] ?? null;
+
+        if ('activity' === $item['kind'] && is_array($metadata)) {
+            $activityMetadata = $metadata;
+        }
+
+        if ('weekly_start' === $item['kind'] && is_array($metadata)) {
+            $weeklyStartMetadata = $metadata;
+        }
+    }
+
+    expect($activityMetadata)->toHaveKeys([
+        'modality',
+        'distanceMeters',
+        'durationMinutes',
+        'checkedInParticipants',
+        'startsAt',
+        'dailySequence',
+        'calculatedAmount',
+    ])
+        ->and($activityMetadata['modality'])->toBe('corrida')
+        ->and($activityMetadata['dailySequence'])->toBe(1)
+        ->and($weeklyStartMetadata['weeklyCount'])->toBe(1);
+
     $invalidate = $this->api->post(
         'app_activity_invalidate',
         ['reason' => 'Atividade registrada em duplicidade.'],
@@ -201,6 +237,8 @@ it('validates attendance after finish and lists my activities', function () {
         ->and($reversedData['weeklyActivities'])->toBe(0)
         ->and($reversedData['currentWeeklyStreak'])->toBe(0)
         ->and($reversedData['streakState'])->toBe('APAGADO');
+
+    ledgerTestAssertProjectionConsistent($this, $validatedUserId);
 
     $mine = $this->api->get('app_my_activity_list', server: groupTestServer($firstToken));
 

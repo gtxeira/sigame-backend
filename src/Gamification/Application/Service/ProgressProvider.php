@@ -21,7 +21,15 @@ final readonly class ProgressProvider
 
     public function getOrCreate(PlayerId $userId): UserProgress
     {
-        return $this->progressRepository->findByUserId($userId)
-            ?? UserProgress::create($userId);
+        $progress = $this->progressRepository->findByUserId($userId);
+
+        if (null !== $progress) {
+            return $progress;
+        }
+
+        $progress = UserProgress::create($userId);
+        $this->progressRepository->save($progress);
+
+        return $progress;
     }
 }

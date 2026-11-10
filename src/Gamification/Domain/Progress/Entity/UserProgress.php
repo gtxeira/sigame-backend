@@ -8,6 +8,7 @@ use App\Gamification\Domain\Progress\ValueObject\PlayerId;
 use App\Gamification\Domain\Rule\GamificationRules;
 use App\Shared\Domain\ValueObject\Instant;
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
 
 /**
  * Progresso agregado do usuário.
@@ -92,6 +93,23 @@ final class UserProgress
             $this->xpLifetime = max(0, $this->xpLifetime + $amount);
         }
 
+        $this->touch();
+    }
+
+    /**
+     * Corrige os valores materializados a partir do ledger.
+     *
+     * Uso administrativo: não concede nem retira XP do histórico. O reparo deve
+     * ser decidido fora do domínio, a partir da auditoria de `xp_events`.
+     */
+    public function reconcile(int $xpBalance, int $xpLifetime): void
+    {
+        if ($xpBalance < 0 || $xpLifetime < 0) {
+            throw new LogicException('Saldo e XP vitalício não podem ser negativos.');
+        }
+
+        $this->xpBalance = $xpBalance;
+        $this->xpLifetime = $xpLifetime;
         $this->touch();
     }
 

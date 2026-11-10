@@ -947,7 +947,9 @@ o nível completamente para Gamification exigiria alterar Groups, segurança e r
 - `User::completeOnboarding()` não incrementa mais o nível diretamente; o onboarding concede 100 XP e o nível 2 vem
   da gamificação.
 - `GET /users/me` e `UserLevelReaderInterface` continuam lendo `users.level`.
-- Um comando `app:gamification:check-level-projection` compara as duas fontes.
+- Um comando `app:gamification:check-level-projection` compara as duas fontes e, com `--repair`, corrige a projeção.
+- `app:gamification:audit-ledger` compara o ledger com `user_progress` e com `users.level`; o `--repair` também
+  alinha a projeção.
 
 ### Alternativas consideradas
 
@@ -960,9 +962,11 @@ o nível completamente para Gamification exigiria alterar Groups, segurança e r
 
 - A operação normal é consistente porque os eventos são síncronos e transacionais.
 - A dívida é a dupla fonte: um listener falho ou um caminho que altere o nível sem publicar evento pode divergir.
+  A divergência agora é detectada e reparada explicitamente; o reparo usa uma porta de escrita e não publica
+  `LevelReached`/`LevelLost`, porque corrige a materialização, não concede XP.
 - O piso do nível 2 garante que Groups não perca acesso por deleveling.
-- A dívida está registrada em `implementacao.md`; os gatilhos para pagá-la são divergência detectada, necessidade
-  de XP em Identity ou regras de nível dinâmicas.
+- A dívida está registrada em `implementacao.md`; os gatilhos para pagá-la são necessidade de XP em Identity ou
+  regras de nível dinâmicas.
 
 ---
 

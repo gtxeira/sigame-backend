@@ -147,6 +147,19 @@ just test --filter="logs in"
 | `composer test:db:setup` | Cria o banco de teste se não existir |
 | `composer config-transformer` | Converte configuração YAML em PHP |
 
+### 4.3 Comandos de manutenção da gamificação
+
+| Comando | O que faz |
+|---|---|
+| `just sf app:gamification:audit-ledger` | Confere `xp_events` contra `user_progress` e `users.level`; não escreve nada |
+| `just sf app:gamification:audit-ledger --user-id=<uuid>` | Audita apenas um usuário |
+| `just sf app:gamification:audit-ledger --repair` | Alinha saldo, XP vitalício, nível materializado e projeção ao ledger |
+| `just sf app:gamification:check-level-projection` | Compara apenas `users.level` com o saldo de XP |
+| `just sf app:gamification:check-level-projection --repair` | Corrige `users.level` a partir do saldo |
+
+O `--repair` do ledger não grava evento de XP: ele apenas corrige a materialização e publica a projeção de nível.
+Se o ledger tiver saldo ou XP vitalício negativo, o reparo é recusado para investigação manual.
+
 ## 5. Testes
 
 A suíte é dividida em três grupos, declarados em `tests/Pest.php`:

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Gamification\Application\UseCase\GetMyProgress;
 
 use App\Gamification\Application\Service\ProgressProvider;
-use App\Gamification\Domain\Progress\Repository\UserProgressRepositoryInterface;
 use App\Gamification\Domain\Progress\ValueObject\PlayerId;
 use App\Gamification\Domain\Rule\GamificationRules;
 use App\Gamification\Domain\Rule\LevelCurve;
@@ -22,7 +21,6 @@ final readonly class GetMyProgressHandler
 {
     public function __construct(
         private ProgressProvider $progressProvider,
-        private UserProgressRepositoryInterface $progressRepository,
         private XpEventRepositoryInterface $xpEventRepository,
         private LevelCurve $levelCurve,
         private StreakCalendar $calendar,
@@ -34,7 +32,6 @@ final readonly class GetMyProgressHandler
     public function __invoke(PlayerId $userId): MyProgressView
     {
         $progress = $this->progressProvider->getOrCreate($userId);
-        $this->progressRepository->save($progress);
 
         $activityDates = $this->xpEventRepository->findActiveActivityDates($userId);
         $today = $this->calendar->localDate(Instant::fromDateTime($this->clock->now()));
