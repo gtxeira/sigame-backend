@@ -53,8 +53,13 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-029](#adr-029--consulta-síncrona-de-grupo-por-activities) | Consulta síncrona de grupo por Activities | Vigente |
 | [ADR-030](#adr-030--importação-de-eventos-entre-módulos) | Importação de eventos entre módulos | Vigente |
 | [ADR-031](#adr-031--duração-opcional-e-fechamento-automático-de-atividades) | Duração opcional e fechamento automático | Vigente |
+| [ADR-032](#adr-032--modelo-de-xp-em-duas-camadas-e-ledger-append-only) | Modelo de XP em duas camadas e ledger append-only | Vigente |
+| [ADR-033](#adr-033--curva-de-níveis-e-xp-por-atividade) | Curva de níveis e XP por atividade | Vigente |
+| [ADR-034](#adr-034--ofensiva-semanal-e-bônus-de-constância) | Ofensiva semanal e bônus de constância | Vigente |
+| [ADR-035](#adr-035--deleveling-e-piso-no-nível-2) | Deleveling e piso no nível 2 | Vigente |
+| [ADR-036](#adr-036--nível-como-projeção-de-identity) | Nível como projeção de Identity | Vigente (dívida assumida) |
 
-Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor) e [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes).
+Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade) e [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2).
 
 ---
 
@@ -790,6 +795,174 @@ Atividades podiam ficar abertas indefinidamente e a duração era obrigatória, 
 - Novas colunas `auto_close_at`, `finished_automatically` e `cancelled_automatically`.
 - Novo serviço `scheduler` no Compose e receitas `just scheduler`/`just scheduler-logs`.
 - Se o scheduler estiver parado, o fechamento atrasa até a próxima execução.
+
+---
+
+## ADR-032 — Modelo de XP em duas camadas e ledger append-only
+
+### Contexto
+
+A gamificação precisa permitir deleveling, estorno por invalidação, histórico auditável e recálculo futuro de regras sem
+apagar o que o usuário já conquistou. Um único campo `xp` não distingue o XP histórico do XP atual e torna estornos e
+penalidades ambíguos.
+
+### Decisão
+
+- `xp_lifetime` registra tudo que o usuário conquistou e só diminui quando uma atividade que gerou XP é invalidada.
+- `xp_balance` é o XP atual, usado para nível e barra, e pode diminuir por deleveling ou estorno.
+- Cada concessão, estorno e penalidade gera um lançamento append-only em `xp_events`.
+- Cada lançamento possui `kind`, `amount`, `source_type`, `source_id`, `activity_id`, `activity_date`, `week_key`,
+  `rule_version` e `idempotency_key`.
+- O `idempotency_key` é único apenas entre lançamentos ativos (`reversed_at IS NULL`). Um estorno marca o original
+  como revertido e cria um lançamento negativo, permitindo que a mesma concessão lógica seja refeita depois.
+- O saldo e o nível são projeções recalculáveis a partir do ledger, mas ficam materializados em `user_progress` para
+  leitura rápida.
+
+### Alternativas consideradas
+
+- Um único campo `xp` mutável: simples, mas perde histórico e dificulta auditoria e recálculo.
+- Event sourcing completo com replay em toda leitura: poderoso, porém caro e desnecessário para o volume da V1.
+- Não permitir reaward após estorno: evitaria duplicidade, mas impediria corrigir uma semana válida após uma
+  invalidação indevida.
+
+### Consequências
+
+- Novas tabelas `user_progress` e `xp_events` e mais escrita por validação.
+- O histórico fica auditável e o recálculo de regras é viável.
+- A consistência entre ledger, saldo e nível precisa de testes de idempotência e de estorno.
+- O requisito detalhado está em `RF12` e `RF13`.
+
+---
+
+## ADR-033 — Curva de níveis e XP por atividade
+
+### Contexto
+
+O `DEC02` deixava em aberto a tabela de XP por nível e os valores por evento. Era preciso uma curva simples de explicar,
+que não tornasse o nível 10 inalcançável e que diferenciasse caminhada, corrida e ciclismo sem punir iniciantes.
+
+### Decisão
+
+- A curva é triangular: `T(n) = 50 × n × (n − 1)`, com níveis de 1 a 10.
+- O onboarding concede 100 XP uma única vez e coloca o usuário no nível 2.
+- O XP de atividade soma base da modalidade, faixa de distância, faixa de duração e bônus de grupo.
+- O fim de semana aplica ×1,2 sobre o XP de atividade.
+- O fator diário reduz a 4ª atividade do dia a 25% e a 5ª em diante a 0.
+- O teto é 100 XP por atividade.
+- Não há bônus por dias consecutivos nem bônus de primeira atividade do dia.
+
+As tabelas completas, a ordem de cálculo e os exemplos estão em
+[requisitos/levantamento-de-requisitos.md](requisitos/levantamento-de-requisitos.md#rf12--progressão-de-xp-e-níveis).
+
+### Alternativas consideradas
+
+- XP fixo por atividade: simples, mas trata de forma igual uma caminhada curta e um pedal longo.
+- Curva linear: previsível, mas torna os níveis altos rápidos demais.
+- XP baseado apenas em duração: favoreceria atividades longas e ignoraria a distância, que é obrigatória na V1.
+
+### Consequências
+
+- As regras ficam versionadas em `GamificationRules` (`2026-11-v1`) e cobertas por testes de tabela.
+- Mudanças futuras usam `rule_version` e `LEGACY_BONUS` para não reduzir XP antigo.
+- O bônus de grupo usa check-ins para que todos os participantes recebam o mesmo valor.
+
+---
+
+## ADR-034 — Ofensiva semanal e bônus de constância
+
+### Contexto
+
+O produto quer um “foguinho” no estilo Duolingo/Snapchat para incentivar constância, mas atividades físicas exigem
+descanso e planejamento. Uma ofensiva diária poderia estimular treino diário sem maturidade.
+
+### Decisão
+
+- A semana vai de segunda a domingo no fuso `America/Sao_Paulo`, identificada pela data da segunda-feira.
+- A ofensiva semanal é a única mecânica de constância da V1.
+- A primeira atividade válida da semana concede `WEEKLY_START` (+10 XP) e mantém o foguinho aceso.
+- A segunda atividade concede `WEEKLY_GOAL` (+20 XP + `5 × min(semanas − 1, 6)`, com no máximo 50 XP no total) e completa a meta.
+- Uma semana com 1 atividade mantém o foguinho; uma semana com 0 apaga.
+- O recorde (`best`) é preservado.
+- Não existe ofensiva diária nem bônus de primeira atividade do dia.
+- O escudo/freeze fica para a V1.1.
+
+### Alternativas consideradas
+
+- Ofensiva diária: mais parecida com Duolingo, mas estimula treino diário e quebra com facilidade.
+- Exigir 2 atividades para manter o foguinho: mais rigoroso, porém pouco tolerante a semanas atípicas.
+- Ofensiva mensal: menos sensível ao engajamento semanal.
+
+### Consequências
+
+- A UI precisa mostrar foguinho atual, recorde, meta e estado (`ACESO`, `EM_RISCO`, `COMPLETO`, `APAGADO`).
+- A ofensiva é recalculada após validação tardia e estorno.
+- Notificações de risco dependem da Fase 7.
+
+---
+
+## ADR-035 — Deleveling e piso no nível 2
+
+### Contexto
+
+O `DEC03` deixava ambíguo se os 2% incidiam sobre a barra, sobre o XP do nível ou sobre o saldo absoluto. Era preciso
+uma regra previsível, idempotente e que não destruísse o progresso do usuário.
+
+### Decisão
+
+- A tolerância é de 7 dias completos desde a última validação de presença.
+- Depois da tolerância, cada 2 dias completos sem atividade válida reduzem 2% da barra do nível atual.
+- Ao cruzar 0%, o usuário cai um nível e a barra do novo nível começa em 98%.
+- O piso é o nível 2; o saldo nunca desce abaixo de `T(2) = 100 XP`.
+- O XP vitalício não é afetado.
+- A aplicação é idempotente por usuário e período.
+- Vários períodos pendentes são aplicados em sequência.
+- Uma nova atividade interrompe o deleveling, mas não devolve o XP perdido.
+- O scheduler diário executa `ApplyInactivityDecayMessage`.
+
+### Alternativas consideradas
+
+- 2% do saldo absoluto: simples, mas acelera a perda quanto maior o saldo e fica imprevisível.
+- Perda fixa de XP por período: fácil de entender, mas não escala com o nível.
+- Não ter deleveling: contraria o requisito.
+
+### Consequências
+
+- A regra fica testada com a curva triangular e com múltiplos períodos.
+- O deleveling pode reduzir o nível projetado em `users.level`, mas não remove grupos, recompensas ou vouchers.
+- O scheduler precisa de lock e chave única por período.
+
+---
+
+## ADR-036 — Nível como projeção de Identity
+
+### Contexto
+
+Groups e a segurança usam `users.level` para autorização. A gamificação precisa calcular XP, bônus e deleveling. Mover
+o nível completamente para Gamification exigiria alterar Groups, segurança e respostas existentes.
+
+### Decisão
+
+- `user_progress.level` é a fonte de verdade.
+- `users.level` é uma projeção mantida por um listener de `LevelReached`/`LevelLost`.
+- `User::completeOnboarding()` não incrementa mais o nível diretamente; o onboarding concede 100 XP e o nível 2 vem
+  da gamificação.
+- `GET /users/me` e `UserLevelReaderInterface` continuam lendo `users.level`.
+- Um comando `app:gamification:check-level-projection` compara as duas fontes.
+
+### Alternativas consideradas
+
+- Mover o nível de vez para Gamification: elimina a dupla fonte, mas obriga a alterar Groups e segurança.
+- Fazer `UserLevelReaderInterface` ler de Gamification: cria dependência de leitura cross-module e não resolve a
+  autorização existente.
+- Manter o nível só em Identity: impede a gamificação de calcular deleveling e bônus com autonomia.
+
+### Consequências
+
+- A operação normal é consistente porque os eventos são síncronos e transacionais.
+- A dívida é a dupla fonte: um listener falho ou um caminho que altere o nível sem publicar evento pode divergir.
+- O piso do nível 2 garante que Groups não perca acesso por deleveling.
+- A dívida está registrada em `implementacao.md`; os gatilhos para pagá-la são divergência detectada, necessidade
+  de XP em Identity ou regras de nível dinâmicas.
 
 ---
 

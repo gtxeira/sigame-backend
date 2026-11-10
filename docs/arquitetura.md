@@ -238,13 +238,46 @@ Quando implementados, devem seguir o mesmo padrão:
 
 | Módulo | Responsabilidade |
 |---|---|
-| `Gamification` | XP, níveis, deleveling e recompensas |
+| `Gamification` | XP, níveis, ofensiva semanal, deleveling e recompensas |
 | `Moderation` | Denúncias, bloqueios e suspensão global |
 | `Sponsorship` | Patrocinadores, benefícios e vouchers |
 | `Notifications` | Alertas internos |
 | `Reports` | Indicadores mensais dos grupos |
 
 O estado de cada módulo está em [implementacao.md](implementacao.md).
+
+### 3.4 Estrutura prevista do módulo Gamification
+
+```text
+src/Gamification/
+├── Domain/
+│   ├── Progress/          # UserProgress, PlayerId, repositório e eventos
+│   ├── Xp/                # XpEvent (ledger), XpKind, XpSource, XpLedger
+│   ├── Rule/              # LevelCurve, ActivityXpPolicy, EngagementXpPolicy,
+│   │                      # StreakPolicy, DelevelingPolicy, GamificationRules
+│   ├── Streak/            # ActivityDate, WeekKey, StreakState, StreakCalculator
+│   └── Error/             # GamificationErrorCode, GamificationErrors
+├── Application/
+│   └── UseCase/           # CreateProgress, GrantOnboardingXp, AwardActivityXp,
+│                          # ReverseActivityXp, ApplyInactivityDecay,
+│                          # GetMyProgress, ListXpHistory, RecalculateProgress
+├── Infrastructure/
+│   ├── Persistence/Doctrine/Repository/
+│   ├── Persistence/ORM/Type/
+│   ├── Event/             # listeners de Identity e Activities
+│   └── Scheduler/         # decay diário e fechamento semanal
+└── Presentation/Http/
+    ├── Controller/        # MyProgressController, XpHistoryController
+    └── Response/
+```
+
+O XP é registrado em um ledger append-only (`xp_events`), com o saldo e o nível materializados em `user_progress`.
+A fonte de verdade do nível é `user_progress.level`; `users.level` é uma projeção mantida por eventos, conforme o
+[ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity). As regras de XP e níveis estão nos
+[ADR-032](decisoes.md#adr-032--modelo-de-xp-em-duas-camadas-e-ledger-append-only),
+[ADR-033](decisoes.md#adr-033--curva-de-níveis-e-xp-por-atividade),
+[ADR-034](decisoes.md#adr-034--ofensiva-semanal-e-bônus-de-constância) e
+[ADR-035](decisoes.md#adr-035--deleveling-e-piso-no-nível-2).
 
 ---
 
@@ -407,8 +440,8 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 
 | Evento | Disparado quando | Consumidores |
 |---|---|---|
-| `UserRegistered` | Após cadastro local ou social | Nenhum implementado; previsto para Gamification |
-| `OnboardingCompleted` | Após onboarding válido | Nenhum implementado; previsto para Gamification |
+| `UserRegistered` | Após cadastro local ou social | Nenhum implementado; Gamification criará `UserProgress` |
+| `OnboardingCompleted` | Após onboarding válido | Nenhum implementado; Gamification concederá 100 XP e nível 2 |
 | `GroupCreated` | Após criar um grupo | Nenhum implementado; previsto para Notifications |
 | `GroupUpdated` | Após atualizar dados do grupo | Nenhum implementado |
 | `MembershipRequested` | Após solicitação pendente | Nenhum implementado; previsto para Notifications |
@@ -425,25 +458,35 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 | `ActivityRescheduled` | Após remarcar atividade | Nenhum implementado; previsto para Notifications |
 | `ActivityCancelled` | Após cancelamento manual ou automático | Nenhum implementado; previsto para Notifications |
 | `ActivityStarted` | Após iniciar atividade | Nenhum implementado |
-| `ActivityFinished` | Após finalização manual ou automática | Nenhum implementado; previsto para Gamification/Notifications |
-| `ActivityInvalidated` | Após invalidar atividade | Nenhum implementado; previsto para Gamification |
+| `ActivityFinished` | Após finalização manual ou automática | Nenhum implementado; previsto para Notifications |
+| `ActivityInvalidated` | Após invalidar atividade | Nenhum implementado; Gamification estornará o XP |
 | `ActivityEnrollmentCreated` | Após inscrição | Nenhum implementado |
 | `ActivityEnrollmentCancelled` | Após cancelar inscrição | Nenhum implementado |
 | `AttendanceCheckedIn` | Após check-in | Nenhum implementado |
-| `AttendanceValidated` | Após validar presença | Nenhum implementado; previsto para Gamification |
+| `AttendanceValidated` | Após validar presença | Nenhum implementado; Gamification concederá XP |
+| `XpAwarded` | Após conceder ou estornar XP | Nenhum implementado; previsto para Notifications |
+| `LevelReached` | Ao subir de nível | Nenhum implementado; Identity projeta `users.level` e Sponsorship avalia recompensas |
+| `LevelLost` | Ao cair de nível | Nenhum implementado; Identity projeta `users.level` |
+| `WeeklyGoalCompleted` | Ao completar 2 atividades na semana | Nenhum implementado; previsto para Notifications |
+| `StreakUpdated` | Ao manter, completar ou perder a ofensiva semanal | Nenhum implementado; previsto para Notifications |
 
 ### 5.3 Fluxos planejados
 
 ```text
 Identity  --UserRegistered--------> Gamification   (cria UserProgress, nível 1)
-Identity  --OnboardingCompleted---> Gamification   (concede nível 2)
-Activities --AttendanceValidated--> Gamification   (awards XP)
+Identity  --OnboardingCompleted---> Gamification   (+100 XP; nível 2)
+Activities --AttendanceValidated--> Gamification   (XP de atividade e bônus semanal)
+Activities --ActivityInvalidated--> Gamification   (estorno de XP)
+Gamification --LevelReached-------> Identity       (projeta users.level)
+Gamification --LevelLost----------> Identity       (projeta users.level)
+Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
+Gamification --WeeklyGoalCompleted--> Notifications
+Gamification --StreakUpdated------> Notifications
 Activities --ActivityCreated------> Notifications  (alerta participantes)
 Groups    --GroupCreated----------> Notifications
 Groups    --MembershipApproved----> Notifications  (aviso ao membro aprovado)
 Groups    --MemberRemoved---------> Notifications  (aviso ao membro removido)
 Groups    --GroupActivated--------> Activities     (grupo apto a receber atividades)
-Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 ```
 
 ### 5.4 Implementação
@@ -475,7 +518,9 @@ Gamification --LevelReached-------> Sponsorship    (elegibilidade de vouchers)
 | `UserLevelReaderInterface` | `DoctrineUserLevelReader` | `doctrine/orm` (adapter em Identity) |
 | `GroupRepositoryInterface` | `DoctrineGroupRepository` | `doctrine/orm` |
 | `GroupAccessReaderInterface` | `DoctrineGroupAccessReader` | `doctrine/orm` (adapter em Groups) |
+| `GroupModalityReaderInterface` | `DoctrineGroupModalityReader` | `doctrine/orm` (adapter em Groups; planejada para a Fase 6) |
 | `ActivityRepositoryInterface` | `DoctrineActivityRepository` | `doctrine/orm` |
+| `ActivityXpReaderInterface` | `DoctrineActivityXpReader` | `doctrine/orm` (adapter em Activities; planejada para a Fase 6) |
 
 O storage usa o mesmo contrato S3 em desenvolvimento (Garage) e produção. A decisão de upload e o formato da chave estão no [ADR-016](decisoes.md#adr-016--upload-de-foto-de-perfil-com-chave-em-s3); a escolha do adapter está no [ADR-010](decisoes.md#adr-010--arquivos-em-s3-via-flysystemgarage).
 

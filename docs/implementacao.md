@@ -64,7 +64,11 @@ Quando este documento divergir dos requisitos, a decisão de produto deve ser re
 | Inscrição e conflito de horário | Implementado | `EnrollInActivityHandler`, `DoctrineActivityRepository::hasConflictingAttendance()` |
 | Check-in e validação de presença | Implementado | `CheckInHandler`, `ValidateAttendanceHandler` e `AttendanceValidated` |
 | Fechamento automático de atividades | Implementado | `ActivityClosingSchedule`, `CloseExpiredActivitiesHandler` e serviço `scheduler` |
-| Gamificação | Não iniciada | Eventos de Identity e Activities são publicados, mas não há listener |
+| Gamificação — fundação, ledger e XP | Não iniciada | Fase 6.1–6.3: `UserProgress`, `XpEvent`, `LevelCurve`, `ActivityXpPolicy` |
+| Ofensiva semanal | Não iniciada | Fase 6.4: `WEEKLY_START`, `WEEKLY_GOAL` e `StreakCalculator` |
+| Deleveling por inatividade | Não iniciada | Fase 6.5: `DelevelingPolicy` e scheduler |
+| API de progresso e histórico de XP | Não iniciada | Fase 6.7: `GET /users/me/progress` e `/progress/history` |
+| Versionamento e recálculo de XP | Não iniciada | Fase 6.8: `rule_version` e `LEGACY_BONUS` |
 | Demais módulos de negócio | Não iniciados | Notifications, Moderation, Sponsorship, Reports |
 
 ### 1.3 O que existe hoje no HTTP
@@ -123,6 +127,13 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET` | `/api/v1/users/me/activities` | Bearer JWT |
 | `GET` | `/api/health/liveness` | Pública |
 | `GET` | `/api/health/readiness` | Pública |
+
+Rotas planejadas para a Fase 6 (ainda não implementadas):
+
+| Método | Rota | Autenticação |
+|---|---|---|
+| `GET` | `/api/v1/users/me/progress` | Bearer JWT |
+| `GET` | `/api/v1/users/me/progress/history` | Bearer JWT |
 
 Não existe página inicial (o front-end é separado). A documentação interativa fica em `/doc` e o JSON OpenAPI em `/doc.json`.
 
@@ -249,13 +260,98 @@ O roadmap é organizado por fases entregáveis. Cada fase só é considerada con
 
 ### Fase 6 — Gamification
 
-- [ ] `UserProgress`, `XpCalculator` e `DelevelingPolicy`.
-- [ ] Listener `UserRegistered → cria progresso inicial`.
-- [ ] Listener `OnboardingCompleted → concede nível 2`.
-- [ ] Listener `AttendanceValidated → AwardXp`.
-- [ ] Comando de deleveling (cron/scheduler).
-- [ ] Testes de progressão, deleveling e idempotência.
-- [ ] Pensar em permitir que a estratégia de XP seja mudada futuramente, sem que penalize os usuários mais antigos. A progressão deve ser ajustada em acaso de atualização futura, de forma que os usuários existentes sejam recalculados e colocados em seus devidos locais e com bônus pela fidelidade conquistada.
+A especificação detalhada de XP, ofensiva semanal e deleveling está em
+[requisitos/levantamento-de-requisitos.md](requisitos/levantamento-de-requisitos.md#rf12--progressão-de-xp-e-níveis).
+As decisões estão nos ADRs 032–036. A fase **não possui ofensiva diária**: a única constância incentivada é a
+semanal.
+
+#### 6.1 Fundação e regras
+
+- [ ] Criar o módulo `Gamification` com `Domain`, `Application`, `Infrastructure` e `Presentation`.
+- [ ] `GamificationRules` versionada (`2026-11-v1`): curva, XP de atividade, bônus semanais, grupo, fim de semana, fator diário, teto e fuso.
+- [ ] `LevelCurve`, `ActivityXpPolicy`, `EngagementXpPolicy` (semanal), `StreakPolicy` e `DelevelingPolicy`.
+- [ ] `UserProgress`, `XpEvent` (ledger append-only) e `PlayerId`.
+- [ ] Migration de `user_progress` e `xp_events`, com índices e `idempotency_key` único apenas para lançamentos ativos (`reversed_at IS NULL`).
+- [ ] Backfill a partir de `users.level` e do histórico de presenças.
+- [ ] Registrar mapping e tipos DBAL em `config/packages/doctrine.php`.
+- [ ] Catálogo de erros e teste do catálogo.
+
+#### 6.2 Registro e onboarding
+
+- [ ] Listener `UserRegistered → CreateProgress` (0 XP, nível 1).
+- [ ] Listener `OnboardingCompleted → GrantOnboardingXp` (+100 XP, idempotente).
+- [ ] Remover `level->next()` de `User::completeOnboarding()`.
+- [ ] Adicionar `User::syncLevel()` e listener `SyncUserLevel` em Identity.
+- [ ] Ajustar testes de domínio, handler e funcionais do onboarding.
+- [ ] Garantir que a resposta do onboarding já retorne nível 2.
+
+#### 6.3 XP por atividade
+
+- [ ] Porta `ActivityXpReaderInterface` + `ActivityXpContext` + adapter em Activities.
+- [ ] Porta de modalidade do grupo.
+- [ ] Listener `AttendanceValidated → AwardActivityXp` (só `xpEligible=true`).
+- [ ] Fórmula de base, distância, duração, grupo e fim de semana.
+- [ ] Fator diário: 1ª–3ª atividade a 100%, 4ª a 25%, 5ª em diante a 0.
+- [ ] Teto de 100 XP por atividade.
+- [ ] Ledger com origem, data da atividade, semana e versão da regra.
+- [ ] Publicação de `XpAwarded`, `LevelReached` e `LevelLost`.
+- [ ] Testes de tabela, idempotência e limites.
+
+#### 6.4 Ofensiva semanal
+
+- [ ] `StreakCalculator` baseado no ledger.
+- [ ] `WEEKLY_START` (+10) na primeira atividade da semana.
+- [ ] `WEEKLY_GOAL` (20 a 50 XP conforme a sequência) na segunda atividade.
+- [ ] 1 atividade mantém o foguinho; 0 apaga; recorde preservado.
+- [ ] `ActivityDate` e `WeekKey` no fuso `America/Sao_Paulo`.
+- [ ] Recalcular após validação tardia e estorno.
+- [ ] Publicar `WeeklyGoalCompleted` e `StreakUpdated`.
+- [ ] **Não implementar ofensiva diária nem bônus de primeira atividade do dia.**
+
+#### 6.5 Deleveling
+
+- [ ] `DelevelingPolicy`: 7 dias de tolerância, 2% a cada 2 dias, 98% ao cair, piso 2.
+- [ ] `ApplyInactivityDecayMessage` + handler + schedule diário.
+- [ ] Idempotência por `userId + periodEnd`.
+- [ ] XP vitalício preservado.
+- [ ] Publicar `LevelLost` e `XpDecayed`.
+- [ ] Testes de datas, múltiplos períodos, piso e idempotência.
+
+#### 6.6 Estorno por invalidação
+
+- [ ] Listener `ActivityInvalidated → ReverseActivityXp`.
+- [ ] Estornar atividade e bônus semanais vinculados.
+- [ ] Recalcular nível e ofensiva.
+- [ ] Unique de estorno por lançamento.
+- [ ] Testes de estorno único e de queda de nível.
+
+#### 6.7 API e consulta
+
+- [ ] `GET /api/v1/users/me/progress`.
+- [ ] `GET /api/v1/users/me/progress/history`.
+- [ ] Response com nível, saldo, XP vitalício, barra, foguinho, meta semanal e bônus aplicáveis.
+- [ ] Tag OpenAPI `Gamificação` e `x-tagGroups`.
+- [ ] Rate limit de leitura.
+- [ ] Testes funcionais de autenticação, payload e isolamento por usuário.
+
+#### 6.8 Versionamento e recálculo
+
+- [ ] `rule_version` em `user_progress` e `xp_events`.
+- [ ] Comando `app:gamification:recalculate`.
+- [ ] `LEGACY_BONUS` para não reduzir XP antigo.
+- [ ] Teste de mudança de regra.
+- [ ] Documentar o procedimento.
+
+#### 6.9 Qualidade
+
+- [ ] Executar `just composer quality` no fechamento da fase.
+
+#### 6.10 Dívida assumida — `users.level`
+
+O nível continua em `users.level` porque Groups e a segurança já dependem dele. A fonte de verdade é
+`user_progress.level`, e `users.level` é uma projeção atualizada por `LevelReached`/`LevelLost`. A dívida está
+detalhada no [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity) e na
+[tabela de dívidas](#5-dívidas-técnicas-e-próximos-passos).
 
 ### Fase 7 — Notifications + Moderation
 
@@ -275,13 +371,13 @@ As decisões abaixo ainda precisam ser fechadas antes da implementação do mód
 
 | ID | Questão | Impacto | Prioridade | Status |
 |---|---|---|---|---|
-| `DEC02` | Tabela de XP por nível e evento | Gamificação | Alta | Pendente |
-| `DEC03` | Fórmula exata do deleveling | Gamificação | Alta | Pendente |
 | `DEC04` | Comportamento das notificações lidas/arquivadas | Notificações | Média | Pendente |
 | `DEC05` | Efeitos do bloqueio entre usuários | Moderação | Alta | Pendente |
 | `DEC06` | Matriz final de visibilidade de dados | Privacidade | Alta | Pendente |
 | `DEC07` | Público, distribuição e limites de vouchers | Vouchers | Alta | Pendente |
 | `DEC08` | Fórmula e periodicidade do indicador mensal | Indicadores | Média | Pendente |
+| `DEC15` | Exclusão ou transferência de grupo | Grupos | Baixa | Pendente |
+| `DEC16` | Validação própria e elegibilidade de XP | Gamificação | Média | Pendente |
 
 Decisões fechadas na Fase 5:
 
@@ -291,6 +387,13 @@ Decisões fechadas na Fase 5:
 | `DEC10` | Janela operacional de atividade, check-in e validação | [ADR-025](decisoes.md#adr-025--janela-operacional-da-atividade-check-in-e-validação) |
 | `DEC11` | Supervisor como operador da atividade, sem gestão | [ADR-027](decisoes.md#adr-027--poderes-de-atividade-do-supervisor) |
 | `DEC12` | Atividade válida e mínimo de 2 check-ins | [ADR-026](decisoes.md#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes) |
+
+Decisões fechadas na Fase 6:
+
+| ID | Decisão | ADR |
+|---|---|---|
+| `DEC02` | Curva de níveis, XP por atividade, bônus de grupo/fim de semana e ofensiva semanal | [ADR-032](decisoes.md#adr-032--modelo-de-xp-em-duas-camadas-e-ledger-append-only), [ADR-033](decisoes.md#adr-033--curva-de-níveis-e-xp-por-atividade) e [ADR-034](decisoes.md#adr-034--ofensiva-semanal-e-bônus-de-constância) |
+| `DEC03` | Fórmula exata do deleveling | [ADR-035](decisoes.md#adr-035--deleveling-e-piso-no-nível-2) |
 
 Decisões técnicas da Fase 5:
 
@@ -334,6 +437,9 @@ O schema evoluiu por migrations incrementais. Todas estão em `migrations/` e s�
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou de URL para chave de objeto em `Version20261108120000`.
 
+A Fase 6 criará a migration de `user_progress` e `xp_events`; o nome será gerado por
+`just sf make:migration` e registrado nesta tabela quando a fase for implementada.
+
 ### Regras
 
 1. Toda alteração de schema passa por `bin/console make:migration` e `doctrine:migrations:migrate`. Nunca use `doctrine:schema:update`.
@@ -365,6 +471,14 @@ A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `
 | Sem fechamento automático de validação | A janela de validação é validada na requisição; não há job para encerrar pendências de validação | Avaliar rotina de fechamento após 48 h. |
 | Busca de grupos com `LIKE` | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE` | Avaliar índice textual ou busca por trigramas se o volume crescer. |
 | Sem exclusão ou transferência de grupo | O grupo não é excluído e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro | Abrir `DEC15` se o produto exigir esses fluxos. |
+| **Nível com dupla fonte** | `users.level` é usado por Groups e segurança, mas a fonte de verdade será `user_progress.level`; um listener falho ou um caminho que altere o nível sem publicar evento pode divergir | Manter `SyncUserLevel` transacional, criar `app:gamification:check-level-projection` e teste de consistência. Reavaliar quando houver divergência, necessidade de XP em Identity ou regras dinâmicas. Ver [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity). |
+| **Bônus de grupo por check-in** | O bônus usa check-ins para que todos os participantes recebam o mesmo valor, mas um check-in não validado ainda pode influenciar o bônus | Avaliar cálculo em lote na finalização ou reajuste após a validação de todos. |
+| **Sem escudo/freeze** | Uma semana atípica apaga a ofensiva semanal, mesmo com histórico consistente | Implementar na V1.1: 1 escudo a cada 4 semanas, máximo 2, consumido automaticamente. |
+| **Recálculo retroativo de engajamento** | O comando de recálculo da Fase 6 cobre XP de atividade; bônus semanais antigos não são recalculados | Fazer replay completo do ledger em uma versão futura, se as regras semanais mudarem. |
+| **Ofensiva de grupo** | O foguinho é individual; não existe ofensiva coletiva do grupo | Avaliar na V1.1 ou na Fase 8, junto com os indicadores mensais. |
+| **XP em lote na finalização** | O XP é concedido na validação individual e o bônus de grupo usa check-ins | Avaliar consolidar o XP na finalização da atividade para usar apenas presenças validadas. |
+| **Validação própria** | Admin/supervisor pode validar a própria presença; a regra atual não impede explicitamente | Decidir se o XP deve exigir um validador diferente do participante (`DEC16`). |
+| **Ofensiva em risco sem notificação** | `StreakAtRisk` e `WeeklyGoalCompleted` dependem da Fase 7 | Implementar os consumidores junto com Notifications. |
 
 ### 5.1 Processamento de imagem
 
@@ -388,8 +502,10 @@ O endpoint de foto apenas valida e armazena o arquivo recebido. O enquadramento 
 - [x] Definir estados e janela operacional da atividade.
 - [x] Definir margem e exceção de conflito de horário.
 - [x] Definir duração opcional e fechamento automático.
-- [ ] Definir XP por evento e por nível.
-- [ ] Definir fórmula exata de deleveling.
+- [x] Definir XP por evento e por nível ([ADR-032](decisoes.md#adr-032--modelo-de-xp-em-duas-camadas-e-ledger-append-only) e [ADR-033](decisoes.md#adr-033--curva-de-níveis-e-xp-por-atividade)).
+- [x] Definir fórmula exata de deleveling ([ADR-035](decisoes.md#adr-035--deleveling-e-piso-no-nível-2)).
+- [x] Definir ofensiva semanal, bônus de fim de semana e bônus de grupo ([ADR-034](decisoes.md#adr-034--ofensiva-semanal-e-bônus-de-constância)).
+- [x] Definir que não haverá ofensiva diária na V1.
 - [x] Definir permissões de gestão do supervisor na V1 (sem poderes de membros).
 - [x] Definir poderes de atividade do supervisor na Fase 5.
 - [ ] Definir efeito do bloqueio entre usuários.

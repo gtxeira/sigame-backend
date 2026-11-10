@@ -2,7 +2,7 @@
 
 > **Status:** Em revisão
 >
-> **Versão:** 0.5
+> **Versão:** 0.6
 >
 > **Última atualização:** 2026-11-09
 >
@@ -527,19 +527,267 @@ deslocamento e não há exceção administrativa na V1.
 
 ### RF12 — Progressão de XP e níveis
 
-O sistema deve calcular e apresentar o nível e o progresso de XP do usuário.
+O sistema deve calcular, registrar e apresentar o XP e o nível do usuário. A progressão recompensa participação
+válida, atividades em grupo, atividades de fim de semana e consistência semanal. A gamificação **não** possui
+ofensiva diária e **não** concede bônus por dias consecutivos: a constância é medida por semana, para não estimular
+treino diário sem planejamento.
 
-#### Regras
+#### Regras gerais
 
 - `RN12.1` Todo usuário inicia no nível 1.
 - `RN12.2` A gamificação possui 10 níveis.
 - `RN12.3` A conclusão do onboarding concede o acesso ao nível 2, conforme RF03.
 - `RN12.4` Participação em atividade só gera XP após validação da presença.
-- `RN12.5` O sistema pode registrar XP por ofensiva/engajamento e outros eventos previstos.
+- `RN12.5` O sistema registra XP por atividade, bônus de grupo, fim de semana e ofensiva semanal.
 - `RN12.6` O histórico de XP não deve ser perdido ao trocar a modalidade principal.
 - `RN12.7` A atividade precisa estar finalizada, não cancelada/invalidada e ter pelo menos 2 check-ins para ser elegível a XP.
 - `RN12.8` O evento `AttendanceValidated` informa `xpEligible`; a Gamification não deve conceder XP quando for falso.
 - `RN12.9` Invalidação posterior de atividade com XP exige evento de reversão com os usuários validados.
+
+#### Definições e grandezas
+
+O sistema mantém duas grandezas distintas:
+
+| Grandeza | Definição | Pode diminuir? | Uso |
+|---|---|---|---|
+| **XP vitalício** (`xpLifetime`) | Soma de todo XP conquistado pelo usuário | Apenas quando uma atividade que gerou XP é invalidada e o XP é estornado | Histórico, fidelidade e recálculo futuro |
+| **Saldo de XP** (`xpBalance`) | XP atual do usuário | Sim, por deleveling e por estorno | Nível, barra e progresso |
+
+- `RN12.10` O nível é derivado do saldo de XP. O XP vitalício não define o nível.
+- `RN12.11` Deleveling reduz o saldo e o nível, mas **não reduz o XP vitalício**.
+- `RN12.12` O estorno por invalidação de atividade reduz os dois, porque a atividade deixou de existir como conquista válida.
+- `RN12.13` O XP não é armazenado apenas como um número agregado: cada concessão, estorno e penalidade gera um lançamento no histórico de XP.
+
+#### Curva de níveis
+
+A curva é triangular e cumulativa:
+
+`T(n) = 50 × n × (n − 1)`
+
+| Nível | XP acumulado necessário | XP para o próximo nível |
+|---:|---:|---:|
+| 1 | 0 | 100 |
+| 2 | 100 | 200 |
+| 3 | 300 | 300 |
+| 4 | 600 | 400 |
+| 5 | 1.000 | 500 |
+| 6 | 1.500 | 600 |
+| 7 | 2.100 | 700 |
+| 8 | 2.800 | 800 |
+| 9 | 3.600 | 900 |
+| 10 | 4.500 | — |
+
+- `RN12.14` Todo usuário novo começa no nível 1 com 0 XP.
+- `RN12.15` A conclusão do onboarding concede **100 XP uma única vez**, colocando o usuário no nível 2.
+- `RN12.16` O nível é o maior `n` entre 1 e 10 tal que `T(n) ≤ saldo`.
+- `RN12.17` A barra do nível é `(saldo − T(n)) / (T(n+1) − T(n))` para níveis 1 a 9.
+- `RN12.18` No nível 10 a barra é exibida como “máximo”; o saldo pode continuar crescendo para o histórico.
+- `RN12.19` O onboarding repetido não concede XP novamente.
+
+#### Fontes de XP
+
+| Fonte | Quando é concedida | Valor | Limite |
+|---|---|---|---|
+| Atividade validada | Presença validada com `xpEligible=true` | Fórmula da atividade | 100 XP por atividade |
+| Bônus de grupo | Atividade com 3–4 check-ins ou 5 check-ins | +10 ou +15 | Por atividade |
+| Bônus de fim de semana | Atividade iniciada em sábado ou domingo | ×1,2 no XP de atividade | Por atividade |
+| Início de semana | Primeira atividade válida da semana | +10 | 1 vez por semana |
+| Meta semanal | Segunda atividade válida da semana | 20 a 50 XP, conforme a sequência | 1 vez por semana |
+| Onboarding | Conclusão válida do onboarding | +100 | 1 vez por usuário |
+| Estorno | Invalidação de atividade | Negativo | Por lançamento estornado |
+| Decay | Inatividade após a tolerância | Negativo | Por período de 2 dias |
+| Bônus de fidelidade | Recálculo de regra | Positivo | 1 vez por versão de regra |
+
+Não geram XP:
+
+- check-in sem validação;
+- atividade com `xpEligible=false`;
+- atividade cancelada;
+- atividade invalidada;
+- atividade com menos de 2 check-ins;
+- cadastro;
+- troca de modalidade principal;
+- conclusão repetida do onboarding.
+
+#### Fórmula do XP de atividade
+
+O XP de atividade é calculado em etapas, nesta ordem:
+
+```text
+1. xpBase      = base da modalidade
+2. xpDistancia = bônus pela faixa de distância
+3. xpDuracao   = bônus pela faixa de duração
+4. xpGrupo     = bônus pelo número de check-ins
+5. xpBruto     = xpBase + xpDistancia + xpDuracao + xpGrupo
+6. xpFimSemana = floor(xpBruto × 1,2) se sábado ou domingo
+7. xpFatorDia  = floor(xpFimSemana × fator da atividade do dia)
+8. xpFinal     = min(xpFatorDia, 100)
+```
+
+A ordem importa: o bônus de fim de semana incide sobre base + distância + duração + grupo; o fator diário incide
+depois; o teto de 100 é o último passo.
+
+##### Base por modalidade
+
+| Modalidade | XP base |
+|---|---:|
+| Caminhada | 20 |
+| Corrida | 25 |
+| Ciclismo | 30 |
+
+##### Faixas de distância
+
+| Modalidade | Faixa | Bônus |
+|---|---|---:|
+| Caminhada | até 2 km | 0 |
+| Caminhada | acima de 2 km até 5 km | +10 |
+| Caminhada | acima de 5 km até 10 km | +15 |
+| Caminhada | acima de 10 km | +20 |
+| Corrida | até 3 km | 0 |
+| Corrida | acima de 3 km até 6 km | +10 |
+| Corrida | acima de 6 km até 10 km | +15 |
+| Corrida | acima de 10 km | +20 |
+| Ciclismo | até 10 km | 0 |
+| Ciclismo | acima de 10 km até 20 km | +10 |
+| Ciclismo | acima de 20 km até 40 km | +15 |
+| Ciclismo | acima de 40 km | +20 |
+
+##### Faixas de duração
+
+| Duração estimada | Bônus |
+|---|---:|
+| Não informada | 0 |
+| Menor que 30 minutos | 0 |
+| De 30 a 59 minutos | +5 |
+| 60 minutos ou mais | +10 |
+
+##### Bônus de grupo
+
+O bônus usa o número de **check-ins** da atividade, não o número de validações. Isso garante que todos os
+participantes recebam o mesmo bônus, independentemente da ordem em que as presenças forem validadas.
+
+| Check-ins | Bônus |
+|---:|---:|
+| 2 | 0 |
+| 3–4 | +10 |
+| 5 | +15 |
+
+##### Fator diário
+
+Para evitar farm de atividades, o XP de atividade é reduzido a partir da quarta atividade XP-elegível do mesmo dia:
+
+| Atividade XP-elegível do dia | Fator |
+|---:|---:|
+| 1ª | 1,0 |
+| 2ª | 1,0 |
+| 3ª | 1,0 |
+| 4ª | 0,25 |
+| 5ª em diante | 0,0 |
+
+O fator diário afeta somente o XP de atividade. Ele não afeta o bônus de início de semana nem o de meta semanal.
+Atividades além da terceira continuam contando para a meta semanal.
+
+##### Teto por atividade
+
+- `RN12.20` Nenhuma atividade concede mais de **100 XP**, mesmo somando distância, duração, grupo e fim de semana.
+
+#### Exemplos completos de XP de atividade
+
+| Situação | Cálculo | XP |
+|---|---|---:|
+| Caminhada 3 km, 45 min, dia de semana, 2 check-ins | 20 + 10 + 5 + 0 | 35 |
+| Caminhada 3 km, 45 min, fim de semana, 2 check-ins | (20 + 10 + 5) × 1,2 | 42 |
+| Corrida 5 km, 30 min, dia de semana, 2 check-ins | 25 + 10 + 5 + 0 | 40 |
+| Corrida 5 km, 30 min, fim de semana, 2 check-ins | (25 + 10 + 5) × 1,2 | 48 |
+| Corrida 12 km, 75 min, fim de semana, 5 check-ins | (25 + 20 + 10 + 15) × 1,2 | 84 |
+| Ciclismo 25 km, 90 min, dia de semana, 3 check-ins | 30 + 15 + 10 + 10 | 65 |
+| Ciclismo 25 km, 90 min, fim de semana, 5 check-ins | (30 + 15 + 10 + 15) × 1,2 | 84 |
+| Ciclismo 50 km, 120 min, fim de semana, 5 check-ins | (30 + 20 + 10 + 15) × 1,2 = 90, abaixo do teto | 90 |
+| Corrida 5 km, 30 min, como 4ª atividade do dia | 40 × 0,25 | 10 |
+| Corrida 5 km, 30 min, como 5ª atividade do dia | 40 × 0,0 | 0 |
+
+#### Ofensiva semanal — o “foguinho”
+
+A única mecânica de constância da V1 é a ofensiva semanal.
+
+##### Definição de semana
+
+- A semana vai de **segunda-feira 00:00:00** a **domingo 23:59:59**, no fuso `America/Sao_Paulo`.
+- A data usada é a data de **início da atividade** (`startsAt`), não a data da validação.
+- A semana é identificada pela data da segunda-feira, por exemplo `2026-11-09`.
+
+##### Regras
+
+- `RN12.21` A primeira atividade válida da semana concede **+10 XP** (`WEEKLY_START`), mantém a ofensiva acesa e conta a semana como válida para a sequência.
+- `RN12.22` A segunda atividade válida da semana concede **+20 XP + bônus de sequência** (`WEEKLY_GOAL`) e completa a meta semanal.
+- `RN12.23` O bônus de sequência é `5 × min(semanasConsecutivas − 1, 6)`, com máximo de +30. O total da meta semanal fica entre 20 e 50 XP.
+- `RN12.24` Uma semana com **1 atividade** mantém o foguinho, mas não concede o bônus de meta semanal.
+- `RN12.25` Uma semana com **0 atividades** apaga o foguinho ao fim da semana. O recorde (`best`) é preservado.
+- `RN12.26` Duas atividades no mesmo dia contam como duas atividades para a meta semanal. Não há exigência de dias distintos na V1.
+- `RN12.27` A ofensiva semanal é recalculada após validações tardias e estornos.
+- `RN12.28` Se uma atividade for invalidada e a semana passar a ter 1 atividade, o bônus de meta é estornado e o foguinho permanece; se passar a ter 0, o foguinho daquela semana é desfeito.
+
+##### Evolução do bônus semanal
+
+| Semana consecutiva | Início (+10) | Meta (20 a 50) | Total da semana |
+|---:|---:|---:|---:|
+| 1 | +10 | +20 | +30 |
+| 2 | +10 | +25 | +35 |
+| 3 | +10 | +30 | +40 |
+| 4 | +10 | +35 | +45 |
+| 5 | +10 | +40 | +50 |
+| 6 | +10 | +45 | +55 |
+| 7 ou mais | +10 | +50 | +60 |
+
+##### Estados do foguinho
+
+| Estado | Quando ocorre |
+|---|---|
+| `APAGADO` | O usuário nunca teve uma semana válida ou a última semana terminou com 0 atividades |
+| `ACESO` | A semana corrente já tem pelo menos 1 atividade |
+| `EM_RISCO` | A semana corrente ainda não tem atividade e a semana anterior estava acesa |
+| `COMPLETO` | A semana corrente já tem 2 ou mais atividades |
+
+O número exibido ao lado do foguinho é o número de semanas consecutivas com pelo menos 1 atividade.
+
+#### Ausência de ofensiva diária
+
+- `RN12.29` Não existe bônus por dias consecutivos.
+- `RN12.30` Não existe bônus de primeira atividade do dia.
+- `RN12.31` O XP do dia é a soma do XP das atividades válidas daquele dia, mais os bônus semanais concedidos naquele dia.
+- `RN12.32` Fazer atividades em dias consecutivos não gera XP adicional além do XP de cada atividade e dos bônus semanais.
+
+Essa decisão evita estimular treino diário sem planejamento e mantém a gamificação alinhada à maturidade do usuário.
+
+#### Atribuição de data e fuso horário
+
+- `RN12.33` O XP, o fim de semana e a ofensiva semanal usam a data de início da atividade no fuso `America/Sao_Paulo`.
+- `RN12.34` O deleveling usa o instante da validação da presença, não a data da atividade.
+- `RN12.35` Feriados não são tratados como fim de semana na V1.
+- `RN12.36` Uma atividade que começa às 23:50 de sábado e termina no domingo conta como sábado.
+
+#### Idempotência e histórico
+
+- `RN12.37` Cada presença validada gera XP no máximo uma vez.
+- `RN12.38` Cada bônus semanal é concedido no máximo uma vez por semana, salvo estorno e nova concessão válida.
+- `RN12.39` Todo lançamento de XP possui uma chave de idempotência, a origem, a data da atividade, a versão da regra e o valor concedido.
+- `RN12.40` O histórico de XP é append-only: estornos e penalidades são novos lançamentos, não alterações no lançamento original.
+
+#### Estorno por invalidação
+
+- `RN12.41` A invalidação de uma atividade estorna o XP de atividade e os bônus semanais que ela disparou.
+- `RN12.42` O estorno recalcula o saldo, o nível e a ofensiva semanal.
+- `RN12.43` O estorno pode fazer o usuário descer de nível, respeitando o piso do nível 2.
+- `RN12.44` O estorno não remove grupos, recompensas já resgatadas ou vouchers já utilizados.
+- `RN12.45` O estorno é idempotente: a mesma atividade não pode ser estornada duas vezes.
+
+#### Versionamento das regras
+
+- `RN12.46` Cada lançamento de XP registra a versão da regra usada (`ruleVersion`).
+- `RN12.47` A versão inicial da V1 é `2026-11-v1`.
+- `RN12.48` Uma mudança futura de regra não pode reduzir o XP já conquistado sem um bônus de fidelidade.
+- `RN12.49` O recálculo de uma nova versão compara o XP de atividade antigo com o novo e concede `LEGACY_BONUS` quando o novo cálculo for maior. Se o novo cálculo for menor, o valor antigo é preservado.
+- `RN12.50` Bônus de engajamento (início e meta semanal) passam a valer da nova versão em diante; o recálculo retroativo completo fica para uma versão futura.
 
 #### Critérios de aceitação
 
@@ -548,18 +796,66 @@ O sistema deve calcular e apresentar o nível e o progresso de XP do usuário.
 - `CA12.3` Presença apenas com check-in não gera XP.
 - `CA12.4` Presença validada gera XP uma única vez.
 - `CA12.5` O progresso retornado pela API pode ser apresentado visualmente pelo frontend.
+- `CA12.6` Um usuário novo possui 0 XP e nível 1.
+- `CA12.7` Um onboarding válido concede exatamente 100 XP e nível 2, uma única vez.
+- `CA12.8` Uma atividade validada concede o XP exato da fórmula de atividade.
+- `CA12.9` O bônus de fim de semana só se aplica a atividades iniciadas em sábado ou domingo no fuso local.
+- `CA12.10` Uma atividade com 3–4 check-ins concede +10 de grupo; com 5 check-ins, +15.
+- `CA12.11` A primeira atividade válida da semana concede +10 e mantém o foguinho.
+- `CA12.12` A segunda atividade válida da semana concede +20 + bônus de sequência e completa a meta.
+- `CA12.13` Uma semana com 1 atividade mantém o foguinho e não concede o bônus de meta.
+- `CA12.14` Uma semana com 0 atividades apaga o foguinho e preserva o recorde.
+- `CA12.15` Não existe bônus por dias consecutivos nem bônus de primeira atividade do dia.
+- `CA12.16` A quarta atividade XP-elegível do dia concede 25% do XP de atividade; a quinta concede 0.
+- `CA12.17` Nenhuma atividade concede mais de 100 XP.
+- `CA12.18` Check-in não validado, atividade cancelada, atividade invalidada e `xpEligible=false` não geram XP.
+- `CA12.19` A validação repetida da mesma presença não duplica XP.
+- `CA12.20` A invalidação de atividade estorna o XP de atividade e os bônus semanais vinculados.
+- `CA12.21` XP, fim de semana e ofensiva usam a data de início da atividade no fuso `America/Sao_Paulo`.
+- `CA12.22` O recálculo de uma nova versão de regra não reduz o XP já conquistado.
+- `CA12.23` O deleveling não reduz o XP vitalício.
+- `CA12.24` O endpoint de progresso retorna saldo, nível, barra, foguinho, meta semanal e bônus aplicáveis.
 
-#### Matriz de exemplos — progressão
+#### Matriz de exemplos — semana e ofensiva
 
-| Evento                        | XP esperado | Altera nível?          | Observação                |
-|-------------------------------|------------:|------------------------|---------------------------|
-| Cadastro                      |     Definir | Não, inicia no nível 1 | `DEC02`                   |
-| Onboarding concluído          |     Definir | Sim, alcança nível 2   | Valor ainda pendente      |
-| Check-in não validado         |           0 | Não                    | Não é participação válida |
-| Presença validada             |     Definir | Possivelmente          | Impedir duplicidade       |
-| Troca de modalidade principal |           0 | Não                    | Preserva histórico        |
+Ana está no nível 4, com saldo atual de 700 XP.
 
-> `DEC02` — Definir tabela de XP por nível e valores concedidos por evento.
+| Dia | Atividade | XP de atividade | Bônus | Total | Saldo |
+|---|---|---:|---:|---:|---:|
+| Seg | Caminhada 3 km, 45 min, 2 check-ins | 35 | +10 início de semana | 45 | 745 |
+| Qua | Corrida 5 km, 30 min, 2 check-ins | 40 | +20 meta semanal (semana 1) | 60 | 805 |
+| Sáb | Ciclismo 25 km, 90 min, 3 check-ins | (30 + 15 + 10 + 10) × 1,2 = 78 | 0 | 78 | 883 |
+| Dom | Caminhada 2 km, 30 min, 2 check-ins | (20 + 0 + 5) × 1,2 = 30 | 0 | 30 | 913 |
+
+Resultado da semana: 213 XP, foguinho = 1 semana, meta semanal completa, nível permanece 4 (o próximo nível exige
+1.000 XP).
+
+#### Casos de borda
+
+| Situação | Resultado |
+|---|---|
+| Atividade com 2 check-ins | Sem bônus de grupo |
+| Atividade com 3 check-ins | +10 de grupo |
+| Atividade com 5 check-ins | +15 de grupo |
+| Atividade cancelada | Sem XP |
+| Atividade invalidada | Sem XP; se já concedido, estorno |
+| Check-in sem validação | Sem XP |
+| `xpEligible=false` | Sem XP |
+| Mesma presença validada duas vezes | XP concedido uma única vez |
+| Duas atividades no mesmo dia | Contam para a meta semanal; não há bônus diário |
+| Quarta atividade do dia | 25% do XP de atividade |
+| Quinta atividade do dia | 0 XP de atividade, mas conta para a meta semanal |
+| Atividade no sábado ou domingo | ×1,2 no XP de atividade |
+| Atividade começa sábado e termina domingo | Conta como sábado |
+| Atividade validada dias depois | XP e ofensiva usam a data de início; deleveling usa a data de validação |
+| Semana com 1 atividade | Foguinho mantido, sem bônus de meta |
+| Semana com 0 atividades | Foguinho apagado |
+| Troca de modalidade principal | Sem XP e sem perda de histórico |
+| Onboarding repetido | Sem XP duplicado |
+| Atividade invalidada que tinha bônus semanal | Bônus estornado e ofensiva recalculada |
+
+> `DEC16` — Definir se a validação da própria presença pelo administrador/supervisor pode gerar XP ou se exige um
+> validador diferente do participante.
 
 ### RF13 — Deleveling por inatividade
 
@@ -573,6 +869,18 @@ O sistema deve aplicar perda de progresso por inatividade conforme as regras def
 - `RN13.4` O nível 2 é o piso do deleveling.
 - `RN13.5` Deleveling não remove acesso a grupos já conquistados.
 - `RN13.6` Recompensas já resgatadas não são retiradas.
+- `RN13.7` A tolerância é de **7 dias completos** desde a última atividade validada.
+- `RN13.8` Depois da tolerância, cada **2 dias completos** sem atividade válida reduzem **2% da barra do nível atual**.
+- `RN13.9` A barra é medida em pontos percentuais do XP necessário para o próximo nível.
+- `RN13.10` Quando a barra cruza 0%, o usuário cai um nível e a barra do novo nível começa em **98%**.
+- `RN13.11` O piso é o **nível 2**. O saldo nunca desce abaixo de `T(2) = 100 XP`.
+- `RN13.12` O deleveling não afeta o XP vitalício.
+- `RN13.13` O deleveling não remove grupos, recompensas já resgatadas nem vouchers utilizados.
+- `RN13.14` O deleveling é idempotente por usuário e por período.
+- `RN13.15` Usuário que não concluiu o onboarding (nível 1) não sofre deleveling.
+- `RN13.16` Uma nova atividade validada interrompe o deleveling, mas não devolve o XP já perdido.
+- `RN13.17` A referência para a tolerância é o instante da validação da presença, não a data da atividade.
+- `RN13.18` Se o usuário tiver vários períodos pendentes, eles são aplicados em sequência, um por um.
 
 #### Critérios de aceitação
 
@@ -582,9 +890,25 @@ O sistema deve aplicar perda de progresso por inatividade conforme as regras def
 - `CA13.4` Deleveling não remove associações com grupos.
 - `CA13.5` Deleveling não revoga recompensas já resgatadas.
 - `CA13.6` A aplicação da penalização é idempotente para o mesmo período de inatividade.
+- `CA13.7` Usuário com até 7 dias desde a última validação não sofre penalidade.
+- `CA13.8` Cada período completo de 2 dias após a tolerância reduz 2% da barra do nível atual.
+- `CA13.9` Ao cruzar 0%, o usuário cai um nível e a barra do novo nível começa em 98%.
+- `CA13.10` O usuário no nível 2 não desce para o nível 1.
+- `CA13.11` Usuário no nível 1 ou sem onboarding não sofre deleveling.
+- `CA13.12` A aplicação é idempotente para o mesmo período.
+- `CA13.13` O deleveling preserva XP vitalício, grupos, recompensas e vouchers.
+- `CA13.14` Uma nova atividade válida interrompe o deleveling, mas não restaura o XP perdido.
+- `CA13.15` Vários períodos pendentes são aplicados em sequência sem duplicidade.
 
-> `DEC03` — Definir se a penalização de 2% incide sobre a barra atual, sobre o XP necessário do nível ou sobre o saldo
-> absoluto de XP.
+#### Matriz de exemplos — deleveling
+
+| Situação | Cálculo | Resultado |
+|---|---|---|
+| Nível 5, saldo 1.250 (50% da barra), 7 dias + 10 dias inativo | 5 períodos × 2% × 500 = 50 XP | Saldo 1.200, ainda nível 5 |
+| Nível 5, saldo 1.000 (0% da barra), 7 dias + 2 dias inativo | Cruzou 0% | Nível 4 com 98% da barra: 600 + 392 = 992 XP |
+| Nível 5, saldo 1.250, 7 dias + 30 dias inativo | 11 períodos × 10 XP = 110 XP | Saldo 1.140, ainda nível 5 |
+| Nível 5, saldo 1.250, 7 dias + 60 dias inativo | 26 períodos aplicados em sequência | Pode cair para o nível 4 e continuar perdendo barra |
+| Nível 2, saldo 100 | Piso | Permanece nível 2 com 100 XP |
 
 ### RF14 — Recompensas
 
@@ -878,7 +1202,7 @@ flowchart TD
 
 ## 14. Decisões e acompanhamento
 
-As decisões ainda pendentes (`DEC02`–`DEC08`) e o estado de implementação de cada requisito estão em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões da Fase 5 (`DEC01`, `DEC10`, `DEC11` e `DEC12`), as decisões anteriores (`DEC09`, `DEC13`, `DEC14`) e as decisões arquiteturais estão em [../decisoes.md](../decisoes.md).
+As decisões ainda pendentes (`DEC04`–`DEC08`, `DEC15` e `DEC16`) e o estado de implementação de cada requisito estão em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisões da Fase 5 (`DEC01`, `DEC10`, `DEC11` e `DEC12`), as decisões da Fase 6 (`DEC02` e `DEC03`), as decisões anteriores (`DEC09`, `DEC13`, `DEC14`) e as decisões arquiteturais estão em [../decisoes.md](../decisoes.md).
 
 Ao fechar uma decisão:
 
@@ -906,7 +1230,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | `RF04` Criar grupo         | `CA04.1`–`CA04.6` | Teste de caso de uso + teste do agregado `Group` |
 | `RF06` Administrar membros | `CA06.1`–`CA06.6` | Testes de autorização, limite e auditoria        |
 | `RF10` Inscrição/presença  | `CA10.1`–`CA10.14` | Testes de fluxo, conflito e idempotência de XP   |
-| `RF13` Deleveling          | `CA13.1`–`CA13.6` | Testes de datas, piso e idempotência             |
+| `RF13` Deleveling          | `CA13.1`–`CA13.15` | Testes de datas, piso, 98% ao cair e idempotência |
 | `RF20` Vouchers            | `CA21.1`–`CA21.5` | Testes de unicidade e concorrência               |
 
 ### Tipos de teste
@@ -930,6 +1254,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | 0.3    | 2026-11-05 | Extração de decisões e acompanhamento para `implementacao.md` e `decisoes.md`      | Gustavo Teixeira de Sousa      |
 | 0.4    | 2026-11-09 | Fase 4: campos do grupo, criador independente, múltiplos admins e poderes do supervisor | Gustavo Teixeira de Sousa      |
 | 0.5    | 2026-11-09 | Fase 5: atividades, inscrição, conflito, presença, duração opcional e fechamento automático | Gustavo Teixeira de Sousa      |
+| 0.6    | 2026-11-09 | Fase 6: curva de níveis, XP por atividade, bônus de grupo e fim de semana, ofensiva semanal e deleveling | Gustavo Teixeira de Sousa      |
 
 ---
 
