@@ -122,6 +122,8 @@ Na primeira subida, o entrypoint instala as dependências, espera o PostgreSQL e
 | Documentação interativa | <https://api.sigame.localhost:8443/doc> |
 | OpenAPI JSON | <https://api.sigame.localhost:8443/doc.json> |
 | Readiness | <https://api.sigame.localhost:8443/api/health/readiness> |
+| Mailpit (e-mails de desenvolvimento) | <http://localhost:8025> |
+| Diagnóstico do OAuth Google (só em `dev`) | <https://localhost:8443/dev/google-oauth> |
 
 O certificado TLS é autoassinado; aceite-o no navegador na primeira visita.
 
@@ -132,7 +134,7 @@ O certificado TLS é autoassinado; aceite-o no navegador na primeira visita.
 - `.env.local` — segredos e overrides locais, **não versionado**;
 - `.env.test` — configuração da suíte de testes.
 
-Para o login com Google, preencha `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GOOGLE_REDIRECT_URIS` em `.env.local`. O passo a passo está em [docs/autenticacao.md](docs/autenticacao.md).
+Para o login com Google, preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` em `.env.local` e cadastre `GOOGLE_REDIRECT_URI_DEV` como *Authorized redirect URI* no Google Cloud Console. O passo a passo está em [docs/autenticacao.md](docs/autenticacao.md#38-testando-em-desenvolvimento).
 
 A lista completa de variáveis está em [docs/infraestrutura.md](docs/infraestrutura.md).
 

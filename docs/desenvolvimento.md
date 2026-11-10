@@ -71,8 +71,17 @@ Depois de subir:
 - Documentação interativa: <https://api.sigame.localhost:8443/doc>
 - OpenAPI JSON: <https://api.sigame.localhost:8443/doc.json>
 - Readiness: <https://api.sigame.localhost:8443/api/health/readiness>
+- Mailpit (caixa de entrada dos e-mails de desenvolvimento): <http://localhost:8025>
+- Diagnóstico do fluxo OAuth Google (existe somente com `APP_ENV=dev`):
+  <https://localhost:8443/dev/google-oauth>
 
 O certificado TLS é autoassinado; aceite-o no navegador na primeira visita.
+
+O Mailpit recebe tudo que a aplicação envia: confirmação de e-mail, redefinição de
+senha e notificações por e-mail. O SMTP é `smtp://mailer:1025` (interno, usado pelo
+container `php` e pelo `worker`); a UI em `http://localhost:8025` lista as mensagens e
+mostra os links e tokens prontos para uso. Se a caixa estiver vazia, confira se o
+`worker` está de pé: o envio real acontece nele, não na requisição HTTP.
 
 Para acompanhar logs:
 

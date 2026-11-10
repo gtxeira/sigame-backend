@@ -29,8 +29,11 @@ O `justfile` carrega `.env`, `.env.dev` e `.env.local` automaticamente.
 | `scheduler` | `frankenphp_dev` | — | Consome `scheduler_activities` e `scheduler_gamification`; executa o fechamento automático de atividades e o deleveling |
 | `postgres` | `postgres:18-alpine` | `5432` | Volume `pgdata`; padrão `POSTGRES_DB=sigame` |
 | `garage` | `dxflrs/garage:v2.4.1` | `3900` (S3 API), `3902` (Web) | Configuração em `garage.toml`; volumes `garage-meta` e `garage-data` |
+| `mailer` | `axllent/mailpit` | `1025` (SMTP), `8025` (UI) | Definido em `compose.override.yaml` (só desenvolvimento); captura os e-mails enviados pela aplicação |
 
 O entrypoint espera o PostgreSQL responder e aplica as migrations antes de liberar a aplicação. O worker usa `docker-php-entrypoint` e espera o `php` saudável para não rodar migrations em paralelo.
+
+O Mailpit é o transporte de desenvolvimento (`MAILER_DSN=smtp://mailer:1025` em `.env.dev`): a UI em <http://localhost:8025> mostra os e-mails de verificação, redefinição de senha e notificações. Como o envio roda no `worker`, com o worker parado as mensagens ficam em `messenger_messages` e não chegam ao Mailpit.
 
 ### 2.2 Produção
 

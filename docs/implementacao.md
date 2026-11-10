@@ -191,7 +191,8 @@ comportamento pelo caminho do chamador estiverem verdes.
 - [x] Rate limiting de cadastro, login, social, e-mail, senha, refresh e CPF.
 - [x] Testes de unidade, integração e funcionais dos fluxos principais, incluindo sucesso do login Google com provedor
   fake.
-- [x] Página `/dev/google-oauth` para diagnóstico local sem Playground público.
+- [x] Página `/dev/google-oauth` para diagnóstico local sem Playground público
+  (<https://localhost:8443/dev/google-oauth>, só em `APP_ENV=dev`).
 
 ### Fase 3 — Identity: onboarding
 

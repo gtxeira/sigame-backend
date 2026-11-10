@@ -111,7 +111,7 @@ ainda é 23:30 do dia anterior em Brasília).
 | `EMAIL_VERIFICATION_TTL` | `86400` | Validade do token de verificação |
 | `PASSWORD_RESET_TTL` | `1800` | Validade do token de reset |
 | `PASSWORD_RESET_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de reset da mesma conta |
-| `MAILER_DSN` | `null://null` | Transporte de e-mail (dev: Mailpit) |
+| `MAILER_DSN` | `null://null` | Transporte de e-mail; em dev, `smtp://mailer:1025` (UI do Mailpit em <http://localhost:8025>) |
 | `MAILER_FROM_ADDRESS` | `noreply@sigame.com.br` | Remetente |
 | `MAILER_FROM_NAME` | `SIGAME` | Nome do remetente |
 | `FRONTEND_URL` | `http://localhost:3000` | Base dos links enviados por e-mail |
@@ -414,8 +414,13 @@ flowchart TD
 
      ```
      https://app.exemplo.com/auth/google/callback       # produção (client: web)
-     https://api.sigame.localhost:8443/dev/google-oauth # desenvolvimento (client: dev)
+     https://localhost:8443/dev/google-oauth            # desenvolvimento (client: dev)
      ```
+
+   O valor cadastrado tem que ser **idêntico** ao `GOOGLE_REDIRECT_URI_*`
+   correspondente. O host de desenvolvimento é `localhost` (padrão em `.env.dev`);
+   se você trocar para `api.sigame.localhost`, ajuste o Console e o env juntos.
+   O Compose responde nos dois hosts, mas o Google compara a string exata.
 
 4. Copie o **Client ID** e o **Client secret**.
 
@@ -437,7 +442,8 @@ SOCIAL_LINK_TICKET_TTL=600
 # .env.dev
 
 # Redirect URIs por tipo de cliente. O backend escolhe uma delas; o request só
-# informa "web" ou "dev".
+# informa "web" ou "dev". O valor tem que ser idêntico ao cadastrado no Google
+# Cloud Console (Authorized redirect URIs).
 GOOGLE_REDIRECT_URI_WEB=https://app.exemplo.com/auth/google/callback
 GOOGLE_REDIRECT_URI_DEV=https://localhost:8443/dev/google-oauth
 ```
@@ -493,11 +499,25 @@ O front-end precisa chamar a API com credenciais habilitadas: `credentials: 'inc
 
 ### 3.8 Testando em desenvolvimento
 
-A página `GET /dev/google-oauth` é registrada **somente com `APP_ENV=dev`**. Ela simula o front-end:
+A página `GET /dev/google-oauth` é registrada **somente com `APP_ENV=dev`** e fica em:
+
+<https://localhost:8443/dev/google-oauth>
+
+Aceite o certificado TLS autoassinado antes (abra <https://localhost:8443> e prossiga). A
+página é pública — não passa por `access_control`, que só cobre `^/api` e `^/doc`.
+Ela simula o front-end:
 
 1. chama `POST /auth/social/google/start` com `client: "dev"`;
 2. redireciona para o Google;
 3. ao voltar, envia `code` e `state` para `POST /auth/social/google/callback` e exibe a resposta.
+
+Pré-requisitos para a página funcionar:
+
+- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` em `.env.local`;
+- a URL acima cadastrada como *Authorized redirect URI* no Google Cloud Console, idêntica
+  a `GOOGLE_REDIRECT_URI_DEV`;
+- um cache limpo depois de mexer no env (`docker compose exec php php bin/console cache:clear`);
+- o `worker` de pé se você quiser ver o e-mail de confirmação de cadastro no Mailpit.
 
 Cadastre `GOOGLE_REDIRECT_URI_DEV` exatamente como *Authorized redirect URI* no Google Cloud Console. A página precisa ser servida **na mesma origem** usada no redirect, para que o cookie `social_flow` chegue ao callback.
 
@@ -505,10 +525,14 @@ Cadastre `GOOGLE_REDIRECT_URI_DEV` exatamente como *Authorized redirect URI* no 
 
 > O Playground público (`https://developers.google.com/oauthplayground`) **não** faz parte do fluxo da aplicação. Se for usado para diagnóstico do client OAuth, use um cliente separado e nunca cole o secret de produção em sites de terceiros.
 
-Os e-mails de desenvolvimento são capturados pelo Mailpit:
+Os e-mails de desenvolvimento são capturados pelo Mailpit. Ele recebe tanto os e-mails de
+identidade (verificação, redefinição de senha) quanto as notificações por e-mail:
 
-- SMTP: `smtp://mailer:1025`
+- SMTP: `smtp://mailer:1025` (interno; `MAILER_DSN` em `.env.dev`)
 - UI: <http://localhost:8025>
+
+Se a caixa estiver vazia, o `worker` provavelmente está parado e a mensagem segue em
+`messenger_messages`; acompanhe com `just worker-logs`.
 
 ### 3.9 Problemas comuns
 
