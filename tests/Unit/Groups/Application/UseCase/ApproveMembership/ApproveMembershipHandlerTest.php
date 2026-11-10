@@ -8,6 +8,7 @@ use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Event\GroupActivated;
 use App\Groups\Domain\Group\Event\MembershipApproved;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Shared\Application\Event\EventDispatcherInterface;
@@ -18,7 +19,7 @@ use Mockery as m;
 /**
  * @return array{0: Group, 1: MemberUserId, 2: list<\App\Groups\Domain\Group\Entity\Membership>, 3: list<\App\Groups\Domain\Group\Entity\Membership>}
  */
-function groupWithPendingMembers(int $approved, int $pending): array
+function groupWithPendingMembers(int $approved, int $pending, ?int $maxMembers = null): array
 {
     $admin = MemberUserId::generate();
     $group = Group::create(
@@ -27,6 +28,7 @@ function groupWithPendingMembers(int $approved, int $pending): array
         modality: Modality::RUNNING,
         communicationLink: null,
         createdBy: $admin,
+        maxMembers: null === $maxMembers ? null : GroupMemberLimit::fromInt($maxMembers)->value(),
     );
 
     $approvedMembers = [];
@@ -106,7 +108,7 @@ it('rejects approval by a non admin', function () {
 });
 
 it('rejects approval when the group is full', function () {
-    [$group, $admin, , $pending] = groupWithPendingMembers(approved: 4, pending: 1);
+    [$group, $admin, , $pending] = groupWithPendingMembers(approved: 4, pending: 1, maxMembers: 5);
     $target = $pending[0];
 
     $repository = m::mock(GroupRepositoryInterface::class);

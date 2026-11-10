@@ -81,6 +81,46 @@ it('approves members and activates the group at three approved members', functio
         ->and($group['status'])->toBe('active');
 });
 
+it('rejects approval when the configured member limit is reached', function () {
+    $context = groupTestAdminContext($this);
+
+    $this->api->patch(
+        'app_group_update',
+        ['maxMembers' => 3],
+        ['id' => $context['groupId']],
+        groupTestServer($context['adminToken']),
+    );
+
+    foreach (['groups-limit-1@example.com', 'groups-limit-2@example.com'] as $email) {
+        groupTestCreateUser($this, $email);
+        $memberToken = groupTestAccessToken($this, $email);
+        $membershipId = groupTestRequestMembership($this, $memberToken, $context['groupId']);
+
+        $response = $this->api->post(
+            'app_group_membership_approve',
+            [],
+            ['id' => $context['groupId'], 'membershipId' => $membershipId],
+            groupTestServer($context['adminToken']),
+        );
+
+        expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+    }
+
+    groupTestCreateUser($this, 'groups-limit-3@example.com');
+    $extraToken = groupTestAccessToken($this, 'groups-limit-3@example.com');
+    $extraMembership = groupTestRequestMembership($this, $extraToken, $context['groupId']);
+
+    $response = $this->api->post(
+        'app_group_membership_approve',
+        [],
+        ['id' => $context['groupId'], 'membershipId' => $extraMembership],
+        groupTestServer($context['adminToken']),
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
+        ->and($this->api->errorCodes())->toBe(['GROUP_FULL']);
+});
+
 it('rejects approval by a non admin', function () {
     $context = groupTestAdminContext($this);
 

@@ -72,9 +72,10 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode|GroupEr
     IdentityErrorCode::UserCpfAlreadySet,
     IdentityErrorCode::RefreshInProgress,
     GroupErrorCode::GroupMembershipSuspended,
+    GroupErrorCode::GroupMemberLimitBelowApproved,
 ]);
 
-it('classifies input problems as validation', function (SharedErrorCode|IdentityErrorCode $code) {
+it('classifies input problems as validation', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode $code) {
     expect($code->kind())->toBe(ErrorKind::Validation);
 })->with([
     SharedErrorCode::CpfInvalid,
@@ -90,6 +91,7 @@ it('classifies input problems as validation', function (SharedErrorCode|Identity
     IdentityErrorCode::SocialEmailNotVerified,
     IdentityErrorCode::SocialEmailMissing,
     IdentityErrorCode::SuspensionReasonInvalid,
+    GroupErrorCode::GroupMemberLimitInvalid,
 ]);
 
 it('classifies authentication problems as authentication', function (IdentityErrorCode $code) {

@@ -57,6 +57,28 @@ final class GroupErrors
         );
     }
 
+    public static function memberLimitInvalid(int $minimum): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupMemberLimitInvalid,
+            message: sprintf('O limite de membros deve ser no mínimo %d ou nulo para ilimitado.', $minimum),
+            field: 'maxMembers',
+        );
+    }
+
+    public static function memberLimitBelowApproved(int $requested, int $approved): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupMemberLimitBelowApproved,
+            message: sprintf(
+                'O limite de %d membros é menor que os %d membros já aprovados no grupo.',
+                $requested,
+                $approved,
+            ),
+            field: 'maxMembers',
+        );
+    }
+
     public static function removalReasonRequired(int $maximum): DomainError
     {
         return self::error(

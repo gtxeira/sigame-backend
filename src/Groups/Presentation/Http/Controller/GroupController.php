@@ -123,6 +123,7 @@ final class GroupController extends AbstractController
             'description' => 'Descrição do grupo.',
             'modality' => 'Modalidade do grupo.',
             'communicationLink' => 'Link externo de comunicação.',
+            'maxMembers' => 'Limite máximo de membros aprovados.',
         ],
     )]
     #[TooManyRequestsResponse]
@@ -140,6 +141,7 @@ final class GroupController extends AbstractController
             description: $request->description,
             modality: Modality::from($request->modality),
             communicationLink: $request->communicationLink,
+            maxMembers: $request->maxMembers,
         ));
 
         if ($result->isFailure()) {
@@ -272,6 +274,15 @@ final class GroupController extends AbstractController
         ],
     )]
     #[NotFoundResponse]
+    #[ResourceConflictResponse(
+        examples: [
+            'GROUP_MEMBER_LIMIT_BELOW_APPROVED' => new ApiErrorExample(
+                message: 'O limite de 3 membros é menor que os 4 membros já aprovados no grupo.',
+                summary: 'Limite abaixo dos membros aprovados',
+                description: 'O limite não pode ser menor que a quantidade atual de membros aprovados.',
+            ),
+        ],
+    )]
     #[ValidationErrorResponse(
         examples: [
             'VALIDATION_ERROR' => new ApiErrorExample(
@@ -293,6 +304,7 @@ final class GroupController extends AbstractController
             'description' => 'Descrição do grupo.',
             'modality' => 'Modalidade do grupo.',
             'communicationLink' => 'Link externo de comunicação.',
+            'maxMembers' => 'Limite máximo de membros aprovados.',
         ],
     )]
     #[TooManyRequestsResponse]
@@ -309,8 +321,9 @@ final class GroupController extends AbstractController
         $hasDescription = $payload->has('description');
         $hasModality = $payload->has('modality');
         $hasLink = $payload->has('communicationLink');
+        $hasMaxMembers = $payload->has('maxMembers');
 
-        if (!$hasName && !$hasDescription && !$hasModality && !$hasLink) {
+        if (!$hasName && !$hasDescription && !$hasModality && !$hasLink && !$hasMaxMembers) {
             throw RequestViolationFactory::unprocessable('body', 'Informe ao menos um campo para atualização.');
         }
 
@@ -334,6 +347,8 @@ final class GroupController extends AbstractController
             modality: $hasModality ? $request->modality : null,
             communicationLink: $request->communicationLink,
             communicationLinkProvided: $hasLink,
+            maxMembers: $request->maxMembers,
+            maxMembersProvided: $hasMaxMembers,
         ));
 
         if ($result->isFailure()) {

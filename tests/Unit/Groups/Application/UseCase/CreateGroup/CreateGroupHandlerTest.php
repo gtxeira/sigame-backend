@@ -42,6 +42,59 @@ it('creates a group for a user at level 2', function () {
         ->and($result->value()->createdBy()->equals($actor))->toBeTrue();
 });
 
+it('creates a group with a custom member limit', function () {
+    $actor = MemberUserId::generate();
+    $repository = m::mock(GroupRepositoryInterface::class);
+    $levelReader = m::mock(UserLevelReaderInterface::class);
+    $dispatcher = m::mock(EventDispatcherInterface::class);
+
+    $levelReader->shouldReceive('levelOf')->once()->andReturn(2);
+    $repository->shouldReceive('transactional')->once()->andReturnUsing(
+        static fn (callable $operation): mixed => $operation(),
+    );
+    $repository->shouldReceive('lockUser')->once();
+    $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(0);
+    $repository->shouldReceive('save')->once()->with(m::on(
+        static fn (Group $group): bool => 3 === $group->maxMembers()?->value(),
+    ));
+    $dispatcher->shouldReceive('dispatch')->once()->with(m::type(GroupCreated::class));
+
+    $result = (new CreateGroupHandler($repository, $levelReader, $dispatcher))(new CreateGroupCommand(
+        actorId: $actor,
+        name: 'Corrida no Parque',
+        description: null,
+        modality: Modality::RUNNING,
+        communicationLink: null,
+        maxMembers: 3,
+    ));
+
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->value()->maxMembers()?->value())->toBe(3);
+});
+
+it('rejects a member limit below three', function () {
+    $actor = MemberUserId::generate();
+    $repository = m::mock(GroupRepositoryInterface::class);
+    $levelReader = m::mock(UserLevelReaderInterface::class);
+    $dispatcher = m::mock(EventDispatcherInterface::class);
+
+    $repository->shouldNotReceive('transactional');
+    $levelReader->shouldNotReceive('levelOf');
+    $dispatcher->shouldNotReceive('dispatch');
+
+    $result = (new CreateGroupHandler($repository, $levelReader, $dispatcher))(new CreateGroupCommand(
+        actorId: $actor,
+        name: 'Corrida no Parque',
+        description: null,
+        modality: Modality::RUNNING,
+        communicationLink: null,
+        maxMembers: 2,
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('GROUP_MEMBER_LIMIT_INVALID');
+});
+
 it('rejects group creation below level 2', function () {
     $actor = MemberUserId::generate();
     $repository = m::mock(GroupRepositoryInterface::class);

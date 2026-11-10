@@ -1342,3 +1342,39 @@ O criador do grupo precisa continuar registrado mesmo que deixe de ser administr
 - Um admin rebaixado perde imediatamente as operações de gestão.
 - A migration não cria índice único de administrador; a invariante é garantida pelo domínio e pelo lock.
 - Testes: `GroupTest`, `ChangeMembershipRoleHandlerTest` e `GroupMembershipTest`.
+
+---
+
+## ADR-042 — Limite de membros configurável por grupo
+
+### Contexto
+
+O ADR-019 fixou o limite de cinco membros aprovados em `GroupPolicy`. A evolução do produto exige que cada grupo
+escolha entre um limite explícito de pessoas ou um grupo ilimitado, mantendo a ativação com três aprovados. O limite
+não deve ser confundido com a quantidade de participantes de uma atividade, que permanece sem teto próprio.
+
+### Decisão
+
+- `groups.max_members` é um inteiro nullable; `NULL` representa grupo ilimitado.
+- Grupos existentes e novos grupos sem o campo ficam ilimitados.
+- Quando informado, o limite mínimo é 3, alinhado ao mínimo de membros para o grupo ser ativo.
+- `PATCH /groups/{id}` aceita `maxMembers` numérico para definir o limite e `null` para removê-lo. O campo ausente não
+  altera o valor atual.
+- Reduzir o limite abaixo da quantidade atual de aprovados retorna `GROUP_MEMBER_LIMIT_BELOW_APPROVED`.
+- `GroupStatus::FULL` passa a depender do limite: grupos ilimitados nunca ficam cheios, e grupos limitados ficam
+  cheios ao atingir o limite.
+- `updateGroup()` usa lock pessimista no grupo para serializar a alteração de limite com aprovações concorrentes.
+
+### Alternativas consideradas
+
+- Manter o limite fixo de cinco membros: não atende à possibilidade de grupo ilimitado.
+- Usar `0` como sentinela de ilimitado: mistura valor inválido com estado de domínio e dificulta a validação.
+- Limitar a alteração apenas na criação: impede ajustes conforme a rotina do grupo muda.
+
+### Consequências
+
+- O limite deixa de ser uma constante global e passa a ser um dado do agregado.
+- O filtro `availableOnly` e os filtros por `status` comparam a contagem de aprovados com `max_members`.
+- A migration adiciona a coluna sem backfill; grupos existentes permanecem ilimitados.
+- Testes de domínio, handler, repositório, tipo Doctrine e HTTP cobrem limite definido, removido e abaixo do total
+  aprovado.

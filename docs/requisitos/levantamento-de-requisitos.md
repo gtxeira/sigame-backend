@@ -258,6 +258,7 @@ Usuários habilitados devem poder criar grupos esportivos.
 | `description`       | Não         | até 500 caracteres                                                                |
 | `modality`          | Sim         | `caminhada`, `corrida` ou `ciclismo`                                              |
 | `communicationLink` | Não         | URL `http` ou `https`, até 2048 caracteres, visível apenas para membros aprovados |
+| `maxMembers`        | Não         | inteiro maior ou igual a 3; ausente ou `null` representa grupo ilimitado             |
 
 #### Regras
 
@@ -265,7 +266,8 @@ Usuários habilitados devem poder criar grupos esportivos.
 - `RN04.2` O criador do grupo assume o papel de administrador no momento da criação.
 - `RN04.3` Cada usuário pode participar de no máximo 3 grupos na V1, conforme a interpretação adotada para o limite de
   grupos.
-- `RN04.4` O grupo possui limite inicial de 5 membros aprovados.
+- `RN04.4` O grupo pode definir um limite de membros aprovados; ausente ou `null` representa grupo ilimitado e, quando
+  informado, o mínimo é 3.
 - `RN04.5` Um grupo torna-se ativo ao atingir no mínimo 3 membros aprovados.
 - `RN04.6` O grupo pode existir em formação com menos de 3 membros.
 - `RN04.7` O grupo registra o criador em campo próprio (`createdBy`), independente do papel de administrador.
@@ -279,7 +281,7 @@ Usuários habilitados devem poder criar grupos esportivos.
 - `CA04.3` O criador é registrado como administrador do grupo.
 - `CA04.4` Grupo com menos de 3 membros aprovados permanece em formação.
 - `CA04.5` Grupo com 3 ou mais membros aprovados fica ativo.
-- `CA04.6` Grupo não aceita mais de 5 membros aprovados.
+- `CA04.6` Grupo com limite definido não aceita mais membros aprovados que o limite; grupo ilimitado não possui teto.
 - `CA04.7` O `createdBy` permanece registrado mesmo se o criador for rebaixado ou removido.
 - `CA04.8` Um grupo pode ter dois ou mais administradores aprovados.
 
@@ -312,7 +314,7 @@ papéis de administrador.
 - `RN06.2` Qualquer administrador pode remover membro do grupo.
 - `RN06.3` A remoção deve registrar autor, data e motivo.
 - `RN06.4` Administrador de grupo não pode suspender globalmente uma conta.
-- `RN06.5` A aprovação deve respeitar o limite máximo de 5 membros.
+- `RN06.5` A aprovação deve respeitar o limite máximo configurado no grupo, quando houver.
 - `RN06.6` A aprovação deve respeitar o limite máximo de grupos do usuário.
 - `RN06.7` O grupo deve manter ao menos um administrador aprovado.
 - `RN06.8` Qualquer administrador pode promover ou rebaixar um membro aprovado.
@@ -322,7 +324,7 @@ papéis de administrador.
 
 - `CA06.1` Administrador consegue aprovar solicitação pendente válida.
 - `CA06.2` Aprovação transforma a solicitação em participação aprovada.
-- `CA06.3` Aprovação de grupo cheio é recusada.
+- `CA06.3` Aprovação de grupo cheio é recusada; grupo ilimitado não fica cheio.
 - `CA06.4` Usuário não administrador não consegue aprovar solicitação.
 - `CA06.5` Remoção registra autor, membro removido, grupo, data e motivo.
 - `CA06.6` Remoção não provoca suspensão global.
@@ -333,14 +335,18 @@ papéis de administrador.
 
 #### Matriz de exemplos — estado do grupo
 
-| Membros aprovados | Estado esperado | Pode receber atividade?   |
-|------------------:|-----------------|---------------------------|
-|                 0 | Em formação     | Não, salvo decisão futura |
-|                 1 | Em formação     | Não, salvo decisão futura |
-|                 2 | Em formação     | Não, salvo decisão futura |
-|                 3 | Ativo           | Sim                       |
-|                 4 | Ativo           | Sim                       |
-|                 5 | Ativo e cheio   | Sim, sem novas aprovações |
+| Membros aprovados | Estado sem limite | Estado com limite 5 | Pode receber atividade?   |
+|------------------:|-------------------|---------------------|---------------------------|
+|                 0 | Em formação       | Em formação         | Não, salvo decisão futura |
+|                 1 | Em formação       | Em formação         | Não, salvo decisão futura |
+|                 2 | Em formação       | Em formação         | Não, salvo decisão futura |
+|                 3 | Ativo             | Ativo               | Sim                       |
+|                 4 | Ativo             | Ativo               | Sim                       |
+|                 5 | Ativo             | Ativo e cheio       | Sim, sem novas aprovações |
+|            6 ou + | Ativo             | Ativo e cheio       | Sim, sem novas aprovações |
+
+Grupos ilimitados nunca alcançam o estado `FULL`. Em grupos com limite configurado, o estado `FULL` ocorre quando a
+quantidade de membros aprovados atinge o limite.
 
 ### RF07 — Designar supervisor
 

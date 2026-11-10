@@ -16,6 +16,7 @@ use App\Gamification\Infrastructure\Persistence\ORM\Type\XpEventIdType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\CommunicationLinkType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupDescriptionType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupIdType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\GroupMemberLimitType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupNameType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\MembershipIdType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\MemberUserIdType;
@@ -75,6 +76,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'member_user_id' => MemberUserIdType::class,
                 'group_name' => GroupNameType::class,
                 'group_description' => GroupDescriptionType::class,
+                'group_member_limit' => GroupMemberLimitType::class,
                 'group_communication_link' => CommunicationLinkType::class,
                 'removal_reason' => RemovalReasonType::class,
                 'activity_id' => ActivityIdType::class,

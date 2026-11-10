@@ -9,6 +9,7 @@ use App\Groups\Domain\Group\Policy\GroupPolicy;
 use App\Groups\Domain\Group\ValueObject\CommunicationLink;
 use App\Groups\Domain\Group\ValueObject\GroupDescription;
 use App\Groups\Domain\Group\ValueObject\GroupId;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
 use App\Groups\Domain\Group\ValueObject\MembershipId;
@@ -63,6 +64,9 @@ final class Group
         #[ORM\Column(type: 'group_communication_link', length: 2048, nullable: true)]
         private ?CommunicationLink $communicationLink,
 
+        #[ORM\Column(type: 'group_member_limit', nullable: true)]
+        private ?GroupMemberLimit $maxMembers,
+
         #[ORM\Column(type: 'instant')]
         private readonly Instant $createdAt,
 
@@ -81,6 +85,7 @@ final class Group
         Modality $modality,
         ?CommunicationLink $communicationLink,
         MemberUserId $createdBy,
+        ?GroupMemberLimit $maxMembers = null,
     ): self {
         $now = Instant::now();
 
@@ -91,6 +96,7 @@ final class Group
             description: $description,
             modality: $modality,
             communicationLink: $communicationLink,
+            maxMembers: $maxMembers,
             createdAt: $now,
             updatedAt: $now,
         );
@@ -121,7 +127,7 @@ final class Group
     /**
      * Aprova uma solicitação pendente (RF06).
      *
-     * RN06.5: respeita o limite de 5 membros aprovados.
+     * RN06.5: respeita o limite de membros configurado no grupo, quando houver.
      * RN06.6: respeita o limite de 3 grupos do usuário.
      *
      * @return Result<Membership>
@@ -147,8 +153,10 @@ final class Group
             return Result::failure([GroupErrors::membershipNotPending()]);
         }
 
-        if (GroupPolicy::isFull($this->approvedCount())) {
-            return Result::failure([GroupErrors::groupFull(GroupPolicy::MAX_APPROVED_MEMBERS)]);
+        $limit = $this->maxMembers?->value();
+
+        if (null !== $limit && GroupPolicy::isFull($this->approvedCount(), $limit)) {
+            return Result::failure([GroupErrors::groupFull($limit)]);
         }
 
         if ($activeGroupCount >= GroupPolicy::MAX_GROUPS_PER_USER) {
@@ -362,6 +370,7 @@ final class Group
         ?GroupDescription $description,
         Modality $modality,
         ?CommunicationLink $communicationLink,
+        ?GroupMemberLimit $maxMembers,
         MemberUserId $actor,
     ): Result {
         $adminError = $this->assertAdmin($actor);
@@ -370,10 +379,17 @@ final class Group
             return Result::failure([$adminError]);
         }
 
+        if (null !== $maxMembers && $maxMembers->value() < $this->approvedCount()) {
+            return Result::failure([
+                GroupErrors::memberLimitBelowApproved($maxMembers->value(), $this->approvedCount()),
+            ]);
+        }
+
         $this->name = $name;
         $this->description = $description;
         $this->modality = $modality;
         $this->communicationLink = $communicationLink;
+        $this->maxMembers = $maxMembers;
         $this->touch();
 
         return Result::success($this);
@@ -407,6 +423,11 @@ final class Group
     public function communicationLink(): ?CommunicationLink
     {
         return $this->communicationLink;
+    }
+
+    public function maxMembers(): ?GroupMemberLimit
+    {
+        return $this->maxMembers;
     }
 
     /**
@@ -506,7 +527,7 @@ final class Group
     {
         $approved = $this->approvedCount();
 
-        if (GroupPolicy::isFull($approved)) {
+        if (GroupPolicy::isFull($approved, $this->maxMembers?->value())) {
             return GroupStatus::FULL;
         }
 

@@ -18,6 +18,8 @@ final readonly class UpdateGroupCommand
         public ?string $modality,
         public ?string $communicationLink,
         public bool $communicationLinkProvided,
+        public ?int $maxMembers,
+        public bool $maxMembersProvided,
     ) {
     }
 }

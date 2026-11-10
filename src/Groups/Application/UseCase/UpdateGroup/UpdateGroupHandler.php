@@ -10,6 +10,7 @@ use App\Groups\Domain\Group\Event\GroupUpdated;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\ValueObject\CommunicationLink;
 use App\Groups\Domain\Group\ValueObject\GroupDescription;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
@@ -32,52 +33,57 @@ final readonly class UpdateGroupHandler
      */
     public function __invoke(UpdateGroupCommand $command): Result
     {
-        $group = $this->groupRepository->findById($command->groupId);
+        return $this->groupRepository->transactional(function () use ($command): Result {
+            $group = $this->groupRepository->findByIdForUpdate($command->groupId);
 
-        if (null === $group) {
-            return Result::failure([GroupErrors::groupNotFound()]);
-        }
+            if (null === $group) {
+                return Result::failure([GroupErrors::groupNotFound()]);
+            }
 
-        $nameResult = null === $command->name
-            ? ValidationResult::valid($group->name())
-            : GroupName::fromString($command->name);
+            $nameResult = null === $command->name
+                ? ValidationResult::valid($group->name())
+                : GroupName::fromString($command->name);
 
-        $descriptionResult = match (true) {
-            !$command->descriptionProvided => ValidationResult::valid($group->description()),
-            null === $command->description => ValidationResult::valid(null),
-            default => GroupDescription::fromString($command->description),
-        };
+            $descriptionResult = match (true) {
+                !$command->descriptionProvided => ValidationResult::valid($group->description()),
+                null === $command->description => ValidationResult::valid(null),
+                default => GroupDescription::fromString($command->description),
+            };
 
-        $linkResult = match (true) {
-            !$command->communicationLinkProvided => ValidationResult::valid($group->communicationLink()),
-            null === $command->communicationLink => ValidationResult::valid(null),
-            default => CommunicationLink::fromString($command->communicationLink),
-        };
+            $linkResult = match (true) {
+                !$command->communicationLinkProvided => ValidationResult::valid($group->communicationLink()),
+                null === $command->communicationLink => ValidationResult::valid(null),
+                default => CommunicationLink::fromString($command->communicationLink),
+            };
 
-        $validation = ValidationResult::combine($nameResult, $descriptionResult, $linkResult);
+            $maxMembersResult = match (true) {
+                !$command->maxMembersProvided => ValidationResult::valid($group->maxMembers()),
+                null === $command->maxMembers => ValidationResult::valid(null),
+                default => GroupMemberLimit::fromInt($command->maxMembers),
+            };
 
-        if ($validation->isInvalid()) {
-            return Result::failure($validation->errors());
-        }
+            $validation = ValidationResult::combine(
+                $nameResult,
+                $descriptionResult,
+                $linkResult,
+                $maxMembersResult,
+            );
 
-        [$name, $description, $communicationLink] = $validation->value();
-        $modality = null === $command->modality
-            ? $group->modality()
-            : Modality::from($command->modality);
+            if ($validation->isInvalid()) {
+                return Result::failure($validation->errors());
+            }
 
-        return $this->groupRepository->transactional(function () use (
-            $command,
-            $group,
-            $name,
-            $description,
-            $modality,
-            $communicationLink,
-        ): Result {
+            [$name, $description, $communicationLink, $maxMembers] = $validation->value();
+            $modality = null === $command->modality
+                ? $group->modality()
+                : Modality::from($command->modality);
+
             $update = $group->changeDetails(
                 name: $name,
                 description: $description,
                 modality: $modality,
                 communicationLink: $communicationLink,
+                maxMembers: $maxMembers,
                 actor: $command->actorId,
             );
 

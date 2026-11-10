@@ -29,11 +29,39 @@ it('creates a group with the authenticated user as admin', function () {
         ->and($data['modality'])->toBe(Modality::RUNNING->value)
         ->and($data['status'])->toBe('forming')
         ->and($data['approvedMembers'])->toBe(1)
-        ->and($data['maxMembers'])->toBe(5)
+        ->and($data['maxMembers'])->toBeNull()
         ->and($data['createdBy'])->toBe($user->id()->value())
         ->and($data['communicationLink'])->toBe('https://chat.example.com/grupo/corrida')
         ->and($data['viewerMembership']['role'])->toBe('admin')
         ->and($data['viewerMembership']['status'])->toBe('approved');
+});
+
+it('creates a group with a configured member limit', function () {
+    groupTestCreateUser($this, 'groups-create-limit@example.com');
+    $token = groupTestAccessToken($this, 'groups-create-limit@example.com');
+
+    $response = $this->api->post(
+        'app_group_create',
+        groupTestPayload(['maxMembers' => 3]),
+        server: groupTestServer($token),
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED)
+        ->and(authTestBody($response)['data']['maxMembers'])->toBe(3);
+});
+
+it('rejects a member limit below three', function () {
+    groupTestCreateUser($this, 'groups-create-limit-invalid@example.com');
+    $token = groupTestAccessToken($this, 'groups-create-limit-invalid@example.com');
+
+    $response = $this->api->post(
+        'app_group_create',
+        groupTestPayload(['maxMembers' => 2]),
+        server: groupTestServer($token),
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
 });
 
 it('validates group creation payload', function () {
@@ -199,6 +227,68 @@ it('updates a group only for admins', function () {
 
     expect($data['name'])->toBe('Corrida no Parque Norte')
         ->and($data['communicationLink'])->toBeNull();
+});
+
+it('updates and clears the group member limit', function () {
+    groupTestCreateUser($this, 'groups-update-limit@example.com');
+    $adminToken = groupTestAccessToken($this, 'groups-update-limit@example.com');
+    $group = groupTestCreate($this, $adminToken);
+
+    $limited = $this->api->patch(
+        'app_group_update',
+        ['maxMembers' => 4],
+        ['id' => $group['id']],
+        groupTestServer($adminToken),
+    );
+
+    expect($limited->getStatusCode())->toBe(Response::HTTP_OK)
+        ->and(authTestBody($limited)['data']['maxMembers'])->toBe(4);
+
+    $unlimited = $this->api->patch(
+        'app_group_update',
+        ['maxMembers' => null],
+        ['id' => $group['id']],
+        groupTestServer($adminToken),
+    );
+
+    expect($unlimited->getStatusCode())->toBe(Response::HTTP_OK)
+        ->and(authTestBody($unlimited)['data']['maxMembers'])->toBeNull();
+});
+
+it('rejects a member limit below the approved count', function () {
+    groupTestCreateUser($this, 'groups-limit-below-admin@example.com');
+    $adminToken = groupTestAccessToken($this, 'groups-limit-below-admin@example.com');
+    $group = groupTestCreate($this, $adminToken);
+
+    $this->api->patch(
+        'app_group_update',
+        ['maxMembers' => 5],
+        ['id' => $group['id']],
+        groupTestServer($adminToken),
+    );
+
+    foreach (['groups-limit-below-1@example.com', 'groups-limit-below-2@example.com', 'groups-limit-below-3@example.com'] as $email) {
+        groupTestCreateUser($this, $email);
+        $memberToken = groupTestAccessToken($this, $email);
+        $membershipId = groupTestRequestMembership($this, $memberToken, $group['id']);
+
+        $this->api->post(
+            'app_group_membership_approve',
+            [],
+            ['id' => $group['id'], 'membershipId' => $membershipId],
+            groupTestServer($adminToken),
+        );
+    }
+
+    $response = $this->api->patch(
+        'app_group_update',
+        ['maxMembers' => 3],
+        ['id' => $group['id']],
+        groupTestServer($adminToken),
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
+        ->and($this->api->errorCodes())->toBe(['GROUP_MEMBER_LIMIT_BELOW_APPROVED']);
 });
 
 it('rate limits repeated group creation attempts', function () {

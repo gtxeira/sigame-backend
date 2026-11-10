@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Groups\Presentation\Http\Response;
 
 use App\Groups\Domain\Group\Entity\Group;
-use App\Groups\Domain\Group\Policy\GroupPolicy;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Shared\Domain\ValueObject\Modality;
@@ -36,8 +35,12 @@ final readonly class GroupSummaryResponse
         #[OA\Property(example: 1)]
         public int $approvedMembers,
 
-        #[OA\Property(example: GroupPolicy::MAX_APPROVED_MEMBERS)]
-        public int $maxMembers,
+        #[OA\Property(
+            description: 'Limite máximo de membros aprovados. Null quando o grupo é ilimitado.',
+            example: 8,
+            nullable: true,
+        )]
+        public ?int $maxMembers,
 
         #[OA\Property(
             description: 'Situação da participação do usuário autenticado, quando houver.',
@@ -61,7 +64,7 @@ final readonly class GroupSummaryResponse
             modality: $group->modality()->value,
             status: $group->status()->value,
             approvedMembers: $group->approvedCount(),
-            maxMembers: GroupPolicy::MAX_APPROVED_MEMBERS,
+            maxMembers: $group->maxMembers()?->value(),
             viewerMembershipStatus: $group->membershipFor($viewer)?->status()->value,
             createdAt: $group->createdAt()->toIsoStringWithMilliseconds(),
         );

@@ -15,6 +15,7 @@ final readonly class CreateGroupCommand
         public ?string $description,
         public Modality $modality,
         public ?string $communicationLink,
+        public ?int $maxMembers = null,
     ) {
     }
 }

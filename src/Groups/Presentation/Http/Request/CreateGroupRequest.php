@@ -52,6 +52,18 @@ final readonly class CreateGroupRequest
             message: 'O link deve começar com http:// ou https://.',
         )]
         public ?string $communicationLink = null,
+
+        #[OA\Property(
+            description: 'Limite máximo de membros aprovados. Omitir ou enviar null para ilimitado.',
+            example: 8,
+            nullable: true,
+            minimum: 3,
+        )]
+        #[Assert\Range(
+            min: 3,
+            notInRangeMessage: 'O limite de membros deve ser no mínimo {{ limit }}.',
+        )]
+        public ?int $maxMembers = null,
     ) {
     }
 }

@@ -12,6 +12,7 @@ use App\Groups\Domain\Group\Policy\GroupPolicy;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\ValueObject\CommunicationLink;
 use App\Groups\Domain\Group\ValueObject\GroupDescription;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Application\User\UserLevelReaderInterface;
@@ -47,19 +48,23 @@ final readonly class CreateGroupHandler
             null === $command->communicationLink
                 ? ValidationResult::valid(null)
                 : CommunicationLink::fromString($command->communicationLink),
+            null === $command->maxMembers
+                ? ValidationResult::valid(null)
+                : GroupMemberLimit::fromInt($command->maxMembers),
         );
 
         if ($validation->isInvalid()) {
             return Result::failure($validation->errors());
         }
 
-        [$name, $description, $communicationLink] = $validation->value();
+        [$name, $description, $communicationLink, $maxMembers] = $validation->value();
 
         return $this->groupRepository->transactional(function () use (
             $command,
             $name,
             $description,
             $communicationLink,
+            $maxMembers,
         ): Result {
             $level = $this->userLevelReader->levelOf($command->actorId->value());
 
@@ -83,6 +88,7 @@ final readonly class CreateGroupHandler
                 modality: $command->modality,
                 communicationLink: $communicationLink,
                 createdBy: $command->actorId,
+                maxMembers: $maxMembers,
             );
 
             try {

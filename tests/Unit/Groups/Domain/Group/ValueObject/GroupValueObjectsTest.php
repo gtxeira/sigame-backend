@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Groups\Domain\Group\ValueObject\CommunicationLink;
 use App\Groups\Domain\Group\ValueObject\GroupDescription;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\RemovalReason;
 
@@ -35,6 +36,22 @@ it('rejects invalid communication links', function (string $input) {
     'not a url' => 'chat do grupo',
     'unsupported scheme' => 'ftp://chat.example.com/grupo',
     'too long' => 'https://example.com/'.str_repeat('a', 2048),
+]);
+
+it('accepts member limits from three upwards', function (int $input) {
+    expect(GroupMemberLimit::fromInt($input)->isValid())->toBeTrue();
+})->with([
+    'minimum' => 3,
+    'typical' => 8,
+    'large' => 1000,
+]);
+
+it('rejects member limits below three', function (int $input) {
+    expect(GroupMemberLimit::fromInt($input)->isInvalid())->toBeTrue();
+})->with([
+    'zero' => 0,
+    'negative' => -1,
+    'below minimum' => 2,
 ]);
 
 it('validates description and removal reason limits', function () {

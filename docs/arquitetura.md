@@ -169,9 +169,10 @@ src/Groups/
 │   ├── Group/
 │   │   ├── Entity/                        # Group, Membership
 │   │   ├── ValueObject/                   # GroupId, MembershipId, MemberUserId, GroupName,
-│   │   │                                  # GroupDescription, CommunicationLink, RemovalReason,
-│   │   │                                  # GroupStatus, MembershipStatus, MembershipRole
-│   │   ├── Policy/GroupPolicy.php         # limites de membros e de grupos por usuário
+│   │   │                                  # GroupDescription, CommunicationLink, GroupMemberLimit,
+│   │   │                                  # RemovalReason, GroupStatus, MembershipStatus,
+│   │   │                                  # MembershipRole
+│   │   ├── Policy/GroupPolicy.php         # limites configuráveis de membros e de grupos por usuário
 │   │   ├── Repository/                    # GroupRepositoryInterface, GroupSearchCriteria, GroupPage
 │   │   └── Event/                         # GroupCreated, GroupUpdated, MembershipRequested,
 │   │                                      # MembershipApproved, MembershipRejected, MemberRemoved,
@@ -353,19 +354,20 @@ A raiz do agregado mantém os dados do grupo, o criador e as participações. O 
 
 | Componente | Responsabilidade | Colunas / tabela |
 |---|---|---|
-| `Group` | Raiz do agregado | `id`, `created_by`, `name`, `description`, `modality`, `communication_link`, `created_at`, `updated_at` |
+| `Group` | Raiz do agregado | `id`, `created_by`, `name`, `description`, `modality`, `communication_link`, `max_members`, `created_at`, `updated_at` |
 | `Membership` | Episódio de participação | tabela `group_memberships` |
 
 Comportamentos principais de `Group`:
 
 - `create()` — cria o grupo e registra o criador como primeiro administrador.
 - `requestMembership()` — cria um episódio `PENDING`, recusando duplicidade ativa.
-- `approveMembership()` — exige admin, respeita 5 membros e 3 grupos por usuário.
+- `approveMembership()` — exige admin, respeita o limite de membros do grupo (quando houver) e 3 grupos por usuário.
 - `rejectMembership()` — encerra um episódio `PENDING` como `REJECTED`.
 - `removeMembership()` — registra autor, data e motivo; impede remover o último admin.
 - `promoteToAdmin()` / `demoteToMember()` — gerenciam múltiplos admins; o último admin é protegido.
 - `designateSupervisor()` / `clearSupervisor()` — supervisor opcional, sempre membro aprovado.
-- `changeDetails()` — atualiza nome, descrição, modalidade e link.
+- `changeDetails()` — atualiza nome, descrição, modalidade, link e limite de membros; rejeita limite abaixo da
+  quantidade atual de aprovados.
 - `status()` — deriva `FORMING`, `ACTIVE` ou `FULL` da contagem de aprovados.
 
 Regras:
@@ -417,10 +419,10 @@ Regras:
 | Logout | `LogoutCommand` | `LogoutHandler` | Revoga a família do cookie ou todas as famílias |
 | Definir CPF | `AssignCpfCommand` | `AssignCpfHandler` | Valida CPF → verifica unicidade → define (write-once) |
 | Concluir onboarding | `CompleteOnboardingCommand` | `CompleteOnboardingHandler` | Carrega o usuário → conclui no agregado → persiste → publica `OnboardingCompleted` |
-| Criar grupo | `CreateGroupCommand` | `CreateGroupHandler` | Valida nível 2 e limite de 3 grupos → cria o grupo com o criador admin → publica `GroupCreated` |
-| Atualizar grupo | `UpdateGroupCommand` | `UpdateGroupHandler` | Exige admin → aplica JSON Merge Patch → publica `GroupUpdated` |
+| Criar grupo | `CreateGroupCommand` | `CreateGroupHandler` | Valida nível 2, limite de 3 grupos e limite opcional de membros → cria o grupo com o criador admin → publica `GroupCreated` |
+| Atualizar grupo | `UpdateGroupCommand` | `UpdateGroupHandler` | Exige admin → aplica JSON Merge Patch (inclusive limite de membros) → publica `GroupUpdated` |
 | Solicitar entrada | `RequestMembershipCommand` | `RequestMembershipHandler` | Cria episódio `PENDING`, recusando duplicidade → publica `MembershipRequested` |
-| Aprovar solicitação | `ApproveMembershipCommand` | `ApproveMembershipHandler` | Exige admin → valida 5 membros e 3 grupos → publica `MembershipApproved` e, se ativou, `GroupActivated` |
+| Aprovar solicitação | `ApproveMembershipCommand` | `ApproveMembershipHandler` | Exige admin → valida limite de membros do grupo e 3 grupos → publica `MembershipApproved` e, se ativou, `GroupActivated` |
 | Rejeitar solicitação | `RejectMembershipCommand` | `RejectMembershipHandler` | Exige admin → encerra `PENDING` como `REJECTED` → publica `MembershipRejected` |
 | Remover membro | `RemoveMemberCommand` | `RemoveMemberHandler` | Exige admin, motivo e não remove o último admin → publica `MemberRemoved` |
 | Alterar papel | `ChangeMembershipRoleCommand` | `ChangeMembershipRoleHandler` | Promove/rebaixa membro aprovado, protegendo o último admin → publica `MembershipPromoted`/`MembershipDemoted` |

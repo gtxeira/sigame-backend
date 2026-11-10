@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\ValueObject\GroupDescription;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
 use App\Groups\Domain\Group\ValueObject\MembershipRole;
@@ -12,7 +13,7 @@ use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Groups\Domain\Group\ValueObject\RemovalReason;
 use App\Shared\Domain\ValueObject\Modality;
 
-function makeGroup(MemberUserId $admin): Group
+function makeGroup(MemberUserId $admin, ?int $maxMembers = null): Group
 {
     return Group::create(
         name: GroupName::fromString('Corrida no Parque')->value(),
@@ -20,6 +21,7 @@ function makeGroup(MemberUserId $admin): Group
         modality: Modality::RUNNING,
         communicationLink: null,
         createdBy: $admin,
+        maxMembers: null === $maxMembers ? null : GroupMemberLimit::fromInt($maxMembers)->value(),
     );
 }
 
@@ -39,7 +41,7 @@ it('creates a group with the creator as the first admin', function () {
 
 it('activates the group at three approved members and becomes full at five', function () {
     $admin = MemberUserId::generate();
-    $group = makeGroup($admin);
+    $group = makeGroup($admin, 5);
 
     $members = [];
 
@@ -59,6 +61,87 @@ it('activates the group at three approved members and becomes full at five', fun
 
     expect($rejected->isFailure())->toBeTrue()
         ->and($rejected->errors()[0]->code)->toBe('GROUP_FULL');
+});
+
+it('keeps a group without a limit active beyond five members', function () {
+    $admin = MemberUserId::generate();
+    $group = makeGroup($admin);
+
+    for ($index = 0; $index < 6; ++$index) {
+        $membership = $group->requestMembership(MemberUserId::generate())->value();
+        $approval = $group->approveMembership($membership->id(), $admin, 0);
+
+        expect($approval->isSuccess())->toBeTrue();
+    }
+
+    expect($group->approvedCount())->toBe(7)
+        ->and($group->maxMembers())->toBeNull()
+        ->and($group->status())->toBe(GroupStatus::ACTIVE);
+});
+
+it('becomes full at a custom limit of three members', function () {
+    $admin = MemberUserId::generate();
+    $group = makeGroup($admin, 3);
+
+    for ($index = 0; $index < 2; ++$index) {
+        $membership = $group->requestMembership(MemberUserId::generate())->value();
+        $group->approveMembership($membership->id(), $admin, 0);
+    }
+
+    expect($group->approvedCount())->toBe(3)
+        ->and($group->status())->toBe(GroupStatus::FULL);
+
+    $extra = $group->requestMembership(MemberUserId::generate())->value();
+    $rejected = $group->approveMembership($extra->id(), $admin, 0);
+
+    expect($rejected->isFailure())->toBeTrue()
+        ->and($rejected->errors()[0]->code)->toBe('GROUP_FULL');
+});
+
+it('changes the member limit and rejects values below the approved count', function () {
+    $admin = MemberUserId::generate();
+    $group = makeGroup($admin, 5);
+
+    for ($index = 0; $index < 3; ++$index) {
+        $membership = $group->requestMembership(MemberUserId::generate())->value();
+        $group->approveMembership($membership->id(), $admin, 0);
+    }
+
+    $belowApproved = $group->changeDetails(
+        name: $group->name(),
+        description: null,
+        modality: $group->modality(),
+        communicationLink: null,
+        maxMembers: GroupMemberLimit::fromInt(3)->value(),
+        actor: $admin,
+    );
+
+    expect($belowApproved->isFailure())->toBeTrue()
+        ->and($belowApproved->errors()[0]->code)->toBe('GROUP_MEMBER_LIMIT_BELOW_APPROVED');
+
+    $raise = $group->changeDetails(
+        name: $group->name(),
+        description: null,
+        modality: $group->modality(),
+        communicationLink: null,
+        maxMembers: GroupMemberLimit::fromInt(8)->value(),
+        actor: $admin,
+    );
+
+    expect($raise->isSuccess())->toBeTrue()
+        ->and($group->maxMembers()?->value())->toBe(8);
+
+    $unlimited = $group->changeDetails(
+        name: $group->name(),
+        description: null,
+        modality: $group->modality(),
+        communicationLink: null,
+        maxMembers: null,
+        actor: $admin,
+    );
+
+    expect($unlimited->isSuccess())->toBeTrue()
+        ->and($group->maxMembers())->toBeNull();
 });
 
 it('rejects a duplicate pending request', function () {

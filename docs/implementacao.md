@@ -222,10 +222,12 @@ comportamento pelo caminho do chamador estiverem verdes.
 - [x] Casos de uso `CreateGroup`, `UpdateGroup`, `RequestMembership`, `ApproveMembership`, `RejectMembership`,
   `RemoveMember`, `ChangeMembershipRole`, `DesignateSupervisor`, `ClearSupervisor`, `ListGroups`, `ListMyGroups`,
   `GetGroup` e `ListMemberships`.
-- [x] Limites de 3 grupos por usuário, 5 membros aprovados e ativação com 3 aprovados.
+- [x] Limite de 3 grupos por usuário, ativação com 3 aprovados e limite de membros configurável por grupo (ilimitado
+  quando ausente).
 - [x] Autorização por administrador do grupo e supervisor sem poderes de gestão de membros.
 - [x] Endpoints HTTP, rate limiting e documentação OpenAPI na tag `Grupos`.
 - [x] Migration `Version20261109120000` com índices parciais de duplicidade e supervisor.
+- [x] Migration `Version20261110183601` com `groups.max_members` (null = ilimitado).
 - [x] Testes de domínio, handlers, repositório e HTTP.
 
 ### Fase 5 — Activities

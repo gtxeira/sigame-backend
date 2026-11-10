@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\Repository\GroupSearchCriteria;
+use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
@@ -16,6 +17,7 @@ function makePersistedGroup(
     MemberUserId $admin,
     string $name = 'Corrida no Parque',
     Modality $modality = Modality::RUNNING,
+    ?int $maxMembers = null,
 ): Group {
     $group = Group::create(
         name: GroupName::fromString($name)->value(),
@@ -23,6 +25,7 @@ function makePersistedGroup(
         modality: $modality,
         communicationLink: null,
         createdBy: $admin,
+        maxMembers: null === $maxMembers ? null : GroupMemberLimit::fromInt($maxMembers)->value(),
     );
 
     $repository->save($group);
@@ -36,8 +39,9 @@ function makePersistedGroupWithMembers(
     int $approvedMembers,
     string $name = 'Corrida no Parque',
     Modality $modality = Modality::RUNNING,
+    ?int $maxMembers = null,
 ): Group {
-    $group = makePersistedGroup($repository, $admin, $name, $modality);
+    $group = makePersistedGroup($repository, $admin, $name, $modality, $maxMembers);
 
     for ($index = 1; $index < $approvedMembers; ++$index) {
         $membership = $group->requestMembership(MemberUserId::generate())->value();
@@ -67,9 +71,23 @@ it('persists and reloads a group with its memberships', function () {
     expect($found->createdBy()->equals($admin))->toBeTrue()
         ->and($found->name()->value())->toBe('Corrida no Parque')
         ->and($found->modality())->toBe(Modality::RUNNING)
+        ->and($found->maxMembers())->toBeNull()
         ->and($found->approvedCount())->toBe(2)
         ->and($found->status())->toBe(GroupStatus::FORMING)
         ->and($found->memberships())->toHaveCount(2);
+});
+
+it('persists and reloads a configured member limit', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+    $entityManager = $this->service(EntityManagerInterface::class);
+
+    $group = makePersistedGroup($repository, MemberUserId::generate(), maxMembers: 8);
+    $entityManager->clear();
+
+    $found = $repository->findById($group->id());
+    assert($found instanceof Group);
+
+    expect($found->maxMembers()?->value())->toBe(8);
 });
 
 it('counts approved memberships per user', function () {
@@ -125,7 +143,7 @@ it('filters groups by derived status', function () {
 
     $forming = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 2, 'Em formação');
     $active = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 3, 'Ativo');
-    $full = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 5, 'Cheio');
+    $full = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 5, 'Cheio', maxMembers: 5);
 
     $formingPage = $repository->search(new GroupSearchCriteria(status: GroupStatus::FORMING));
     $activePage = $repository->search(new GroupSearchCriteria(status: GroupStatus::ACTIVE));
@@ -139,12 +157,30 @@ it('filters groups by derived status', function () {
         ->and($fullPage->items[0]->id()->equals($full->id()))->toBeTrue();
 });
 
+it('keeps unlimited groups active and available beyond five members', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+
+    $unlimited = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 6, 'Ilimitado');
+    $full = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 5, 'Cheio', maxMembers: 5);
+
+    $activePage = $repository->search(new GroupSearchCriteria(status: GroupStatus::ACTIVE));
+    $fullPage = $repository->search(new GroupSearchCriteria(status: GroupStatus::FULL));
+    $availablePage = $repository->search(new GroupSearchCriteria(availableOnly: true));
+
+    expect($activePage->total)->toBe(1)
+        ->and($activePage->items[0]->id()->equals($unlimited->id()))->toBeTrue()
+        ->and($fullPage->total)->toBe(1)
+        ->and($fullPage->items[0]->id()->equals($full->id()))->toBeTrue()
+        ->and($availablePage->total)->toBe(1)
+        ->and($availablePage->items[0]->id()->equals($unlimited->id()))->toBeTrue();
+});
+
 it('combines status and availability filters', function () {
     $repository = $this->service(GroupRepositoryInterface::class);
 
     $forming = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 2, 'Em formação');
     makePersistedGroupWithMembers($repository, MemberUserId::generate(), 3, 'Ativo');
-    makePersistedGroupWithMembers($repository, MemberUserId::generate(), 5, 'Cheio');
+    makePersistedGroupWithMembers($repository, MemberUserId::generate(), 5, 'Cheio', maxMembers: 5);
 
     $availableForming = $repository->search(new GroupSearchCriteria(
         status: GroupStatus::FORMING,

@@ -169,6 +169,7 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
             ->groupBy('g.id');
 
         $approvedCount = 'COUNT(m.id)';
+        $maxMembers = 'g.maxMembers';
 
         if (null !== $criteria->status) {
             match ($criteria->status) {
@@ -177,19 +178,16 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
                     ->setParameter('minActive', GroupPolicy::MIN_APPROVED_FOR_ACTIVE),
                 GroupStatus::ACTIVE => $queryBuilder
                     ->andHaving($approvedCount.' >= :minActive')
-                    ->andHaving($approvedCount.' < :maxApproved')
-                    ->setParameter('minActive', GroupPolicy::MIN_APPROVED_FOR_ACTIVE)
-                    ->setParameter('maxApproved', GroupPolicy::MAX_APPROVED_MEMBERS),
+                    ->andHaving('('.$maxMembers.' IS NULL OR '.$approvedCount.' < '.$maxMembers.')')
+                    ->setParameter('minActive', GroupPolicy::MIN_APPROVED_FOR_ACTIVE),
                 GroupStatus::FULL => $queryBuilder
-                    ->andHaving($approvedCount.' >= :maxApproved')
-                    ->setParameter('maxApproved', GroupPolicy::MAX_APPROVED_MEMBERS),
+                    ->andHaving($maxMembers.' IS NOT NULL')
+                    ->andHaving($approvedCount.' >= '.$maxMembers),
             };
         }
 
         if ($criteria->availableOnly) {
-            $queryBuilder
-                ->andHaving($approvedCount.' < :maxApproved')
-                ->setParameter('maxApproved', GroupPolicy::MAX_APPROVED_MEMBERS);
+            $queryBuilder->andHaving('('.$maxMembers.' IS NULL OR '.$approvedCount.' < '.$maxMembers.')');
         }
 
         return $queryBuilder;
