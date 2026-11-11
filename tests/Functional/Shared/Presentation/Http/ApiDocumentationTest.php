@@ -28,6 +28,12 @@ function apiDocValue(mixed $data, string|int ...$path): mixed
  */
 function readApiDoc(FunctionalTestCase $test): array
 {
+    static $doc = null;
+
+    if (null !== $doc) {
+        return $doc;
+    }
+
     $response = $test->api->get('app.api_doc_json');
 
     expect($response->getStatusCode())->toBe(Response::HTTP_OK);

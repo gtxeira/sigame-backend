@@ -4,7 +4,7 @@ set positional-arguments
 _compose  := "docker compose --env-file .env --env-file .env.dev --env-file .env.local"
 _exec     := _compose + " exec"
 _php      := _exec + " php"
-_test_php := _exec + " -e APP_ENV=test php"
+_test_php := _exec + " -e APP_ENV=test -e XDEBUG_MODE=off php"
 
 # ── Docker 🐳 ────────────────────────────────────────────────────────────────
 

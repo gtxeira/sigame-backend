@@ -149,8 +149,11 @@ return static function (ContainerConfigurator $containerConfigurator): void {
         $containerConfigurator->extension('framework', [
             'cache' => [
                 'pools' => [
+                    // APCu sobrevive ao reset de serviços entre requisições do
+                    // mesmo teste e é limpo no beforeEach. Um ArrayAdapter seria
+                    // zerado a cada requisição pelo services_resetter.
                     'cache.rate_limiter' => [
-                        'adapter' => 'cache.adapter.filesystem',
+                        'adapter' => 'cache.adapter.apcu',
                     ],
                 ],
             ],
