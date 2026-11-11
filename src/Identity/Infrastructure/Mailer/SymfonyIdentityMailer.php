@@ -37,7 +37,7 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
             subject: 'Confirme seu e-mail no SIGAME',
             template: 'email/verify_email.html.twig',
             context: [
-                'url' => $this->frontendUrl.'/auth/verify?token='.urlencode($token),
+                'url' => $this->frontendUrl.'/verificar-email?token='.urlencode($token),
                 'expiresAt' => MailDateFormatter::format($expiresAt),
             ],
         );

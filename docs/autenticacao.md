@@ -570,7 +570,7 @@ Se a caixa estiver vazia, o `worker` provavelmente está parado e a mensagem seg
 
 ## 4. Verificação de e-mail
 
-O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O front remove o token da URL depois de lê-lo e chama a API.
+O cadastro local envia um link para `FRONTEND_URL/verificar-email?token=...`. O front mantém o token na URL até a confirmação; no clique em **Confirmar e-mail**, limpa a URL e chama a API.
 
 ### 4.1 Confirmar
 

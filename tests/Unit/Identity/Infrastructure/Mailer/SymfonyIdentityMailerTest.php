@@ -71,7 +71,7 @@ it('renders the verification email date in America/Sao_Paulo', function () {
     expect($rendered)
         ->toContain('06/11/2026 23:30')
         ->not->toContain('07/11/2026 02:30')
-        ->toContain('https://app.example.com/auth/verify?token=token-123')
+        ->toContain('https://app.example.com/verificar-email?token=token-123')
         ->and($email->getSubject())->toBe('Confirme seu e-mail no SIGAME')
         ->and($email->getTo()[0]->getAddress())->toBe('user@example.com')
         ->and($email->getFrom()[0]->getAddress())->toBe('noreply@sigame.com.br')
