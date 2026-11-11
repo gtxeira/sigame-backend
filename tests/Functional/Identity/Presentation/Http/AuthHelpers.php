@@ -9,6 +9,7 @@ use App\Identity\Domain\User\ValueObject\IdentityProvider;
 use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserId;
 use App\Identity\Infrastructure\Security\LcobucciAccessTokenGenerator;
+use App\Shared\Domain\ValueObject\BirthDate;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,6 +24,7 @@ function authTestCreateUser(
     string $email = 'auth@example.com',
     string $password = 'secret123',
     ?string $cpf = null,
+    ?string $birthDate = '1990-05-12',
 ): User {
     $container = $test->api->getKernelBrowser()->getContainer();
 
@@ -33,6 +35,10 @@ function authTestCreateUser(
         password: $container->get(PasswordHasherInterface::class)->hash($password),
         name: 'Auth Test User',
     );
+
+    if (null !== $birthDate) {
+        $user->assignBirthDate(BirthDate::fromString($birthDate)->value());
+    }
 
     /* @phpstan-ignore-next-line */
     $container->get(UserRepositoryInterface::class)->save($user);

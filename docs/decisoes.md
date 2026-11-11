@@ -2,7 +2,7 @@
 
 > **Status:** registro vivo
 >
-> **Última atualização:** 2026-11-10
+> **Última atualização:** 2026-11-11
 >
 > **Finalidade:** preservar o contexto e o porquê das decisões já tomadas, para orientar mudanças futuras.
 
@@ -65,6 +65,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-041](#adr-041--catálogo-de-regras-de-gamificação-pela-api) | Catálogo de regras de gamificação pela API | Vigente |
 | [ADR-042](#adr-042--limite-de-membros-configurável-por-grupo) | Limite de membros configurável por grupo | Vigente |
 | [ADR-043](#adr-043--erro-por-item-e-validação-em-duas-fases) | Erro por item e validação em duas fases | Vigente |
+| [ADR-044](#adr-044--data-de-nascimento-write-once-e-plataforma-restrita-a-maiores-de-18) | Data de nascimento write-once e plataforma restrita a maiores de 18 | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
@@ -1436,3 +1437,49 @@ que se curto-circuitavam, então uma requisição com erros independentes recebi
 - `tests/Unit/Architecture/ErrorCodeCatalogTest.php` passa a validar `ValidationErrorCode`.
 - `tests/Functional/Shared/Presentation/Http/ApiDocumentationTest.php` passa a ler o enum de `field` em
   `errors.items.properties.field` e a aceitar exemplos com múltiplos itens.
+
+---
+
+## ADR-044 — Data de nascimento write-once e plataforma restrita a maiores de 18
+
+### Contexto
+
+O `User` não tinha data de nascimento e nada impedia o uso por menores. O produto decidiu restringir a V1 a maiores de
+18 anos, sem modo menor, consentimento de responsável, dependentes ou acompanhantes. A idade precisa ser conhecida antes
+de qualquer progressão, mas pedi-la no ato do cadastro contraria a minimização de dados e cria atrito no pior momento do
+funil. Além disso, o login social não tem como fornecer a data no cadastro.
+
+### Decisão
+
+- A data de nascimento é um Value Object `BirthDate` no kernel (`Shared/Domain/ValueObject`), persistida em
+  `users.birth_date` e **write-once**, definida por `PATCH /api/v1/users/me/birth-date`.
+- O cadastro local e o login social criam uma **conta incompleta** (`birthDate IS NULL`), sem capacidade: não conclui
+  onboarding, não entra em grupo e não participa de atividade.
+- O onboarding exige a data já definida (`USER_BIRTH_DATE_REQUIRED`).
+- A idade **nunca é persistida**: é derivada de `BirthDate::ageAt()` em toda leitura, no fuso `America/Sao_Paulo`;
+  nascidos em 29/02 completam a idade em 01/03 dos anos não bissextos.
+- A idade mínima é `AgePolicy::MINIMUM_AGE = 18`. Se a data indicar menos de 18 anos, a conta incompleta é **removida**
+  (não suspensa), com cascata em `user_identities`, `refresh_tokens` e `identity_tokens` e remoção da projeção
+  `user_progress` via evento `user.deleted`. Conta com histórico anterior à exigência é suspensa em vez de apagada.
+- Contas incompletas que nunca definem a data são candidatas a expurgo administrativo.
+- Correções de data já definida são feitas apenas por suporte, com auditoria.
+
+### Alternativas consideradas
+
+- **Pedir a data no cadastro:** bloquearia menores imediatamente, mas aumenta atrito, exige um passo condicional para
+  menores e é inaplicável ao login social.
+- **Manter a conta bloqueada até completar 18 anos:** evita recadastro, mas reteria dados de menor sem base legal.
+- **Data de nascimento editável:** resolveria erros de digitação, mas permitiria trocar de faixa e burlar o gate.
+- **Persistir a idade ou a faixa:** simplificaria consultas, mas envelhece e exige job para liberar a maioridade.
+
+### Consequências
+
+- Migração `Version20261111120000` adiciona `users.birth_date DATE NULL`.
+- `PATCH /api/v1/users/me/birth-date` é write-once e responde `409 USER_BIRTH_DATE_ALREADY_SET` em alteração.
+- `USER_BIRTH_DATE_REQUIRED` e `USER_UNDER_MINIMUM_AGE` entram no catálogo público de Identity.
+- `GET /api/v1/users/me` passa a expor `birthDate` e `age` (derivada).
+- O expurgo de contas incompletas ainda é manual; ver [controle-parental.md](controle-parental.md).
+- O planejamento de uso por menores (faixas, consentimento, acompanhantes) fica arquivado em
+  [controle-parental.md](controle-parental.md), sem código correspondente.
+- A regra de idade não substitui a comprovação de identidade: o CPF no resgate de prêmio (`RN20.6`) continua sendo o
+  backstop.

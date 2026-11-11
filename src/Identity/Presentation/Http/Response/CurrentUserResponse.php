@@ -8,6 +8,7 @@ use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
 use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserStatus;
+use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Domain\ValueObject\Modality;
 use OpenApi\Attributes as OA;
 
@@ -23,6 +24,12 @@ final readonly class CurrentUserResponse
 
         #[OA\Property(description: 'CPF, quando definido.', example: '477.051.220-14', nullable: true)]
         public ?string $cpf,
+
+        #[OA\Property(description: 'Data de nascimento, quando definida.', example: '1990-05-12', format: 'date', nullable: true)]
+        public ?string $birthDate,
+
+        #[OA\Property(description: 'Idade em anos completos, derivada da data de nascimento.', example: 36, nullable: true)]
+        public ?int $age,
 
         #[OA\Property(format: 'email', example: 'user@example.com')]
         public string $email,
@@ -83,6 +90,8 @@ final readonly class CurrentUserResponse
         return new self(
             id: $user->id()->value(),
             cpf: $user->cpf()?->formatted(),
+            birthDate: $user->birthDate()?->value(),
+            age: $user->ageAt(Instant::now()),
             email: $user->email()->value(),
             emailVerified: $user->isEmailVerified(),
             name: $user->name(),

@@ -18,6 +18,7 @@ use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Identity\Domain\User\ValueObject\Weight;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\ValueObject\BirthDate;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
@@ -96,6 +97,9 @@ final class User
 
         #[ORM\Column(type: 'cpf', length: 11, nullable: true)]
         private ?Cpf $cpf = null,
+
+        #[ORM\Column(name: 'birth_date', type: 'birth_date', nullable: true)]
+        private ?BirthDate $birthDate = null,
     ) {
         $this->modalities = new ArrayCollection();
         $this->identities = new ArrayCollection();
@@ -221,6 +225,41 @@ final class User
     }
 
     /**
+     * Define a data de nascimento do usuário.
+     *
+     * A data é write-once: depois de definida, só pode ser repetida
+     * (idempotência), nunca alterada pelo próprio usuário.
+     *
+     * @return Result<$this>
+     */
+    public function assignBirthDate(BirthDate $birthDate): Result
+    {
+        if (null !== $this->birthDate) {
+            if ($this->birthDate->equals($birthDate)) {
+                return Result::success($this);
+            }
+
+            return Result::failure([IdentityErrors::birthDateAlreadySet()]);
+        }
+
+        $this->birthDate = $birthDate;
+        $this->touch();
+
+        return Result::success($this);
+    }
+
+    /**
+     * Indica se a conta ainda não completou os dados mínimos de uso.
+     *
+     * Contas que já concluíram o onboarding antes da exigência da data de
+     * nascimento não são retroativamente bloqueadas.
+     */
+    public function isIncomplete(): bool
+    {
+        return null === $this->birthDate && OnboardingStatus::PENDING === $this->onboardingStatus;
+    }
+
+    /**
      * Conclui o onboarding do usuário.
      *
      * RN03.1: Define os dados mínimos de progressão — as modalidades.
@@ -245,6 +284,10 @@ final class User
 
         $modalities = self::uniqueModalities($modalities);
         $errors = [];
+
+        if (null === $this->birthDate) {
+            $errors[] = IdentityErrors::birthDateRequired();
+        }
 
         if ([] === $modalities) {
             $errors[] = IdentityErrors::onboardingNoModalitySelected();
@@ -389,6 +432,16 @@ final class User
     public function cpf(): ?Cpf
     {
         return $this->cpf;
+    }
+
+    public function birthDate(): ?BirthDate
+    {
+        return $this->birthDate;
+    }
+
+    public function ageAt(Instant $now): ?int
+    {
+        return $this->birthDate?->ageAt($now);
     }
 
     /**

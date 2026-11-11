@@ -44,6 +44,19 @@ final class DoctrineUserProgressRepository extends AbstractRepository implements
         $entityManager->flush();
     }
 
+    public function deleteByUserId(PlayerId $userId): void
+    {
+        $progress = $this->findByUserId($userId);
+
+        if (null === $progress) {
+            return;
+        }
+
+        $entityManager = $this->getEntityManager();
+        $entityManager->remove($progress);
+        $entityManager->flush();
+    }
+
     /**
      * @return list<UserProgress>
      */

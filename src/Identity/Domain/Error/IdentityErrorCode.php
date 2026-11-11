@@ -16,6 +16,9 @@ enum IdentityErrorCode: string
 {
     case UserCpfAlreadyExists = 'USER_CPF_ALREADY_EXISTS';
     case UserCpfAlreadySet = 'USER_CPF_ALREADY_SET';
+    case UserBirthDateRequired = 'USER_BIRTH_DATE_REQUIRED';
+    case UserBirthDateAlreadySet = 'USER_BIRTH_DATE_ALREADY_SET';
+    case UserUnderMinimumAge = 'USER_UNDER_MINIMUM_AGE';
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
     case UserNotFound = 'USER_NOT_FOUND';
     case CannotSuspendAdmin = 'CANNOT_SUSPEND_ADMIN';
@@ -53,6 +56,7 @@ enum IdentityErrorCode: string
         return match ($this) {
             self::UserCpfAlreadyExists,
             self::UserCpfAlreadySet,
+            self::UserBirthDateAlreadySet,
             self::EmailAlreadyExists,
             self::OnboardingAlreadyCompleted,
             self::EmailAlreadyVerified,
@@ -64,6 +68,8 @@ enum IdentityErrorCode: string
             self::UserLevelInvalid,
             self::OnboardingInvalidPrimaryModality,
             self::OnboardingNoModalitySelected,
+            self::UserBirthDateRequired,
+            self::UserUnderMinimumAge,
             self::SocialProviderUnsupported,
             self::SocialEmailNotVerified,
             self::SocialEmailMissing,

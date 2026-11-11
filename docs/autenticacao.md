@@ -1,6 +1,6 @@
 # SIGAME — Autenticação e conta
 
-> **Última atualização:** 2026-11-06
+> **Última atualização:** 2026-11-11
 >
 > **Implementação:** `src/Identity/Application/UseCase/`, `src/Identity/Infrastructure/Security/`, `src/Identity/Infrastructure/Social/` e `src/Identity/Presentation/Http/Controller/`
 
@@ -85,6 +85,11 @@ O domínio persiste e compara todos os instantes em **UTC**. Datas exibidas ao u
 final — inclusive o prazo nos e-mails de verificação e reset — são convertidas para
 **America/Sao_Paulo** (UTC-3, sem horário de verão desde 2019) e formatadas como
 `dd/mm/aaaa HH:MM`.
+
+A idade derivada da data de nascimento segue a mesma regra: `BirthDate::ageAt()` compara
+datas civis em `America/Sao_Paulo`, não em UTC. Quem nasceu em 11/11 completa a idade à
+meia-noite de Brasília, não às 21h do dia anterior. Nascidos em 29/02 completam a idade
+em 01/03 dos anos não bissextos.
 
 A conversão é centralizada em
 `src/Identity/Infrastructure/Mailer/MailDateFormatter.php` e coberta por
@@ -246,6 +251,8 @@ Revoga todas as famílias do usuário autenticado. Retorna `204`.
   "data": {
     "id": "01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f",
     "cpf": "477.051.220-14",
+    "birthDate": "1990-05-12",
+    "age": 36,
     "email": "user@example.com",
     "emailVerified": true,
     "name": "John Doe",
@@ -266,6 +273,15 @@ Revoga todas as famílias do usuário autenticado. Retorna `204`.
 ```
 
 O CPF é write-once. Erros: `USER_CPF_ALREADY_SET`, `USER_CPF_ALREADY_EXISTS`, `INVALID_FORMAT`.
+
+`PATCH /api/v1/users/me/birth-date` — exige Bearer JWT.
+
+```json
+{ "birthDate": "1990-05-12" }
+```
+
+A data é write-once e é pré-requisito do onboarding. Erros: `USER_BIRTH_DATE_ALREADY_SET`, `INVALID_FORMAT`,
+`NUMBER_OUT_OF_RANGE`, `USER_UNDER_MINIMUM_AGE`. Detalhes em [seção 6](#6-data-de-nascimento-e-restrição-de-idade).
 
 ### 2.6 Erros do access token
 
@@ -621,7 +637,26 @@ Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastra
 
 ---
 
-## 6. Rate limiting
+## 6. Data de nascimento e restrição de idade
+
+A plataforma é restrita a **maiores de 18 anos** (`ADR-044`).
+
+- O cadastro não pede data de nascimento. A conta nasce **incompleta**: autentica e lê o próprio perfil, mas não
+  conclui onboarding, não entra em grupo e não participa de atividade.
+- A data é definida uma única vez em `PATCH /api/v1/users/me/birth-date` (`AAAA-MM-DD`) e não pode ser alterada pelo
+  usuário. Correção só por suporte, com auditoria.
+- O onboarding exige a data (`USER_BIRTH_DATE_REQUIRED`).
+- Se a data indicar menos de 18 anos, a conta incompleta é **removida** e a resposta é `USER_UNDER_MINIMUM_AGE`. A
+  cascata apaga identidades, refresh tokens e tokens de identidade; o evento `user.deleted` remove a projeção de
+  progresso na Gamification.
+- A idade nunca é persistida: é derivada em toda leitura, no fuso `America/Sao_Paulo`.
+
+**Limite desta regra:** a data é autodeclarada. O sistema não verifica documento nem identidade; a comprovação real
+continua sendo o CPF no resgate de prêmio (`RN20.6`). O planejamento de um modo para menores (consentimento do
+responsável, faixas de idade e acompanhantes em atividades) está arquivado em
+[controle-parental.md](controle-parental.md) e **não** está implementado.
+
+## 7. Rate limiting
 
 | Limiter | Política | Limite | Chave |
 |---|---|---|---|
@@ -646,7 +681,7 @@ Os limites são configuráveis pelas variáveis `AUTH_*_RATE_LIMIT` e `USER_CPF_
 
 ---
 
-## 7. Evolução para app nativo
+## 8. Evolução para app nativo
 
 O fluxo implementado é **authorization code + PKCE**. Para o app nativo futuro, o SDK poderá enviar um `id_token`; o backend já possui validação OIDC por JWKS e o mesmo `SocialIdentityProviderInterface`. A evolução consiste em aceitar `id_token` além de `code` no callback e adicionar o adapter do novo provedor.
 
@@ -654,7 +689,7 @@ Apple **não** está implementada nesta entrega. O enum `IdentityProvider` e o r
 
 ---
 
-## 8. Referências de código e testes
+## 9. Referências de código e testes
 
 | Assunto | Arquivo |
 |---|---|
@@ -678,6 +713,8 @@ Apple **não** está implementada nesta entrega. O enum `IdentityProvider` e o r
 | Testes do fluxo Google | `tests/Functional/Identity/Presentation/Http/SocialAuthTest.php` |
 | Testes de e-mail/senha | `tests/Functional/Identity/Presentation/Http/EmailAndPasswordTest.php` |
 | Testes de `/users/me` | `tests/Functional/Identity/Presentation/Http/MeTest.php` |
+| Data de nascimento e idade | `src/Shared/Domain/ValueObject/BirthDate.php` e `tests/Unit/Shared/Domain/ValueObject/BirthDateTest.php` |
+| Testes HTTP de data de nascimento | `tests/Functional/Identity/Presentation/Http/BirthDateTest.php` |
 | Testes de hardening HTTP (401/403/429, cookie e origem) | `tests/Functional/Identity/Presentation/Http/AuthHardeningTest.php` |
 | Testes dos use cases de verificação de e-mail | `tests/Unit/Identity/Application/UseCase/EmailVerification/` |
 | Testes dos use cases de senha | `tests/Unit/Identity/Application/UseCase/Password/` |

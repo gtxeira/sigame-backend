@@ -2,9 +2,9 @@
 
 > **Status:** Em revisão
 >
-> **Versão:** 0.7
+> **Versão:** 0.8
 >
-> **Última atualização:** 2026-11-10
+> **Última atualização:** 2026-11-11
 >
 > **Fonte:** levantamento inicial, especificação de requisitos e proposta arquitetural do SIGAME.
 
@@ -147,7 +147,8 @@ administrativos globais.
 ### RF01 — Cadastrar usuário
 
 O sistema deve permitir o cadastro de usuário com e-mail, senha e dados cadastrais mínimos. O CPF é opcional no
-cadastro.
+cadastro. A data de nascimento não é solicitada no ato do cadastro: ela é definida em endpoint próprio e é
+pré-requisito do onboarding. A plataforma é restrita a maiores de 18 anos.
 
 #### Regras
 
@@ -167,6 +168,15 @@ cadastro.
   vínculo só ocorre após o usuário autenticar na conta e confirmar a vinculação.
 - `RN01.12` O CPF é exigido apenas para resgatar recompensas/vouchers externos à plataforma, como comprovação de
   identidade real e prevenção de ganhos indevidos.
+- `RN01.13` A data de nascimento é definida pelo endpoint autenticado `PATCH /api/v1/users/me/birth-date`, nunca no
+  ato do cadastro, e é **write-once**: depois de definida, o próprio usuário não pode alterá-la.
+- `RN01.14` A plataforma é restrita a maiores de 18 anos. A idade é derivada da data de nascimento; se a data
+  informada indicar menos de 18 anos, a conta é removida e a resposta é `USER_UNDER_MINIMUM_AGE`.
+- `RN01.15` A idade nunca é persistida. É calculada em toda leitura, no fuso `America/Sao_Paulo`; nascidos em 29/02
+  completam a idade em 01/03 dos anos não bissextos.
+- `RN01.16` Conta sem data de nascimento é **incompleta**: autentica, mas não conclui onboarding, não entra em grupo,
+  não participa de atividade e não acumula progressão.
+- `RN01.17` A correção de uma data de nascimento já definida é feita apenas por suporte, com registro de auditoria.
 
 #### Critérios de aceitação
 
@@ -178,6 +188,16 @@ cadastro.
 - `CA01.6` Um cadastro sem CPF é permitido.
 - `CA01.7` Um CPF já definido não pode ser alterado pelo próprio usuário.
 - `CA01.8` Um CPF informado por outro usuário não pode ser reutilizado.
+- `CA01.9` O cadastro é aceito sem data de nascimento e a conta nasce incompleta.
+- `CA01.10` A definição da data de nascimento fora do formato `AAAA-MM-DD`, inexistente no calendário, no futuro ou
+  anterior a 1900 é recusada.
+- `CA01.11` Uma data de nascimento que indique menos de 18 anos é recusada com `USER_UNDER_MINIMUM_AGE` e a conta
+  incompleta é removida.
+- `CA01.12` A data de nascimento definida não pode ser alterada pelo próprio usuário.
+- `CA01.13` Repetir a mesma data de nascimento é idempotente.
+- `CA01.14` Uma conta sem data de nascimento não conclui o onboarding.
+- `CA01.15` A resposta de leitura da própria conta expõe a data de nascimento e a idade derivada, nunca a idade
+  persistida.
 
 ### RF02 — Autenticar usuário
 
@@ -221,6 +241,8 @@ O sistema deve executar o onboarding inicial e controlar sua conclusão.
 - `RN03.3` O usuário pode selecionar uma ou mais modalidades.
 - `RN03.4` Uma modalidade ativa pode ser definida como principal.
 - `RN03.5` Alterar a modalidade principal não remove histórico nem XP.
+- `RN03.6` A data de nascimento é pré-requisito do onboarding: sem ela, a conclusão é recusada com
+  `USER_BIRTH_DATE_REQUIRED`.
 
 #### Critérios de aceitação
 
@@ -229,6 +251,10 @@ O sistema deve executar o onboarding inicial e controlar sua conclusão.
 - `CA03.3` A conclusão válida eleva o usuário ao nível 2.
 - `CA03.4` O usuário pode ter mais de uma modalidade ativa.
 - `CA03.5` Alterar a modalidade principal preserva o histórico de atividades e XP.
+- `CA03.6` Um onboarding sem data de nascimento é recusado e a conta permanece pendente.
+- `CA03.7` Um onboarding válido com data de nascimento de maior de 18 anos eleva o usuário ao nível 2.
+- `CA03.8` A recusa por data de nascimento ausente não consome a conclusão: depois de definir a data, o onboarding pode
+  ser concluído.
 
 #### Matriz de exemplos — onboarding e modalidades
 
@@ -1149,6 +1175,7 @@ Dados sensíveis não devem ser expostos a usuários sem autorização.
 #### Dados sensíveis mínimos
 
 - CPF;
+- data de nascimento;
 - e-mail;
 - telefone;
 - peso;
@@ -1167,6 +1194,10 @@ Dados sensíveis não devem ser expostos a usuários sem autorização.
 - `CA19.6` Notificações não expõem CPF, telefone, senha, tokens ou notas internas.
 - `CA19.7` Ler notificação de outro usuário retorna `404`.
 - `CA19.8` O token Mercure não permite publicar e só assina o tópico do próprio usuário.
+- `CA19.9` A data de nascimento não é exposta em listagem administrativa nem em resposta de outro usuário.
+- `CA19.10` A plataforma não aceita usuários menores de 18 anos e não mantém dados de conta de menor.
+- `CA19.11` Conta removida por idade não deixa projeção de progresso órfã.
+- `CA19.12` A API não expõe campo que afirme verificação de idade ou de tutela além do consentimento informado.
 
 > `DEC06` — Definir a visão de perfil para o próprio usuário, membros do mesmo grupo, administradores e administração
 > SIGAME. A matriz de notificações já limita o conteúdo ao público indicado no catálogo.
@@ -1346,6 +1377,9 @@ em [../implementacao.md](../implementacao.md#3-decisões-em-aberto). As decisõe
 (`DEC01`, `DEC10`, `DEC11` e `DEC12`), da Fase 6 (`DEC02` e `DEC03`), as decisões anteriores (`DEC09`, `DEC13`, `DEC14`)
 e as decisões arquiteturais estão em [../decisoes.md](../decisoes.md).
 
+O planejamento de uso por menores que **não** entrou na V1 está em
+[../controle-parental.md](../controle-parental.md).
+
 Ao fechar uma decisão:
 
 1. registre contexto, decisão, alternativas e consequências em `../decisoes.md`;
@@ -1375,6 +1409,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | `RF13` Deleveling          | `CA13.1`–`CA13.15` | Testes de datas, piso, 98% ao cair e idempotência                 |
 | `RF15` Notificações        | `CA15.1`–`CA15.20` | Testes de catálogo, isolamento, leitura, idempotência e Mercure   |
 | `RF18` Contas              | `CA18.1`–`CA18.15` | Testes de autorização, suspensão, sessão, histórico e privacidade |
+| `RF01`/`RF03` Idade        | `CA01.9`–`CA01.15`, `CA03.6`–`CA03.8` | Testes de `BirthDate`, write-once, faixa de 18 anos e pré-requisito do onboarding |
 | `RF20` Vouchers            | `CA21.1`–`CA21.5`  | Testes de unicidade e concorrência                                |
 
 ### Tipos de teste
@@ -1400,6 +1435,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | 0.5    | 2026-11-09 | Fase 5: atividades, inscrição, conflito, presença, duração opcional e fechamento automático                                                | Gustavo Teixeira de Sousa      |
 | 0.6    | 2026-11-09 | Fase 6: curva de níveis, XP por atividade, bônus de grupo e fim de semana, ofensiva semanal e deleveling                                   | Gustavo Teixeira de Sousa      |
 | 0.7    | 2026-11-10 | Fase 7: notificações multicanal com sino e Mercure, leitura, administração de contas e suspensão/reativação; denúncias e bloqueios adiados | Gustavo Teixeira de Sousa      |
+| 0.8    | 2026-11-11 | Data de nascimento write-once via endpoint, plataforma restrita a maiores de 18 anos e conta incompleta; planejamento de controle parental arquivado em `docs/controle-parental.md` | Gustavo Teixeira de Sousa      |
 
 ---
 

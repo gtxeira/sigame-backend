@@ -269,6 +269,7 @@ it('documents every public api operation', function () {
             '/api/v1/auth/password/forgot',
             '/api/v1/auth/password/reset',
             '/api/v1/users/me',
+            '/api/v1/users/me/birth-date',
             '/api/v1/users/me/cpf',
             '/api/v1/users/me/identities/{provider}',
             '/api/v1/users/me/onboarding',

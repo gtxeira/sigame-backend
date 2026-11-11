@@ -59,7 +59,8 @@ final class OnboardingController extends AbstractController
      *
      * Define os dados mínimos de perfil do usuário autenticado e o promove ao
      * nível 2. A operação pode ser executada uma única vez; tentativas
-     * posteriores são recusadas com conflito.
+     * posteriores são recusadas com conflito. Exige a data de nascimento já
+     * definida.
      */
     #[Route('/users/me/onboarding', name: 'app_me_onboarding', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
@@ -99,10 +100,17 @@ final class OnboardingController extends AbstractController
                 summary: 'Modalidade principal inválida',
                 description: 'A modalidade principal informada não está entre as modalidades selecionadas.',
             ),
+            'USER_BIRTH_DATE_REQUIRED' => new ApiErrorExample(
+                message: 'A data de nascimento é obrigatória para concluir o onboarding.',
+                field: 'birthDate',
+                summary: 'Data de nascimento ausente',
+                description: 'A data de nascimento deve ser definida em PATCH /users/me/birth-date antes do onboarding.',
+            ),
         ],
         fields: [
             'modalities' => 'Modalidades praticadas.',
             'primaryModality' => 'Modalidade principal.',
+            'birthDate' => 'Data de nascimento definida previamente.',
         ],
     )]
     #[TooManyRequestsResponse]

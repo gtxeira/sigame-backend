@@ -13,8 +13,10 @@ use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Identity\Domain\User\ValueObject\Weight;
+use App\Shared\Domain\ValueObject\BirthDate;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
+use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Domain\ValueObject\Modality;
 
 /**
@@ -22,12 +24,16 @@ use App\Shared\Domain\ValueObject\Modality;
  */
 function makeUser(): User
 {
-    return User::register(
+    $user = User::register(
         cpf: Cpf::fromString('52998224725')->value(),
         email: Email::fromString('test@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'João Silva',
     );
+
+    $user->assignBirthDate(BirthDate::fromString('1990-05-12')->value());
+
+    return $user;
 }
 
 it('creates a new user via register factory method', function () {
@@ -43,6 +49,7 @@ it('creates a new user via register factory method', function () {
     );
 
     expect($user->cpf()?->value())->toBe($cpf->value())
+        ->and($user->birthDate())->toBeNull()
         ->and($user->email()->value())->toBe($email->value())
         ->and($user->password()?->value())->toBe($password->value())
         ->and($user->name())->toBe('João Silva')
@@ -60,7 +67,12 @@ it('creates a new user via register factory method', function () {
 });
 
 it('initializes updatedAt with the same instant as createdAt', function () {
-    $user = makeUser();
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('updated-at-initial@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'João Silva',
+    );
 
     expect($user->updatedAt()->equals($user->createdAt()))->toBeTrue();
 });
@@ -304,6 +316,45 @@ it('rejects changing an already defined cpf', function () {
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::UserCpfAlreadySet->value)
         ->and($user->cpf()?->value())->toBe($originalCpf);
+});
+
+it('defines the birth date once and keeps it immutable', function () {
+    $user = makeUser();
+    $original = $user->birthDate()?->value();
+
+    $same = $user->assignBirthDate(BirthDate::fromString('1990-05-12')->value());
+
+    expect($same->isSuccess())->toBeTrue()
+        ->and($user->birthDate()?->value())->toBe($original);
+
+    $different = $user->assignBirthDate(BirthDate::fromString('1991-01-01')->value());
+
+    expect($different->isFailure())->toBeTrue()
+        ->and($different->errors()[0]->code)->toBe(IdentityErrorCode::UserBirthDateAlreadySet->value)
+        ->and($user->birthDate()?->value())->toBe($original);
+});
+
+it('derives the age from the birth date', function () {
+    $user = makeUser();
+
+    expect($user->ageAt(Instant::fromString('2026-11-11T12:00:00-03:00')->value()))->toBe(36)
+        ->and($user->ageAt(Instant::fromString('2027-05-11T12:00:00-03:00')->value()))->toBe(36)
+        ->and($user->ageAt(Instant::fromString('2027-05-12T12:00:00-03:00')->value()))->toBe(37);
+});
+
+it('flags an account without birth date as incomplete', function () {
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('incomplete@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'Incomplete User',
+    );
+
+    expect($user->isIncomplete())->toBeTrue();
+
+    $user->assignBirthDate(BirthDate::fromString('1990-05-12')->value());
+
+    expect($user->isIncomplete())->toBeFalse();
 });
 
 it('promotes and demotes an admin account idempotently', function () {

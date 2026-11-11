@@ -16,6 +16,8 @@ interface UserProgressRepositoryInterface
 
     public function save(UserProgress $progress): void;
 
+    public function deleteByUserId(PlayerId $userId): void;
+
     /**
      * @return list<UserProgress>
      */

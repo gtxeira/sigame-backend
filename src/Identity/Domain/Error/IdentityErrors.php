@@ -32,6 +32,33 @@ final class IdentityErrors
         );
     }
 
+    public static function birthDateRequired(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::UserBirthDateRequired,
+            message: 'A data de nascimento é obrigatória para concluir o onboarding.',
+            field: 'birthDate',
+        );
+    }
+
+    public static function birthDateAlreadySet(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::UserBirthDateAlreadySet,
+            message: 'A data de nascimento já foi definida e não pode ser alterada.',
+            field: 'birthDate',
+        );
+    }
+
+    public static function underMinimumAge(int $minimumAge): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::UserUnderMinimumAge,
+            message: sprintf('É necessário ter pelo menos %d anos para usar a plataforma.', $minimumAge),
+            field: 'birthDate',
+        );
+    }
+
     public static function emailAlreadyExists(): DomainError
     {
         return self::error(

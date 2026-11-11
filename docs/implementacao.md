@@ -2,7 +2,7 @@
 
 > **Status:** documento de trabalho
 >
-> **Última atualização:** 2026-11-10
+> **Última atualização:** 2026-11-11
 >
 > **Finalidade:** registrar o estado da implementação, o roadmap, as decisões ainda abertas, o histórico de migrations e
 > as dívidas técnicas.
@@ -51,6 +51,7 @@ atualizado no levantamento.
 | Logout e logout de todos os dispositivos                                                                                               | Implementado  | `src/Identity/Application/UseCase/Logout/`                                                                    |
 | Dados do usuário autenticado                                                                                                           | Implementado  | `src/Identity/Presentation/Http/Controller/MeController.php`                                                  |
 | Definição de CPF write-once                                                                                                            | Implementado  | `AssignCpfHandler` e `PATCH /api/v1/users/me/cpf`                                                             |
+| Data de nascimento write-once e restrição a maiores de 18                                                                              | Implementado  | `BirthDate`, `AssignBirthDateHandler` e `PATCH /api/v1/users/me/birth-date`                                   |
 | Rate limiting de cadastro, login, social, e-mail, senha, refresh, CPF, perfil, fotos, grupos, atividades, notificações e administração | Implementado  | `config/packages/rate_limiter.php`                                                                            |
 | Health checks                                                                                                                          | Implementado  | `src/Monitoring/`                                                                                             |
 | Onboarding de modalidades                                                                                                              | Implementado  | `CompleteOnboardingHandler` e `POST /api/v1/users/me/onboarding`                                              |
@@ -98,6 +99,7 @@ Rotas confirmadas por `bin/console debug:router`:
 | `POST`   | `/api/v1/auth/logout/all`                                     | Bearer JWT                                 |
 | `GET`    | `/api/v1/users/me`                                            | Bearer JWT                                 |
 | `PATCH`  | `/api/v1/users/me/cpf`                                        | Bearer JWT                                 |
+| `PATCH`  | `/api/v1/users/me/birth-date`                                 | Bearer JWT                                 |
 | `PATCH`  | `/api/v1/users/me/profile`                                    | Bearer JWT                                 |
 | `POST`   | `/api/v1/users/me/photo`                                      | Bearer JWT                                 |
 | `DELETE` | `/api/v1/users/me/photo`                                      | Bearer JWT                                 |
@@ -174,6 +176,7 @@ comportamento pelo caminho do chamador estiverem verdes.
 - [x] `RegistrationController`.
 - [x] Migrations Doctrine.
 - [x] Testes de unidade, integração e HTTP do cadastro.
+- [x] Data de nascimento write-once, conta incompleta e restrição a maiores de 18 (`ADR-044`).
 
 ### Fase 2 — Identity: autenticação
 
@@ -501,6 +504,10 @@ tomada, mova o registro para [decisoes.md](decisoes.md) e atualize o requisito r
 Adiado para a V1.1: o simulador de XP (`POST /api/v1/gamification/xp-simulator`) descrito na subseção 6.13 do roadmap.
 Na V1, o catálogo de regras permite exibir a faixa de XP e o histórico entrega o valor real concedido.
 
+O planejamento de uso por menores que **não** entrou na V1 (faixas de idade, consentimento do responsável, exposição
+mínima, acompanhantes em atividades e expurgo de contas incompletas) está arquivado em
+[controle-parental.md](controle-parental.md).
+
 Decisões fechadas na Fase 5:
 
 | ID      | Decisão                                               | ADR                                                                                  |
@@ -569,6 +576,8 @@ entrypoint do container.
 | `Version20261110000000` | 2026-11-10 | Cria `user_progress` e `xp_events`; backfill a partir de `users.level` e das presenças validadas.                              |
 | `Version20261110145733` | 2026-11-10 | Cria `notifications`, `notification_deliveries` e `user_suspensions`; índices de inbox e histórico.                            |
 | `Version20261110150000` | 2026-11-10 | Amplia `users.role` para 20 caracteres para suportar `ADMIN_SIGAME`.                                                           |
+| `Version20261110183601` | 2026-11-10 | Adiciona `groups.max_members` (nulo = grupo ilimitado).                                                                        |
+| `Version20261111120000` | 2026-11-11 | Adiciona `users.birth_date DATE NULL`, preenchida pelo endpoint write-once e exigida no onboarding.                            |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou
 de URL para chave de objeto em `Version20261108120000`.

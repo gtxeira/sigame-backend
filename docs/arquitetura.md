@@ -4,7 +4,7 @@
 >
 > **Versão:** 0.5
 >
-> **Última atualização:** 2026-11-10
+> **Última atualização:** 2026-11-11
 >
 > **Autor:** Gustavo Teixeira de Sousa
 
@@ -351,6 +351,21 @@ O CPF é opcional no cadastro local e social. Quando informado, é único (índi
 
 A decisão completa está em [decisoes.md](decisoes.md#adr-005--cpf-opcional-e-write-once).
 
+### 4.5.1 Data de nascimento e idade
+
+`BirthDate` é um Value Object do kernel (`Shared/Domain/ValueObject`) porque a idade é uma regra de acesso consumida
+por mais de um módulo. O `User` guarda apenas `users.birth_date DATE NULL`.
+
+- A data é **write-once**: `User::assignBirthDate()` é idempotente e recusa alteração.
+- A idade **não é persistida**: `BirthDate::ageAt()` deriva em `America/Sao_Paulo` e `AgePolicy::MINIMUM_AGE` define o
+  mínimo de 18 anos.
+- Conta sem data é `User::isIncomplete()`: não conclui onboarding e não exerce capacidade social.
+- A remoção de conta por idade dispara `UserDeleted` (`user.deleted`), consumido pela Gamification para apagar
+  `user_progress`, que não tem FK para `users`.
+- `OnboardingStatus` não ganhou estados novos: não existe modo menor.
+
+A decisão completa está em [decisoes.md](decisoes.md#adr-044--data-de-nascimento-write-once-e-plataforma-restrita-a-maiores-de-18).
+
 ### 4.6 Agregado `Group` (módulo Groups)
 
 A raiz do agregado mantém os dados do grupo, o criador e as participações. O criador é registrado em `created_by`, independente do papel de administrador, e o grupo pode ter vários admins.
@@ -673,6 +688,7 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `POST` | `/api/v1/auth/logout/all` | `AuthController::logoutAll` | Bearer JWT |
 | `GET` | `/api/v1/users/me` | `MeController::me` | Bearer JWT |
 | `PATCH` | `/api/v1/users/me/cpf` | `MeController::assignCpf` | Bearer JWT |
+| `PATCH` | `/api/v1/users/me/birth-date` | `MeController::assignBirthDate` | Bearer JWT |
 | `POST` | `/api/v1/users/me/onboarding` | `OnboardingController::complete` | Bearer JWT |
 | `POST` | `/api/v1/users/me/password` | `MePasswordController::change` | Bearer JWT |
 | `POST` | `/api/v1/users/me/identities/{provider}` | `MeIdentityController::link` | Bearer JWT |

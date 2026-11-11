@@ -14,6 +14,7 @@ use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Identity\Domain\User\ValueObject\UserStatus;
 use App\Identity\Domain\User\ValueObject\Weight;
+use App\Shared\Domain\ValueObject\BirthDate;
 use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Modality;
@@ -22,12 +23,16 @@ use Doctrine\ORM\EntityManagerInterface;
 
 function makeUserWith(string $cpf, string $email, string $plainPassword, string $name): User
 {
-    return User::register(
+    $user = User::register(
         cpf: Cpf::fromString($cpf)->value(),
         email: Email::fromString($email)->value(),
         password: HashedPassword::fromHash($plainPassword),
         name: $name,
     );
+
+    $user->assignBirthDate(BirthDate::fromString('1990-05-12')->value());
+
+    return $user;
 }
 
 it('persists and reloads profile data and modalities', function () {
@@ -75,6 +80,46 @@ it('persists and reloads profile data and modalities', function () {
         ->and($found->primaryModality())->toBe(Modality::RUNNING)
         ->and($found->hasModality(Modality::WALKING))->toBeTrue()
         ->and($found->hasModality(Modality::CYCLING))->toBeFalse();
+});
+
+it('persists the birth date as a date without time', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+    $em = $this->service(EntityManagerInterface::class);
+
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'birth-date@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Maria Silva',
+    );
+
+    $repository->save($user);
+    $em->clear();
+
+    $found = $repository->findById($user->id());
+
+    assert($found instanceof User);
+
+    expect($found->birthDate()?->value())->toBe('1990-05-12');
+});
+
+it('deletes a user and its identities', function () {
+    $repository = $this->service(UserRepositoryInterface::class);
+    $em = $this->service(EntityManagerInterface::class);
+
+    $user = makeUserWith(
+        cpf: '52998224725',
+        email: 'delete@example.com',
+        plainPassword: 'hashed_password_123',
+        name: 'Delete User',
+    );
+    $repository->save($user);
+
+    $repository->delete($user);
+    $em->clear();
+
+    expect($repository->findById($user->id()))->toBeNull()
+        ->and($repository->findByEmail(Email::fromString('delete@example.com')->value()))->toBeNull();
 });
 
 it('reloads a user without onboarding data', function () {
@@ -126,7 +171,7 @@ it('allows only one primary modality per user', function () {
     );
 })->throws(UniqueConstraintViolationException::class);
 
-it('persists updatedAt equal to createdAt and advances it after changes', function () {
+it('persists timestamps and advances updatedAt after changes', function () {
     $repository = $this->service(UserRepositoryInterface::class);
     $em = $this->service(EntityManagerInterface::class);
 
@@ -146,7 +191,7 @@ it('persists updatedAt equal to createdAt and advances it after changes', functi
     assert($found instanceof User);
 
     expect($found->createdAt()->equals($createdAt))->toBeTrue()
-        ->and($found->updatedAt()->equals($found->createdAt()))->toBeTrue();
+        ->and($found->updatedAt()->isBefore($found->createdAt()))->toBeFalse();
 
     $found->completeOnboarding(
         modalities: [Modality::WALKING],

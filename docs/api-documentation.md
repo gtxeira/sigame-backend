@@ -1,6 +1,6 @@
 # SIGAME — Documentação da API (OpenAPI)
 
-> **Última atualização:** 2026-11-10
+> **Última atualização:** 2026-11-11
 >
 > **Implementação:** `config/packages/nelmio_api_doc.php`, `src/Shared/Presentation/Http/OpenApi/` e atributos `OpenApi\Attributes` nos controllers.
 
@@ -28,7 +28,7 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Autenticação social` | `/auth/social/{provider}/start`, `/auth/social/{provider}/callback`, `/auth/social/{provider}/link`, `/users/me/identities/{provider}` | Mecanismo de autenticação | Ciclo OAuth e vínculo de identidades sociais. |
 | `Verificação de e-mail` | `/auth/email/verify`, `/auth/email/verification/resend` | Ciclo de vida do recurso | Confirmação pública e reenvio autenticado do e-mail canônico. |
 | `Senha` | `/auth/password/forgot`, `/auth/password/reset`, `/users/me/password` | Ciclo de vida do recurso | Recuperação pública, redefinição por token e troca autenticada. |
-| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo`, `/users/me/groups`, `/users/me/activities` | Responsabilidade/intenção (self-service) | Dados, foto, grupos e atividades do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
+| `Minha conta` | `/users/me`, `/users/me/cpf`, `/users/me/birth-date`, `/users/me/profile`, `/users/me/photo`, `/users/me/groups`, `/users/me/activities` | Responsabilidade/intenção (self-service) | Dados, foto, grupos e atividades do próprio usuário autenticado, sem `{id}` e sem privilégio administrativo. |
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
 | `Grupos` | `/groups`, `/groups/{id}`, `/groups/{id}/memberships`, `/groups/{id}/supervisor` | Recurso/entidade de domínio (REST) | Ciclo de vida do grupo, das participações e do supervisor. |
 | `Atividades` | `/groups/{groupId}/activities`, `/activities/{id}`, `/activities/{id}/enrollments`, `/activities/{id}/attendances` | Recurso/entidade de domínio (REST) | Ciclo de vida, inscrição, check-in e presença em atividades. |
@@ -43,7 +43,7 @@ A tag `Usuários` agora aparece no documento gerado com a administração global
 ## 3. Decisão sobre `/users`
 
 - `/admin/users` e `/admin/users/{id}` compartilham a tag `Usuários`, pelo critério de recurso.
-- `/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo` e `/users/me/groups` ficam em `Minha conta`, pelo critério de intenção self-service.
+- `/users/me`, `/users/me/cpf`, `/users/me/birth-date`, `/users/me/profile`, `/users/me/photo` e `/users/me/groups` ficam em `Minha conta`, pelo critério de intenção self-service.
 - As demais rotas `/users/me/*` ficam na tag do respectivo ciclo de vida: `POST /users/me/password` em `Senha`, `POST /users/me/identities/{provider}` em `Autenticação social` e `POST /users/me/onboarding` em `Onboarding`. O perfil e a foto permanecem em `Minha conta`.
 - A separação entre a coleção e o item não é feita por tag; as operações aparecem como entradas distintas dentro de `Usuários`.
 - Se no futuro a coleção e o item tiverem públicos ou ciclos de vida diferentes (por exemplo, `/users` restrito a administradores e `/users/{id}` self-service), a separação passa a ser justificada.
@@ -77,7 +77,7 @@ Toda tag documentada deve pertencer a exatamente um grupo, e todo grupo deve ref
 
 1. Classifique primeiro pelo ciclo de vida do recurso.
 2. Se a ação é entrada na conta com credencial local, use `Autenticação`; se gerencia a sessão, use `Sessão`; se é OAuth ou vínculo de identidade social, use `Autenticação social`.
-3. Se a ação pertence a um ciclo com semântica própria, use a tag do ciclo (`Senha`, `Verificação de e-mail`, `Onboarding`). `Minha conta` fica reservada aos dados e à foto do perfil (`/users/me`, `/users/me/cpf`, `/users/me/profile`, `/users/me/photo`).
+3. Se a ação pertence a um ciclo com semântica própria, use a tag do ciclo (`Senha`, `Verificação de e-mail`, `Onboarding`). `Minha conta` fica reservada aos dados e à foto do perfil (`/users/me`, `/users/me/cpf`, `/users/me/birth-date`, `/users/me/profile`, `/users/me/photo`).
 4. Se o mecanismo de autenticação é diferente do Bearer JWT, crie uma tag própria (por exemplo, `Webhooks`).
 5. Se o endpoint é de infraestrutura, monitoramento ou diagnóstico, use `Saúde`.
 6. Ao criar uma tag, adicione a descrição em `documentation.tags` e inclua-a em um grupo de `documentation.x-tagGroups`.

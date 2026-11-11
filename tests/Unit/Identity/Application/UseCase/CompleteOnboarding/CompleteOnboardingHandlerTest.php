@@ -12,17 +12,24 @@ use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
 use App\Identity\Domain\User\ValueObject\UserId;
 use App\Shared\Application\Event\EventDispatcherInterface;
+use App\Shared\Domain\ValueObject\BirthDate;
 use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Modality;
 
-function completeOnboardingTestUser(): User
+function completeOnboardingTestUser(bool $withBirthDate = true): User
 {
-    return User::register(
+    $user = User::register(
         cpf: null,
         email: Email::fromString('onboarding@example.com')->value(),
         password: HashedPassword::fromHash('hashed_password_123'),
         name: 'Onboarding User',
     );
+
+    if ($withBirthDate) {
+        $user->assignBirthDate(BirthDate::fromString('1990-05-12')->value());
+    }
+
+    return $user;
 }
 
 /**
@@ -102,6 +109,40 @@ it('completes onboarding without optional profile data', function () {
         ->and($user->height())->toBeNull()
         ->and($user->weight())->toBeNull()
         ->and($user->modalities())->toBe([Modality::CYCLING]);
+});
+
+it('rejects onboarding without a birth date', function () {
+    $user = completeOnboardingTestUser(withBirthDate: false);
+
+    $this->userRepository->shouldReceive('findById')->once()->andReturn($user);
+    $this->userRepository->shouldNotReceive('save');
+    $this->eventDispatcher->shouldNotReceive('dispatch');
+
+    $result = ($this->handler)(completeOnboardingTestCommand($user));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe(IdentityErrorCode::UserBirthDateRequired->value)
+        ->and($user->onboardingStatus())->toBe(OnboardingStatus::PENDING)
+        ->and($user->modalities())->toBe([]);
+});
+
+it('accumulates the missing birth date with the missing modality', function () {
+    $user = completeOnboardingTestUser(withBirthDate: false);
+
+    $this->userRepository->shouldReceive('findById')->once()->andReturn($user);
+    $this->userRepository->shouldNotReceive('save');
+    $this->eventDispatcher->shouldNotReceive('dispatch');
+
+    $result = ($this->handler)(completeOnboardingTestCommand($user, modalities: []));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and(array_map(
+            static fn ($error): string => $error->code,
+            $result->errors(),
+        ))->toBe([
+            IdentityErrorCode::UserBirthDateRequired->value,
+            IdentityErrorCode::OnboardingNoModalitySelected->value,
+        ]);
 });
 
 it('throws when the authenticated user does not exist', function () {

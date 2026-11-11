@@ -60,6 +60,13 @@ final class DoctrineUserRepository extends AbstractRepository implements UserRep
         }
     }
 
+    public function delete(User $user): void
+    {
+        $entityManager = $this->getEntityManager();
+        $entityManager->remove($user);
+        $entityManager->flush();
+    }
+
     public function findById(UserId $id): ?User
     {
         return $this->find($id->value());

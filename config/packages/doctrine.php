@@ -37,6 +37,7 @@ use App\Notifications\Infrastructure\Persistence\ORM\Type\NotificationDeliveryId
 use App\Notifications\Infrastructure\Persistence\ORM\Type\NotificationIdType;
 use App\Notifications\Infrastructure\Persistence\ORM\Type\NotificationRecipientIdType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\BaseIdType;
+use App\Shared\Infrastructure\Persistence\ORM\Type\BirthDateType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\CpfType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\EmailType;
 use App\Shared\Infrastructure\Persistence\ORM\Type\InstantType;
@@ -56,6 +57,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'user_id' => UserIdType::class,
                 'email' => EmailType::class,
                 'cpf' => CpfType::class,
+                'birth_date' => BirthDateType::class,
                 'hashed_password' => HashedPasswordType::class,
                 'user_level' => UserLevelType::class,
                 'height' => HeightType::class,
