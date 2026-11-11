@@ -607,7 +607,7 @@ O cadastro local envia um link para `FRONTEND_URL/auth/verify?token=...`. O fron
 { "email": "user@example.com" }
 ```
 
-Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo token nem novo e-mail. Limite: 5 tentativas por minuto por e-mail + IP.
+Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. O link aponta para `FRONTEND_URL/redefinir-senha?token=<token>`; o front remove o token da URL depois de lê-lo e chama o endpoint de redefinição. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo token nem novo e-mail. Limite: 5 tentativas por minuto por e-mail + IP.
 
 ### 5.2 Redefinir
 

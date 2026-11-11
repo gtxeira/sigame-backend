@@ -50,7 +50,7 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
             subject: 'Redefinição de senha do SIGAME',
             template: 'email/password_reset.html.twig',
             context: [
-                'url' => $this->frontendUrl.'/auth/reset-password?token='.urlencode($token),
+                'url' => $this->frontendUrl.'/redefinir-senha?token='.urlencode($token),
                 'expiresAt' => MailDateFormatter::format($expiresAt),
             ],
         );

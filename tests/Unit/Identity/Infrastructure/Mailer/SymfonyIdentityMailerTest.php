@@ -95,7 +95,7 @@ it('renders the password reset email date in America/Sao_Paulo', function () {
     expect($rendered)
         ->toContain('06/11/2026 23:30')
         ->not->toContain('07/11/2026 02:30')
-        ->toContain('https://app.example.com/auth/reset-password?token=reset-456')
+        ->toContain('https://app.example.com/redefinir-senha?token=reset-456')
         ->and($email->getSubject())->toBe('Redefinição de senha do SIGAME');
 });
 
