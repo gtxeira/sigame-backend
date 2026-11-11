@@ -36,7 +36,7 @@ it('registers a user successfully', function () {
     $this->userRepository
         ->shouldReceive('findByCpf')
         ->once()
-        ->with($cpf)
+        ->with(Mockery::on(static fn (Cpf $value): bool => $value->value() === $cpf))
         ->andReturn(null);
 
     $this->userRepository
@@ -118,9 +118,9 @@ it('returns failure with expected validation errors', function (string $cpf, str
     expect($errors)->toHaveCount(count($expectedCodes))
         ->and(array_map(static fn ($error) => $error->code, $errors))->toBe($expectedCodes);
 })->with([
-    'invalid cpf' => ['invalid', 'test@example.com', ['CPF_INVALID']],
-    'invalid email' => ['52998224725', 'invalid-email', ['EMAIL_INVALID']],
-    'invalid cpf and email' => ['invalid', 'invalid-email', ['CPF_INVALID', 'EMAIL_INVALID']],
+    'invalid cpf' => ['invalid', 'test@example.com', ['INVALID_FORMAT']],
+    'invalid email' => ['52998224725', 'invalid-email', ['INVALID_FORMAT']],
+    'invalid cpf and email' => ['invalid', 'invalid-email', ['INVALID_FORMAT', 'INVALID_FORMAT']],
 ]);
 
 it('returns failure when cpf already exists', function () {
@@ -137,6 +137,10 @@ it('returns failure when cpf already exists', function () {
     $this->userRepository
         ->shouldReceive('findByCpf')
         ->andReturn($existingUser);
+
+    $this->userRepository
+        ->shouldReceive('findByEmail')
+        ->andReturn(null);
 
     $command = new RegisterUserCommand(
         cpf: $cpf,
@@ -244,6 +248,10 @@ it('does not save user on business rule violation', function () {
     $this->userRepository
         ->shouldReceive('findByCpf')
         ->andReturn($existingUser);
+
+    $this->userRepository
+        ->shouldReceive('findByEmail')
+        ->andReturn(null);
 
     $this->userRepository->shouldNotReceive('save');
     $this->eventDispatcher->shouldNotReceive('dispatch');

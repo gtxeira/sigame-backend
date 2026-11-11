@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Activities\Domain\Activity\ValueObject;
 
-use App\Activities\Domain\Error\ActivityErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 final readonly class ActivityDescription
@@ -22,9 +22,18 @@ final readonly class ActivityDescription
     {
         $normalized = trim($value);
 
-        if ('' === $normalized || mb_strlen($normalized) > self::MAX_LENGTH) {
+        if ('' === $normalized) {
             return ValidationResult::invalid([
-                ActivityErrors::descriptionInvalid(self::MAX_LENGTH),
+                ValidationErrors::fieldRequired('description', 'A descrição não pode ser vazia.'),
+            ]);
+        }
+
+        if (mb_strlen($normalized) > self::MAX_LENGTH) {
+            return ValidationResult::invalid([
+                ValidationErrors::stringTooLong(
+                    'description',
+                    sprintf('A descrição da atividade deve ter no máximo %d caracteres.', self::MAX_LENGTH),
+                ),
             ]);
         }
 

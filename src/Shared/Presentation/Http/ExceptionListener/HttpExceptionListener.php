@@ -65,7 +65,7 @@ final class HttpExceptionListener
             404 => ApiErrorCode::NotFound,
             405 => ApiErrorCode::MethodNotAllowed,
             415 => ApiErrorCode::UnsupportedMediaType,
-            422 => ApiErrorCode::ValidationError,
+            422 => ApiErrorCode::HttpError,
             429 => ApiErrorCode::TooManyRequests,
             500 => ApiErrorCode::InternalError,
             default => ApiErrorCode::HttpError,

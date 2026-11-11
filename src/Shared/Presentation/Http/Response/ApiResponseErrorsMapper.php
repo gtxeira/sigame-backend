@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Shared\Presentation\Http\Response;
 
 use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\ValidationErrorCode;
 use App\Shared\Domain\Exception\DomainException;
+use App\Shared\Presentation\Http\Validation\ConstraintViolationCodeResolver;
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
 /**
@@ -16,24 +18,50 @@ final class ApiResponseErrorsMapper
     /**
      * @return ApiErrors
      */
-    public static function fromViolations(ConstraintViolationListInterface $violations): array
-    {
-        $details = [];
+    public static function fromViolations(
+        ConstraintViolationListInterface $violations,
+        ConstraintViolationCodeResolver $resolver,
+    ): array {
+        $items = [];
 
         foreach ($violations as $violation) {
-            $details[] = [
-                'field' => $violation->getPropertyPath(),
-                'message' => $violation->getMessage(),
+            $code = $resolver->resolve($violation);
+            $field = $violation->getPropertyPath();
+            $key = $code->value.'|'.$field;
+
+            if (isset($items[$key])) {
+                continue;
+            }
+
+            $item = [
+                'code' => $code->value,
+                'message' => (string) $violation->getMessage(),
             ];
+
+            if ('' !== $field) {
+                $item['field'] = $field;
+            }
+
+            $items[$key] = $item;
         }
 
-        return [
-            [
-                'code' => ApiErrorCode::ValidationError->value,
-                'message' => ApiErrorCode::ValidationError->message(),
-                'details' => $details,
-            ],
-        ];
+        $requiredFields = [];
+
+        foreach ($items as $item) {
+            if (ValidationErrorCode::FieldRequired->value === $item['code'] && isset($item['field'])) {
+                $requiredFields[$item['field']] = true;
+            }
+        }
+
+        foreach ($items as $key => $item) {
+            if (ValidationErrorCode::FieldRequired->value !== $item['code']
+                && isset($item['field'], $requiredFields[$item['field']])
+            ) {
+                unset($items[$key]);
+            }
+        }
+
+        return array_values($items);
     }
 
     /**
@@ -41,13 +69,23 @@ final class ApiResponseErrorsMapper
      */
     public static function fromDomainException(DomainException $exception): array
     {
-        return [
-            [
+        $details = $exception->errorDetails();
+
+        if ([] === $details) {
+            return [[
                 'code' => $exception->errorCode(),
                 'message' => $exception->publicMessage(),
-                'details' => $exception->errorDetails(),
-            ],
-        ];
+            ]];
+        }
+
+        return array_map(
+            static fn (array $detail): array => array_filter([
+                'code' => $exception->errorCode(),
+                'field' => $detail['field'] ?? null,
+                'message' => $detail['message'] ?? $exception->publicMessage(),
+            ], static fn (mixed $value): bool => null !== $value),
+            $details,
+        );
     }
 
     /**
@@ -59,26 +97,21 @@ final class ApiResponseErrorsMapper
      */
     public static function fromDomainErrors(array $errors): array
     {
-        $grouped = [];
+        $items = [];
 
         foreach ($errors as $error) {
-            $code = $error->code;
-
-            if (!isset($grouped[$code])) {
-                $grouped[$code] = [
-                    'code' => $code,
-                    'message' => $error->message,
-                    'details' => [],
-                ];
-            }
+            $item = [
+                'code' => $error->code,
+                'message' => $error->message,
+            ];
 
             if (null !== $error->field) {
-                $grouped[$code]['details'][] = [
-                    'field' => $error->field,
-                ];
+                $item['field'] = $error->field;
             }
+
+            $items[$error->code.'|'.($error->field ?? '')] = $item;
         }
 
-        return array_values($grouped);
+        return array_values($items);
     }
 }

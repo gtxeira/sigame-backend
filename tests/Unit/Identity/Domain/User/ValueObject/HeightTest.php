@@ -32,7 +32,7 @@ it('rejects heights outside the allowed range', function (int $centimeters) {
 
     $error = $result->errors()[0];
 
-    expect($error->code)->toBe('USER_HEIGHT_INVALID')
+    expect($error->code)->toBe('NUMBER_OUT_OF_RANGE')
         ->and($error->field)->toBe('heightCm');
 })->with([
     Height::MIN_CENTIMETERS - 1,

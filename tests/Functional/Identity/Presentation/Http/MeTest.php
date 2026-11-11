@@ -120,5 +120,5 @@ it('rejects an invalid cpf', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['CPF_INVALID']);
+        ->and($this->api->errorCodes())->toBe(['INVALID_FORMAT']);
 });

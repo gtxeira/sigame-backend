@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Shared\Domain\Error\DomainError;
 use App\Shared\Domain\Error\ErrorKind;
-use App\Shared\Domain\Error\SharedErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Presentation\Http\Response\ErrorStatusResolver;
 use App\Shared\Presentation\Http\Response\ResultResponder;
@@ -14,7 +14,7 @@ it('returns 422 for validation failures', function () {
     $responder = new ResultResponder(new ErrorStatusResolver());
 
     $response = $responder->failure(
-        Result::failure([SharedErrors::cpfInvalidCheckDigits()]),
+        Result::failure([ValidationErrors::invalidFormat('cpf', 'O CPF possui dígitos verificadores inválidos.')]),
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY);

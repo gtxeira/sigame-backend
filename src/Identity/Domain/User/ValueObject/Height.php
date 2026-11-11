@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\ValueObject;
 
-use App\Identity\Domain\Error\IdentityErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -27,7 +27,7 @@ final readonly class Height
     {
         if ($centimeters < self::MIN_CENTIMETERS || $centimeters > self::MAX_CENTIMETERS) {
             return ValidationResult::invalid([
-                IdentityErrors::userHeightInvalid(self::MIN_CENTIMETERS, self::MAX_CENTIMETERS),
+                ValidationErrors::numberOutOfRange('heightCm', sprintf('A altura deve estar entre %d e %d centímetros.', self::MIN_CENTIMETERS, self::MAX_CENTIMETERS)),
             ]);
         }
 

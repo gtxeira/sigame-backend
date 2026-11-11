@@ -13,6 +13,7 @@ use App\Activities\Domain\Activity\ValueObject\ActivityRoute;
 use App\Activities\Domain\Activity\ValueObject\ActivityTitle;
 use App\Activities\Domain\Activity\ValueObject\ActivityWindow;
 use App\Activities\Domain\Activity\ValueObject\EstimatedDistance;
+use App\Activities\Domain\Activity\ValueObject\EstimatedDuration;
 use App\Activities\Domain\Activity\ValueObject\MeetingPoint;
 use App\Activities\Domain\Error\ActivityErrors;
 use App\Shared\Application\Event\EventDispatcherInterface;
@@ -44,7 +45,8 @@ final readonly class CreateActivityHandler
             null === $command->description || '' === trim($command->description)
                 ? ValidationResult::valid(null)
                 : ActivityDescription::fromString($command->description),
-            Instant::fromString($command->startsAt),
+            Instant::fromString($command->startsAt, 'startsAt'),
+            EstimatedDuration::fromMinutes($command->estimatedDurationMinutes),
             MeetingPoint::fromString($command->meetingPoint),
             ActivityRoute::fromString($command->route),
             EstimatedDistance::fromMeters($command->estimatedDistanceMeters),
@@ -54,20 +56,29 @@ final readonly class CreateActivityHandler
             return Result::failure($validation->errors());
         }
 
-        [$title, $description, $startsAt, $meetingPoint, $route, $estimatedDistance] = $validation->value();
+        [
+            $title,
+            $description,
+            $startsAt,
+            $estimatedDuration,
+            $meetingPoint,
+            $route,
+            $estimatedDistance,
+        ] = $validation->value();
 
-        $window = ActivityWindow::fromStart($startsAt, $command->estimatedDurationMinutes);
+        $windowResult = ActivityWindow::fromStart($startsAt, $estimatedDuration?->minutes());
+        $windowErrors = $windowResult->isInvalid() ? $windowResult->errors() : [];
 
-        if ($window->isInvalid()) {
-            return Result::failure($window->errors());
+        if (!$startsAt->isAfter(Instant::now())) {
+            $windowErrors[] = ActivityErrors::startInPast();
+        }
+
+        if ([] !== $windowErrors) {
+            return Result::failure($windowErrors);
         }
 
         /** @var ActivityWindow $activityWindow */
-        $activityWindow = $window->value();
-
-        if (!$activityWindow->startsAt()->isAfter(Instant::now())) {
-            return Result::failure([ActivityErrors::startInPast()]);
-        }
+        $activityWindow = $windowResult->value();
 
         $group = $this->groupAccessReader->snapshot($command->groupId->value(), $command->actorId->value());
 

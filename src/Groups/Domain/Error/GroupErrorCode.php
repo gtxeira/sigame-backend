@@ -16,12 +16,7 @@ enum GroupErrorCode: string
 {
     case GroupNotFound = 'GROUP_NOT_FOUND';
     case MembershipNotFound = 'GROUP_MEMBERSHIP_NOT_FOUND';
-    case GroupNameInvalid = 'GROUP_NAME_INVALID';
-    case GroupDescriptionInvalid = 'GROUP_DESCRIPTION_INVALID';
-    case GroupCommunicationLinkInvalid = 'GROUP_COMMUNICATION_LINK_INVALID';
-    case GroupMemberLimitInvalid = 'GROUP_MEMBER_LIMIT_INVALID';
     case GroupMemberLimitBelowApproved = 'GROUP_MEMBER_LIMIT_BELOW_APPROVED';
-    case GroupRemovalReasonRequired = 'GROUP_REMOVAL_REASON_REQUIRED';
     case GroupSupervisorNotMember = 'GROUP_SUPERVISOR_NOT_MEMBER';
     case GroupLevelInsufficient = 'GROUP_LEVEL_INSUFFICIENT';
     case GroupAdminRequired = 'GROUP_ADMIN_REQUIRED';
@@ -39,11 +34,6 @@ enum GroupErrorCode: string
             self::GroupNotFound,
             self::MembershipNotFound => ErrorKind::NotFound,
 
-            self::GroupNameInvalid,
-            self::GroupDescriptionInvalid,
-            self::GroupCommunicationLinkInvalid,
-            self::GroupMemberLimitInvalid,
-            self::GroupRemovalReasonRequired,
             self::GroupSupervisorNotMember => ErrorKind::Validation,
 
             self::GroupLevelInsufficient,

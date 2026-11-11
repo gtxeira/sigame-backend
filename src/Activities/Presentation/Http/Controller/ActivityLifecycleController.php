@@ -82,9 +82,9 @@ final class ActivityLifecycleController extends AbstractController
     ])]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['reason' => 'O motivo deve ter no máximo 500 caracteres.'],
+            'STRING_TOO_LONG' => new ApiErrorExample(
+                message: 'O motivo deve ter no máximo 500 caracteres.',
+                field: 'reason',
                 summary: 'Motivo inválido',
                 description: 'O motivo do cancelamento está fora do limite.',
             ),
@@ -205,9 +205,9 @@ final class ActivityLifecycleController extends AbstractController
     ])]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['reason' => 'O motivo é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O motivo é obrigatório.',
+                field: 'reason',
                 summary: 'Motivo inválido',
                 description: 'O motivo da invalidação está ausente ou fora do limite.',
             ),

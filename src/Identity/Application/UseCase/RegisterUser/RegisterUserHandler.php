@@ -11,6 +11,8 @@ use App\Identity\Domain\User\Event\UserRegistered;
 use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
 use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\ValueObject\PlainPassword;
+use App\Identity\Domain\User\ValueObject\ProfileName;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\Functional\ValidationResult;
@@ -36,48 +38,48 @@ final readonly class RegisterUserHandler
      */
     public function __invoke(RegisterUserCommand $command): Result
     {
-        $emailResult = Email::fromString($command->email());
-
-        $cpfResult = null;
         $cpfInput = $command->cpf();
+        $cpfResult = null === $cpfInput || '' === trim($cpfInput)
+            ? ValidationResult::valid(null)
+            : Cpf::fromString($cpfInput);
 
-        if (null !== $cpfInput && '' !== trim($cpfInput)) {
-            $cpfResult = Cpf::fromString($cpfInput);
-        }
-
-        $validation = null === $cpfResult
-            ? $emailResult
-            : ValidationResult::combine($cpfResult, $emailResult);
+        $validation = ValidationResult::combine(
+            Email::fromString($command->email()),
+            ProfileName::fromString($command->name()),
+            PlainPassword::fromString($command->password()),
+            $cpfResult,
+        );
 
         if ($validation->isInvalid()) {
             return Result::failure($validation->errors());
         }
 
-        $email = $emailResult->value();
-        $cpf = $cpfResult?->value();
+        [$email, $name, $password, $cpf] = $validation->value();
+
+        $conflicts = [];
 
         // RN01.1: CPF, quando informado, é único.
         if (null !== $cpf && null !== $this->userRepository->findByCpf($cpf)) {
-            return Result::failure([
-                IdentityErrors::cpfAlreadyExists(),
-            ]);
+            $conflicts[] = IdentityErrors::cpfAlreadyExists();
         }
 
         // RN01.2: Email único.
         if (null !== $this->userRepository->findByEmail($email)) {
-            return Result::failure([
-                IdentityErrors::emailAlreadyExists(),
-            ]);
+            $conflicts[] = IdentityErrors::emailAlreadyExists();
+        }
+
+        if ([] !== $conflicts) {
+            return Result::failure($conflicts);
         }
 
         // RN01.4: Senha nunca em texto puro.
-        $hashedPassword = $this->passwordHasher->hash($command->password());
+        $hashedPassword = $this->passwordHasher->hash($password->value());
 
         $user = User::register(
             cpf: $cpf,
             email: $email,
             password: $hashedPassword,
-            name: $command->name(),
+            name: $name->value(),
         );
 
         try {

@@ -7,18 +7,18 @@ namespace App\Identity\Application\UseCase\UpdateProfile;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\Height;
-use App\Identity\Domain\User\ValueObject\Profile;
+use App\Identity\Domain\User\ValueObject\ProfileName;
 use App\Identity\Domain\User\ValueObject\Weight;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\Functional\ValidationResult;
 use LogicException;
 use RuntimeException;
 
 /**
  * Atualiza os campos presentes no perfil do usuário autenticado.
  *
- * A validação de presença, nome e tipo é feita na camada HTTP. Aqui ficam as
- * regras de negócio de altura e peso, que devolvem `Result` de falha sem
- * alterar o agregado.
+ * A presença de cada campo é conferida na camada HTTP. Aqui as regras de nome,
+ * altura e peso são validadas juntas para devolver todos os erros de uma vez.
  */
 final readonly class UpdateProfileHandler
 {
@@ -43,28 +43,35 @@ final readonly class UpdateProfileHandler
         }
 
         $profile = $user->profile();
-        $errors = [];
+
+        $validation = ValidationResult::combine(
+            $command->nameProvided()
+                ? ProfileName::fromString($command->name() ?? '')
+                : ValidationResult::valid(null),
+            $command->heightProvided()
+                ? $this->heightResult($command->heightCm())
+                : ValidationResult::valid(null),
+            $command->weightProvided()
+                ? $this->weightResult($command->weightKg())
+                : ValidationResult::valid(null),
+        );
+
+        if ($validation->isInvalid()) {
+            return Result::failure($validation->errors());
+        }
+
+        [$name, $height, $weight] = $validation->value();
 
         if ($command->nameProvided()) {
-            $name = trim($command->name() ?? '');
-
-            if ('' === $name) {
-                throw new LogicException('O nome do perfil não pode ser vazio.');
-            }
-
-            $profile = $profile->withName($name);
+            $profile = $profile->withName($name->value());
         }
 
         if ($command->heightProvided()) {
-            $profile = $this->withHeight($profile, $command->heightCm(), $errors);
+            $profile = $profile->withHeight($height);
         }
 
         if ($command->weightProvided()) {
-            $profile = $this->withWeight($profile, $command->weightKg(), $errors);
-        }
-
-        if ([] !== $errors) {
-            return Result::failure($errors);
+            $profile = $profile->withWeight($weight);
         }
 
         $user->changeProfile($profile);
@@ -74,42 +81,38 @@ final readonly class UpdateProfileHandler
     }
 
     /**
-     * @param list<\App\Shared\Domain\Error\DomainError> $errors
+     * @return ValidationResult<Height|null>
      */
-    private function withHeight(Profile $profile, ?int $heightCm, array &$errors): Profile
+    private function heightResult(?int $heightCm): ValidationResult
     {
         if (null === $heightCm) {
-            return $profile->withHeight(null);
+            /** @var ValidationResult<Height|null> $result */
+            $result = ValidationResult::valid(null);
+
+            return $result;
         }
 
-        $heightResult = Height::fromCentimeters($heightCm);
+        /** @var ValidationResult<Height|null> $result */
+        $result = Height::fromCentimeters($heightCm);
 
-        if ($heightResult->isInvalid()) {
-            $errors = array_merge($errors, $heightResult->errors());
-
-            return $profile;
-        }
-
-        return $profile->withHeight($heightResult->value());
+        return $result;
     }
 
     /**
-     * @param list<\App\Shared\Domain\Error\DomainError> $errors
+     * @return ValidationResult<Weight|null>
      */
-    private function withWeight(Profile $profile, ?float $weightKg, array &$errors): Profile
+    private function weightResult(?float $weightKg): ValidationResult
     {
         if (null === $weightKg) {
-            return $profile->withWeight(null);
+            /** @var ValidationResult<Weight|null> $result */
+            $result = ValidationResult::valid(null);
+
+            return $result;
         }
 
-        $weightResult = Weight::fromKilograms($weightKg);
+        /** @var ValidationResult<Weight|null> $result */
+        $result = Weight::fromKilograms($weightKg);
 
-        if ($weightResult->isInvalid()) {
-            $errors = array_merge($errors, $weightResult->errors());
-
-            return $profile;
-        }
-
-        return $profile->withWeight($weightResult->value());
+        return $result;
     }
 }

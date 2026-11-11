@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Identity\Presentation\Http\Request\RegisterUserRequest;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Validator\Constraint;
 use Tests\FunctionalTestCase;
 
 /**
@@ -435,8 +433,10 @@ it('keeps every error example in the api error shape', function () {
                     continue;
                 }
 
-                $fieldEnum = $content['schema']['allOf'][1]['properties']['errors']['items']['properties']['details']['items']['properties']['field']['enum'] ?? [];
+                $fieldEnum = $content['schema']['allOf'][1]['properties']['errors']['items']['properties']['field']['enum'] ?? [];
                 $fieldEnum = is_array($fieldEnum) ? $fieldEnum : [];
+                $codeEnum = $content['schema']['allOf'][1]['properties']['errors']['items']['properties']['code']['enum'] ?? [];
+                $codeEnum = is_array($codeEnum) ? $codeEnum : [];
 
                 foreach ($content['examples'] ?? [] as $name => $example) {
                     $errors = $example['value']['errors'] ?? null;
@@ -455,38 +455,32 @@ it('keeps every error example in the api error shape', function () {
                             continue;
                         }
 
-                        if (($error['code'] ?? null) !== $name) {
-                            $problems[] = $label.': code divergente da chave';
+                        if (!in_array($error['code'] ?? null, $codeEnum, true)) {
+                            $problems[] = $label.': code fora do enum';
                         }
 
                         if (!isset($error['message']) || '' === $error['message']) {
                             $problems[] = $label.': message ausente';
                         }
 
-                        $extra = array_diff(array_keys($error), ['code', 'message', 'details']);
+                        $extra = array_diff(array_keys($error), ['code', 'field', 'message']);
 
                         if ([] !== $extra) {
                             $problems[] = $label.': chaves inesperadas '.implode(', ', $extra);
                         }
 
-                        $details = $error['details'] ?? [];
+                        if (!array_key_exists('field', $error)) {
+                            continue;
+                        }
 
-                        if (!is_array($details)) {
-                            $problems[] = $label.': details deve ser lista';
+                        if (!is_string($error['field'])) {
+                            $problems[] = $label.': field deve ser string';
 
                             continue;
                         }
 
-                        foreach ($details as $detail) {
-                            if (!is_array($detail) || !is_string($detail['field'] ?? null)) {
-                                $problems[] = $label.': detail sem field';
-
-                                continue;
-                            }
-
-                            if (!in_array($detail['field'], $fieldEnum, true)) {
-                                $problems[] = $label.': field '.$detail['field'].' fora do enum';
-                            }
+                        if (!in_array($error['field'], $fieldEnum, true)) {
+                            $problems[] = $label.': field '.$error['field'].' fora do enum';
                         }
                     }
                 }
@@ -525,13 +519,13 @@ it('documents the register error codes with named examples', function () {
         'properties', 'errors', 'items', 'properties', 'code', 'enum',
     );
 
-    expect($validationCodes)->toBe(['VALIDATION_ERROR', 'CPF_INVALID', 'EMAIL_INVALID']);
+    expect($validationCodes)->toBe(['FIELD_REQUIRED', 'INVALID_FORMAT']);
 
     $validationExamples = apiDocValue($responses, '422', 'content', 'application/json', 'examples');
 
-    expect(array_keys($validationExamples))->toBe(['VALIDATION_ERROR', 'CPF_INVALID', 'EMAIL_INVALID']);
+    expect(array_keys($validationExamples))->toBe(['FIELD_REQUIRED', 'INVALID_FORMAT']);
 
-    $validationError = apiDocValue($responses, '422', 'content', 'application/json', 'examples', 'VALIDATION_ERROR');
+    $validationError = apiDocValue($responses, '422', 'content', 'application/json', 'examples', 'FIELD_REQUIRED');
 
     expect(array_keys($validationError['value']))->toBe(['errors', 'meta'])
         ->and($validationError['value']['meta']['timestamp'])->toBe('2026-09-21T10:00:00.000+00:00');
@@ -584,39 +578,17 @@ it('does not leak internal or unreachable error codes', function (string $intern
     'RESOURCE_CONFLICT',
 ]);
 
-/**
- * @param class-string $dtoClass
- *
- * @return list<string>
- */
-function constrainedPropertiesOf(string $dtoClass): array
-{
-    $properties = [];
-
-    foreach ((new ReflectionClass($dtoClass))->getProperties() as $property) {
-        $constraints = $property->getAttributes(Constraint::class, ReflectionAttribute::IS_INSTANCEOF);
-
-        if ([] === $constraints) {
-            continue;
-        }
-
-        $properties[] = $property->getName();
-    }
-
-    return $properties;
-}
-
-it('keeps the documented validation fields in sync with the request constraints', function () {
+it('keeps the documented validation fields in sync with the register contract', function () {
     $doc = readApiDoc($this);
 
     $documentedFields = apiDocValue(
         $doc,
         'paths', '/api/v1/auth/register', 'post', 'responses',
         '422', 'content', 'application/json', 'schema', 'allOf', 1,
-        'properties', 'errors', 'items', 'properties', 'details', 'items', 'properties', 'field', 'enum',
+        'properties', 'errors', 'items', 'properties', 'field', 'enum',
     );
 
-    expect($documentedFields)->toEqualCanonicalizing(constrainedPropertiesOf(RegisterUserRequest::class));
+    expect($documentedFields)->toEqualCanonicalizing(['cpf', 'email', 'name', 'password']);
 });
 
 it('keeps the documented conflict fields in sync with the register rules', function () {
@@ -626,7 +598,7 @@ it('keeps the documented conflict fields in sync with the register rules', funct
         $doc,
         'paths', '/api/v1/auth/register', 'post', 'responses',
         '409', 'content', 'application/json', 'schema', 'allOf', 1,
-        'properties', 'errors', 'items', 'properties', 'details', 'items', 'properties', 'field', 'enum',
+        'properties', 'errors', 'items', 'properties', 'field', 'enum',
     );
 
     expect($documentedFields)->toEqualCanonicalizing(['cpf', 'email']);

@@ -161,39 +161,22 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                             ],
                         ],
                     ],
-                    'ApiErrorDetail' => [
+                    'ApiErrorItem' => [
                         'type' => 'object',
-                        'description' => 'Detalhe de um erro. `field` indica o campo afetado; `message` só é preenchido em erros de validação de entrada (VALIDATION_ERROR).',
+                        'description' => 'Um item de erro retornado pela API. `code` é o contrato público e estável; `field` é opcional; `message` é o texto exibível ao usuário.',
                         'properties' => [
+                            'code' => [
+                                'type' => 'string',
+                                'example' => 'FIELD_REQUIRED',
+                            ],
                             'field' => [
                                 'type' => 'string',
-                                'description' => 'Caminho do campo afetado, relativo ao payload da requisição.',
+                                'description' => 'Caminho do campo afetado, relativo ao payload da requisição. Ausente em erros sem campo.',
                                 'example' => 'email',
                             ],
                             'message' => [
                                 'type' => 'string',
-                                'description' => 'Mensagem de validação do campo. Presente apenas quando o código do erro é VALIDATION_ERROR.',
-                                'example' => 'Este campo é obrigatório.',
-                            ],
-                        ],
-                    ],
-                    'ApiErrorItem' => [
-                        'type' => 'object',
-                        'description' => 'Um item de erro retornado pela API. `code` é o contrato público e estável; `message` é o texto exibível ao usuário.',
-                        'properties' => [
-                            'code' => [
-                                'type' => 'string',
-                                'example' => 'VALIDATION_ERROR',
-                            ],
-                            'message' => [
-                                'type' => 'string',
-                                'example' => 'Um ou mais erros de validação foram encontrados.',
-                            ],
-                            'details' => [
-                                'type' => 'array',
-                                'items' => [
-                                    '$ref' => '#/components/schemas/ApiErrorDetail',
-                                ],
+                                'example' => 'O e-mail é obrigatório.',
                             ],
                         ],
                         'required' => [

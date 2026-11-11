@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Error\SharedErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -31,15 +31,21 @@ final readonly class Email
     {
         $normalized = strtolower(trim($email));
 
+        if ('' === $normalized) {
+            return ValidationResult::invalid([
+                ValidationErrors::fieldRequired('email', 'O e-mail é obrigatório.'),
+            ]);
+        }
+
         if (mb_strlen($normalized) > self::MAX_LENGTH) {
             return ValidationResult::invalid([
-                SharedErrors::emailTooLong(self::MAX_LENGTH),
+                ValidationErrors::stringTooLong('email', sprintf('O e-mail deve ter no máximo %d caracteres.', self::MAX_LENGTH)),
             ]);
         }
 
         if (!filter_var($normalized, FILTER_VALIDATE_EMAIL)) {
             return ValidationResult::invalid([
-                SharedErrors::emailInvalid(),
+                ValidationErrors::invalidFormat('email', 'O e-mail informado é inválido.'),
             ]);
         }
 

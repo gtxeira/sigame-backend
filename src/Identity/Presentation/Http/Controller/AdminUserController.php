@@ -96,9 +96,9 @@ final class AdminUserController extends AbstractController
     #[ForbiddenResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['status' => 'O estado informado é inválido.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'O estado informado é inválido.',
+                field: 'status',
                 summary: 'Filtros inválidos',
                 description: 'A paginação, o estado ou o papel são inválidos.',
             ),
@@ -188,9 +188,9 @@ final class AdminUserController extends AbstractController
     #[NotFoundResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['page' => 'A página deve ser maior que zero.'],
+            'NUMBER_OUT_OF_RANGE' => new ApiErrorExample(
+                message: 'A página deve ser maior que zero.',
+                field: 'page',
                 summary: 'Paginação inválida',
                 description: 'A página ou o tamanho da página são inválidos.',
             ),
@@ -252,9 +252,9 @@ final class AdminUserController extends AbstractController
     #[NotFoundResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['reason' => 'O motivo é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O motivo é obrigatório.',
+                field: 'reason',
                 summary: 'Motivo inválido',
                 description: 'O motivo deve ter entre 3 e 500 caracteres.',
             ),
@@ -299,9 +299,9 @@ final class AdminUserController extends AbstractController
     #[NotFoundResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['reason' => 'O motivo deve ter entre 3 e 500 caracteres.'],
+            'STRING_TOO_LONG' => new ApiErrorExample(
+                message: 'O motivo deve ter entre 3 e 500 caracteres.',
+                field: 'reason',
                 summary: 'Motivo inválido',
                 description: 'O motivo, quando informado, deve ter entre 3 e 500 caracteres.',
             ),

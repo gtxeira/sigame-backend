@@ -177,9 +177,16 @@ A convenção vale apenas para summaries de operação. Descrição de operaçã
 
 O teste `ApiDocumentationTest` verifica o formato do summary e a primeira palavra contra a lista de verbos aprovados.
 
-O upload de foto é documentado como `requestBody` `multipart/form-data`, com o campo `photo` no formato `binary`. A descrição do campo fixa o contrato: imagem **quadrada em 512×512, com tolerância de 5 px por lado**, JPEG/PNG/WebP e até 2 MB, já enquadrada pelo cliente. Os exemplos de `422` usam o código real `VALIDATION_ERROR`; a descrição cobre arquivo ausente, formato inválido, dimensão fora da faixa e proporção diferente de 1:1. O `PATCH /users/me/profile` documenta `422` para corpo vazio, nome inválido, tipo inválido e faixas de altura/peso.
+O upload de foto é documentado como `requestBody` `multipart/form-data`, com o campo `photo` no formato `binary`. A descrição do campo fixa o contrato: imagem **quadrada em 512×512, com tolerância de 5 px por lado**, JPEG/PNG/WebP e até 2 MB, já enquadrada pelo cliente. Os exemplos de `422` usam os códigos reais `FIELD_REQUIRED`, `UNSUPPORTED_FILE_TYPE`, `FILE_TOO_LARGE`, `INVALID_IMAGE_DIMENSIONS`, `INVALID_IMAGE_ASPECT_RATIO` e `INVALID_IMAGE`; a descrição cobre arquivo ausente, formato inválido, dimensão fora da faixa e proporção diferente de 1:1. O `PATCH /users/me/profile` documenta `422` para corpo vazio, nome inválido, tipo inválido e faixas de altura/peso.
 
-## 7. Segurança na documentação
+## 7. Contrato de erro na documentação
+
+Cada resposta de erro é uma lista plana `errors: [{ code, field?, message }]`, um item por falha. Não existe mais
+`details[]` nem o código genérico `VALIDATION_ERROR`: erros de forma usam `ValidationErrorCode` e erros de negócio,
+conflito, autenticação, estado ou recurso inexistente usam o catálogo do módulo. Exemplos com múltiplos erros declaram
+`additional` no `ApiErrorExample`, de modo que o `value` do exemplo mostra os itens como o cliente os recebe.
+
+## 8. Segurança na documentação
 
 A segurança é declarada explicitamente por operação, com o atributo do Nelmio:
 
@@ -195,7 +202,7 @@ O esquema `bearerAuth` é declarado uma única vez em `documentation.components.
 
 O teste `ApiDocumentationTest` cruza o `#[IsGranted]` real do controller com o `security` documentado, para evitar drift entre código e documentação.
 
-## 8. Versionamento
+## 9. Versionamento
 
 - Rotas de negócio: `/api/v1`.
 - Health e probes operacionais: `/api/health`, sem versionamento.
@@ -203,7 +210,7 @@ O teste `ApiDocumentationTest` cruza o `#[IsGranted]` real do controller com o `
 
 O prefixo `/api/v1` é declarado na classe do controller; as rotas dos métodos são relativas. Novas versões devem adicionar controllers em `/api/v2` sem alterar o contrato de `/api/v1`.
 
-## 9. Meta adicional em respostas
+## 10. Meta adicional em respostas
 
 O envelope padrão sempre inclui `meta.timestamp`. Em respostas de sucesso, `data` está sempre presente, inclusive como lista vazia (`[]`) ou `null`; apenas respostas de erro omitem `data`. Quando um endpoint precisa devolver campos adicionais em `meta`, o atributo da resposta recebe um `ApiMeta`:
 
@@ -237,7 +244,7 @@ use OpenApi\Attributes as OA;
 
 O `ApiMeta` é composto com `ApiResponseMeta` via `allOf`, então o `timestamp` continua obrigatório e o schema não duplica a definição. O exemplo nomeado é derivado do schema; se o `value` do exemplo trouxer um `meta` explícito, o `FillNamedExampleValues` mescla os campos derivados sem sobrescrever os explícitos.
 
-### 9.1 Formas da resposta de sucesso
+### 10.1 Formas da resposta de sucesso
 
 Cada formato de `data` tem um atributo próprio. Não use um atributo de lista para documentar um recurso único, nem o contrário.
 
@@ -258,7 +265,7 @@ Os atributos de lista recebem `itemModel` como `class-string`; o `OA\Items` e o 
 )]
 ```
 
-## 10. Relação com outros documentos
+## 11. Relação com outros documentos
 
 - Contrato de autenticação e exemplos: [autenticacao.md](autenticacao.md)
 - Endpoints implementados e roadmap: [implementacao.md](implementacao.md)

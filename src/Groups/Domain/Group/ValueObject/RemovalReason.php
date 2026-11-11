@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Groups\Domain\Group\ValueObject;
 
-use App\Groups\Domain\Error\GroupErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -26,9 +26,18 @@ final readonly class RemovalReason
     {
         $normalized = trim($value);
 
-        if ('' === $normalized || mb_strlen($normalized) > self::MAX_LENGTH) {
+        if ('' === $normalized) {
             return ValidationResult::invalid([
-                GroupErrors::removalReasonRequired(self::MAX_LENGTH),
+                ValidationErrors::fieldRequired('reason', 'O motivo da remoção é obrigatório.'),
+            ]);
+        }
+
+        if (mb_strlen($normalized) > self::MAX_LENGTH) {
+            return ValidationResult::invalid([
+                ValidationErrors::stringTooLong(
+                    'reason',
+                    sprintf('O motivo da remoção deve ter no máximo %d caracteres.', self::MAX_LENGTH),
+                ),
             ]);
         }
 

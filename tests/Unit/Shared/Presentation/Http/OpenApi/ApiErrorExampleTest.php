@@ -5,53 +5,83 @@ declare(strict_types=1);
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
 
-it('builds the error with the given code and message', function () {
+it('builds one error item with the given code and message', function () {
     $example = new ApiErrorExample(message: 'Mensagem de erro.');
 
-    expect($example->toError('RESOURCE_CONFLICT'))->toBe([
-        'code' => 'RESOURCE_CONFLICT',
-        'message' => 'Mensagem de erro.',
+    expect($example->toErrors('RESOURCE_CONFLICT'))->toBe([
+        [
+            'code' => 'RESOURCE_CONFLICT',
+            'message' => 'Mensagem de erro.',
+        ],
     ]);
 });
 
-it('builds details from a list of fields', function () {
-    $example = new ApiErrorExample(
-        message: 'Mensagem de erro.',
-        details: ['cpf', 'email'],
-    );
+it('includes the field when informed', function () {
+    $example = new ApiErrorExample(message: 'O e-mail é obrigatório.', field: 'email');
 
-    expect($example->toError('CODE')['details'])->toBe([
-        ['field' => 'cpf'],
-        ['field' => 'email'],
+    expect($example->toErrors('FIELD_REQUIRED'))->toBe([
+        [
+            'code' => 'FIELD_REQUIRED',
+            'field' => 'email',
+            'message' => 'O e-mail é obrigatório.',
+        ],
     ]);
 });
 
-it('builds details from a map of fields and messages', function () {
+it('builds additional errors from the same example', function () {
     $example = new ApiErrorExample(
-        message: 'Mensagem de erro.',
-        details: ['email' => 'O email é obrigatório.', 'cpf' => null],
+        message: 'O título é obrigatório.',
+        field: 'title',
+        additional: [
+            ['code' => 'INVALID_FORMAT', 'field' => 'startsAt', 'message' => 'Data inválida.'],
+        ],
     );
 
-    expect($example->toError('CODE')['details'])->toBe([
-        ['field' => 'email', 'message' => 'O email é obrigatório.'],
-        ['field' => 'cpf'],
+    expect($example->toErrors('FIELD_REQUIRED'))->toBe([
+        [
+            'code' => 'FIELD_REQUIRED',
+            'field' => 'title',
+            'message' => 'O título é obrigatório.',
+        ],
+        [
+            'code' => 'INVALID_FORMAT',
+            'field' => 'startsAt',
+            'message' => 'Data inválida.',
+        ],
     ]);
+});
+
+it('exposes every code from the example', function () {
+    $example = new ApiErrorExample(
+        message: 'O título é obrigatório.',
+        field: 'title',
+        additional: [
+            ['code' => 'INVALID_FORMAT', 'field' => 'startsAt', 'message' => 'Data inválida.'],
+            ['code' => 'INVALID_FORMAT', 'field' => 'endsAt', 'message' => 'Data inválida.'],
+        ],
+    );
+
+    expect($example->codes('FIELD_REQUIRED'))->toBe(['FIELD_REQUIRED', 'INVALID_FORMAT']);
 });
 
 it('exposes the detail fields', function () {
-    $list = new ApiErrorExample(message: 'Mensagem.', details: ['cpf', 'email']);
-    $map = new ApiErrorExample(message: 'Mensagem.', details: ['email' => 'Mensagem.', 'cpf' => null]);
+    $example = new ApiErrorExample(
+        message: 'Mensagem.',
+        field: 'title',
+        additional: [
+            ['code' => 'INVALID_FORMAT', 'field' => 'startsAt', 'message' => 'Data inválida.'],
+        ],
+    );
 
-    expect($list->detailFields())->toBe(['cpf', 'email'])
-        ->and($map->detailFields())->toBe(['email', 'cpf']);
+    expect($example->detailFields())->toBe(['title', 'startsAt']);
 });
 
 it('rejects a detail field that is not declared in fields', function () {
     expect(fn () => new ValidationErrorResponse(
         examples: [
-            'CPF_INVALID' => new ApiErrorExample(
+            'INVALID_FORMAT' => new ApiErrorExample(
                 message: 'O CPF é inválido.',
-                details: ['cpf'],
+                field: 'cpf',
             ),
         ],
         fields: ['email' => 'E-mail do usuário.'],

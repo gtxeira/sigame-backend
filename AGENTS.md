@@ -98,6 +98,27 @@ Choose by the nature of the failure, not by convenience:
 - **Configuration/boot errors -> fail fast.** Throw in constructors/service wiring so
   the container does not boot with invalid configuration.
 
+### Validation ownership and error accumulation
+
+- Each rule has one owner: DTOs validate structure, type and presence; Value Objects
+  validate field semantics; aggregates, policies and repositories validate state and
+  business rules. Never duplicate the same rule in the DTO and the Value Object.
+- Independent field validations accumulate: evaluate them in a single phase and return
+  them together via `ValidationResult::combine()` or `Result::failure([...])`. Do not
+  stop at the first field error when the remaining checks do not depend on state or I/O.
+- Stop at the first error only when the next check depends on the previous value/state
+  (access guard, aggregate existence, state transition, lock/conflict) or when
+  accumulating would leak information.
+- Field-shape errors use `ValidationErrorCode`; business, conflict, authentication,
+  state and not-found errors use the module catalog. `VALIDATION_ERROR` does not exist.
+- Every error is a flat item `{ code, field?, message }`: one item per failure, no
+  grouping, no `details`. `field` is optional and uses the current Symfony property
+  path (`modalities[0]`).
+- Deduplicate by `(code, field)`; when a field fails as `FIELD_REQUIRED`, drop the other
+  errors for that field.
+- Required DTO fields declare an empty default (`''`, `[]`, `null`) so a missing field
+  yields `FIELD_REQUIRED` instead of a denormalization type error.
+
 Additional rules:
 
 - Don't use generic `\RuntimeException` or SPL `\InvalidArgumentException` for expected
@@ -105,9 +126,10 @@ Additional rules:
   `LogicException` or a concrete domain exception.
 - Don't add internal or unreachable codes to the public catalog; `ApiDocumentationTest`
   asserts they never leak into the OpenAPI document.
-- Create errors only through the module's `*ErrorCode` catalog and `*Errors` factory;
-  add the case to `ErrorCodeCatalogTest`. The code string is a public contract; public
-  messages are PT-BR.
+- Create errors only through the catalog and factory: `ValidationErrorCode` /
+  `ValidationErrors` for field shape, and the module `*ErrorCode` / `*Errors` for
+  business errors; add the case to `ErrorCodeCatalogTest`. The code string is a public
+  contract; public messages are PT-BR.
 - Never hardcode an HTTP status in a controller. `ResultResponder` and
   `ErrorStatusResolver` derive it from `ErrorKind`, with precedence
   `Authentication > Forbidden > Validation > Conflict`.

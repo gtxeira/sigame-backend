@@ -331,9 +331,9 @@ final class GroupMembershipController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['reason' => 'O motivo da remoção é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O motivo da remoção é obrigatório.',
+                field: 'reason',
                 summary: 'Motivo inválido',
                 description: 'O motivo da remoção está ausente ou é muito longo.',
             ),
@@ -404,9 +404,9 @@ final class GroupMembershipController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['role' => 'O papel informado é inválido.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'O papel informado é inválido.',
+                field: 'role',
                 summary: 'Papel inválido',
                 description: 'O papel deve ser `admin` ou `member`.',
             ),

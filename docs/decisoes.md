@@ -36,9 +36,9 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-012](#adr-012--fluxo-oauth-com-state-e-pkce-no-backend) | Fluxo OAuth com state e PKCE no backend | Vigente |
 | [ADR-013](#adr-013--tokens-de-uso-único-para-verificação-de-e-mail-e-reset-de-senha) | Tokens de uso único para verificação de e-mail e reset de senha | Vigente |
 | [ADR-014](#adr-014--e-mails-de-identidade-assíncronos-com-payload-cifrado) | E-mails de identidade assíncronos com payload cifrado | Vigente |
-| [ADR-015](#adr-015--onboarding-como-ação-única-e-evento-de-domínio) | Onboarding como ação única e evento de domínio | Vigente (emendada pelo ADR-017) |
+| [ADR-015](#adr-015--onboarding-como-ação-única-e-evento-de-domínio) | Onboarding como ação única e evento de domínio | Vigente (emendada pelo ADR-017 e pelo ADR-043) |
 | [ADR-016](#adr-016--upload-de-foto-de-perfil-com-chave-em-s3) | Upload de foto de perfil com chave em S3 | Vigente |
-| [ADR-017](#adr-017--perfil-parcial-e-onboarding-restrito-a-modalidades) | Perfil parcial e onboarding restrito a modalidades | Vigente |
+| [ADR-017](#adr-017--perfil-parcial-e-onboarding-restrito-a-modalidades) | Perfil parcial e onboarding restrito a modalidades | Vigente (emendada pelo ADR-043) |
 | [ADR-018](#adr-018--foto-de-perfil-quadrada-em-512-no-cliente) | Foto de perfil quadrada em 512 no cliente | Vigente |
 | [ADR-019](#adr-019--agregado-de-grupos-com-episódios-de-participação) | Agregado de grupos com episódios de participação | Vigente |
 | [ADR-020](#adr-020--consulta-síncrona-de-nível-entre-módulos) | Consulta síncrona de nível entre módulos | Vigente |
@@ -63,6 +63,8 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-039](#adr-039--suspensão-global-de-contas) | Suspensão global de contas | Vigente |
 | [ADR-040](#adr-040--mercure-como-transporte-em-tempo-real-do-sino) | Mercure como transporte em tempo real do sino | Vigente |
 | [ADR-041](#adr-041--catálogo-de-regras-de-gamificação-pela-api) | Catálogo de regras de gamificação pela API | Vigente |
+| [ADR-042](#adr-042--limite-de-membros-configurável-por-grupo) | Limite de membros configurável por grupo | Vigente |
+| [ADR-043](#adr-043--erro-por-item-e-validação-em-duas-fases) | Erro por item e validação em duas fases | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
@@ -444,6 +446,8 @@ O envio de e-mail dentro do request de cadastro, reenvio e reset prendia a respo
 
 ## ADR-015 — Onboarding como ação única e evento de domínio
 
+> **Emenda pelo ADR-043:** faixas e tamanhos de campo passam a usar o catálogo de forma (`NUMBER_OUT_OF_RANGE`, `STRING_TOO_SHORT`, `STRING_TOO_LONG`, `FIELD_REQUIRED`), e `VALIDATION_ERROR` deixa de existir. A separação entre validação de estrutura no DTO e validação de negócio no agregado permanece.
+
 ### Contexto
 
 O agregado `User` já concentrava as regras de onboarding, mas faltava expô-las por HTTP e publicar `OnboardingCompleted` para a futura Gamification. Era preciso decidir a forma da rota, o comportamento em repetição, onde ficam as validações e quando o evento é disparado.
@@ -509,6 +513,8 @@ O onboarding aceitava `photoUrl` como string livre, o que permitia apontar para 
 ---
 
 ## ADR-017 — Perfil parcial e onboarding restrito a modalidades
+
+> **Emenda pelo ADR-043:** o corpo vazio retorna `422 FIELD_REQUIRED`, e altura/peso usam `NUMBER_OUT_OF_RANGE`. A semântica de JSON Merge Patch e a validação no agregado permanecem.
 
 ### Contexto
 
@@ -1378,3 +1384,55 @@ não deve ser confundido com a quantidade de participantes de uma atividade, que
 - A migration adiciona a coluna sem backfill; grupos existentes permanecem ilimitados.
 - Testes de domínio, handler, repositório, tipo Doctrine e HTTP cobrem limite definido, removido e abaixo do total
   aprovado.
+
+---
+
+## ADR-043 — Erro por item e validação em duas fases
+
+### Contexto
+
+O contrato de erro agrupava falhas por `code` e usava `details[]` para listar campos, descartando a mensagem
+específica de cada falha. Isso impedia a UI de distinguir dois erros do mesmo código e obrigava o cliente a manter um
+dicionário campo → mensagem. Além disso, a validação era distribuída em três camadas (DTO, Value Objects e agregados)
+que se curto-circuitavam, então uma requisição com erros independentes recebia apenas o primeiro.
+
+### Decisão
+
+- O envelope de erro permanece `{ errors, meta }`, mas cada erro é um item plano `{ code, field?, message }`, um por
+  falha, sem agrupamento e sem `details`.
+- `code` é o contrato público estável; `message` é o texto exibível em PT-BR; `field` é opcional e usa o caminho atual
+  do Symfony (`email`, `modalities[0]`), sem JSON Pointer.
+- O código genérico `VALIDATION_ERROR` deixa de existir. Erros de forma usam o catálogo `ValidationErrorCode`
+  (`FIELD_REQUIRED`, `INVALID_TYPE`, `INVALID_FORMAT`, `STRING_TOO_SHORT`, `STRING_TOO_LONG`, `NUMBER_OUT_OF_RANGE`,
+  `INVALID_CHOICE`, `TOO_FEW_ITEMS`, `TOO_MANY_ITEMS`, `UNSUPPORTED_FILE_TYPE`, `FILE_TOO_LARGE`,
+  `INVALID_IMAGE_DIMENSIONS`, `INVALID_IMAGE_ASPECT_RATIO`, `INVALID_IMAGE`). Regras de negócio, conflito,
+  autenticação, estado e recurso inexistente continuam usando o catálogo do módulo.
+- Cada regra tem um dono: DTO valida estrutura, tipo e presença; Value Objects validam a semântica do campo; agregados,
+  policies e repositórios validam estado e negócio. A mesma regra não é duplicada no DTO e no Value Object.
+- A validação acontece em duas fases: (1) todas as regras de campo independentes acumulam em uma única resposta;
+  (2) guardas de acesso, existência, transição de estado, lock e conflito interrompem no primeiro erro.
+- O status HTTP continua derivado de `ErrorKind`, com precedência
+  `Authentication > Forbidden > NotFound > Validation > Conflict`; o corpo sempre traz todos os erros.
+- DTOs de campos obrigatórios declaram default do tipo vazio (`''`, `[]`, `null`) para que campo ausente produza
+  `FIELD_REQUIRED` em vez de erro de desserialização.
+
+### Alternativas consideradas
+
+- **Manter `details[]`:** preserva o agrupamento por código, mas colapsa erros do mesmo código e continua descartando a
+  mensagem por campo.
+- **Código semântico por campo (`USER_NAME_TOO_SHORT`, `ACTIVITY_TITLE_TOO_LONG`):** mantém granularidade, mas
+  multiplica o catálogo e contraria a padronização pedida.
+- **Misto (DTO com códigos de forma, Value Objects com códigos semânticos):** mantém a granularidade do ADR-015, porém
+  cria dois vocabulários e, como o DTO passa a validar apenas estrutura, quase todo erro de campo viria do Value Object.
+- **Publicar em `/api/v2`:** preservaria clientes antigos, mas não há consumidores em produção e a manutenção de dois
+  contratos não se justifica agora.
+
+### Consequências
+
+- Breaking change em `/api/v1`: clientes precisam iterar `errors` e ler `field` por item.
+- O ADR-015 fica parcialmente substituído: a separação DTO (estrutura) × agregado (negócio) permanece, mas as faixas de
+  altura/peso e os tamanhos de campo passam a usar códigos de forma, e `VALIDATION_ERROR` deixa de existir.
+- `docs/arquitetura.md`, `docs/api-documentation.md`, `docs/autenticacao.md` e `AGENTS.md` são atualizados.
+- `tests/Unit/Architecture/ErrorCodeCatalogTest.php` passa a validar `ValidationErrorCode`.
+- `tests/Functional/Shared/Presentation/Http/ApiDocumentationTest.php` passa a ler o enum de `field` em
+  `errors.items.properties.field` e a aceitar exemplos com múltiplos itens.

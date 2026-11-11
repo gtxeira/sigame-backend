@@ -83,9 +83,9 @@ final class NotificationController extends AbstractController
     #[UnauthorizedResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['status' => 'O filtro de leitura é inválido.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'O filtro de leitura é inválido.',
+                field: 'status',
                 summary: 'Filtros inválidos',
                 description: 'A paginação, o status ou a categoria são inválidos.',
             ),

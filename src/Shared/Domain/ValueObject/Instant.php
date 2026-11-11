@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\ValueObject;
 
-use App\Shared\Domain\Error\SharedErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 use DateInterval;
 use DateInvalidOperationException;
@@ -33,7 +33,7 @@ final readonly class Instant
     /**
      * @return ValidationResult<self>
      */
-    public static function fromString(string $datetime): ValidationResult
+    public static function fromString(string $datetime, string $field = 'datetime'): ValidationResult
     {
         $formats = [
             DateTimeInterface::RFC3339_EXTENDED,
@@ -56,7 +56,7 @@ final readonly class Instant
         }
 
         return ValidationResult::invalid([
-            SharedErrors::dateTimeInvalidFormat(),
+            ValidationErrors::invalidFormat($field, 'Informe uma data RFC 3339 (com ou sem milissegundos) com timezone.'),
         ]);
     }
 
@@ -76,7 +76,7 @@ final readonly class Instant
             );
         } catch (Throwable) {
             return ValidationResult::invalid([
-                SharedErrors::dateTimeInvalidTimestamp(),
+                ValidationErrors::invalidFormat('timestamp', 'O timestamp informado é inválido.'),
             ]);
         }
     }
@@ -268,7 +268,7 @@ final readonly class Instant
         string $operation,
     ): ValidationResult {
         return ValidationResult::invalid([
-            SharedErrors::dateTimeInvalidAmount($field, $operation),
+            ValidationErrors::numberOutOfRange($field, sprintf('Informe um valor positivo maior que zero para %s %s.', $operation, $field)),
         ]);
     }
 
@@ -290,7 +290,7 @@ final readonly class Instant
             );
         } catch (DateInvalidOperationException) {
             return ValidationResult::invalid([
-                SharedErrors::dateTimeInvalidShift($unit),
+                ValidationErrors::invalidFormat($unit, sprintf('Não foi possível modificar o datetime em %s.', $unit)),
             ]);
         }
     }

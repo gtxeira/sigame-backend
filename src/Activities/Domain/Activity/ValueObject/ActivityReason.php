@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Activities\Domain\Activity\ValueObject;
 
-use App\Activities\Domain\Error\ActivityErrorCode;
-use App\Activities\Domain\Error\ActivityErrors;
-use App\Shared\Domain\Error\DomainError;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -24,15 +22,34 @@ final readonly class ActivityReason
     /**
      * @return ValidationResult<self>
      */
-    public static function fromString(
-        string $value,
-        ActivityErrorCode $invalidCode = ActivityErrorCode::ActivityCancelReasonInvalid,
-    ): ValidationResult {
+    public static function fromString(string $value): ValidationResult
+    {
         $normalized = trim($value);
+
+        if ('' === $normalized) {
+            return ValidationResult::invalid([
+                ValidationErrors::fieldRequired('reason', 'O motivo é obrigatório.'),
+            ]);
+        }
+
         $length = mb_strlen($normalized);
 
-        if ($length < self::MIN_LENGTH || $length > self::MAX_LENGTH) {
-            return ValidationResult::invalid([self::errorFor($invalidCode)]);
+        if ($length < self::MIN_LENGTH) {
+            return ValidationResult::invalid([
+                ValidationErrors::stringTooShort(
+                    'reason',
+                    sprintf('O motivo deve ter entre %d e %d caracteres.', self::MIN_LENGTH, self::MAX_LENGTH),
+                ),
+            ]);
+        }
+
+        if ($length > self::MAX_LENGTH) {
+            return ValidationResult::invalid([
+                ValidationErrors::stringTooLong(
+                    'reason',
+                    sprintf('O motivo deve ter no máximo %d caracteres.', self::MAX_LENGTH),
+                ),
+            ]);
         }
 
         return ValidationResult::valid(new self($normalized));
@@ -41,14 +58,5 @@ final readonly class ActivityReason
     public function value(): string
     {
         return $this->value;
-    }
-
-    private static function errorFor(ActivityErrorCode $invalidCode): DomainError
-    {
-        return match ($invalidCode) {
-            ActivityErrorCode::ActivityRescheduleReasonInvalid => ActivityErrors::rescheduleReasonInvalid(self::MAX_LENGTH),
-            ActivityErrorCode::ActivityInvalidationReasonRequired => ActivityErrors::invalidationReasonRequired(self::MIN_LENGTH, self::MAX_LENGTH),
-            default => ActivityErrors::cancelReasonInvalid(self::MAX_LENGTH),
-        };
     }
 }

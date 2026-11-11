@@ -69,23 +69,24 @@ final class MeProfileController extends AbstractController
     #[ForbiddenResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['body' => 'Informe ao menos um campo para atualização.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'Informe ao menos um campo para atualização.',
+                field: 'body',
                 summary: 'Erros de validação',
                 description: 'O corpo está vazio, o nome é inválido ou um valor tem tipo/formato inválido.',
             ),
-            'USER_HEIGHT_INVALID' => new ApiErrorExample(
-                message: 'A altura informada é inválida.',
-                details: ['heightCm' => 'A altura deve estar entre 50 e 250 centímetros.'],
-                summary: 'Altura inválida',
-                description: 'A altura está fora da faixa aceita.',
-            ),
-            'USER_WEIGHT_INVALID' => new ApiErrorExample(
-                message: 'O peso informado é inválido.',
-                details: ['weightKg' => 'O peso deve estar entre 20 e 300 quilogramas.'],
-                summary: 'Peso inválido',
-                description: 'O peso está fora da faixa aceita.',
+            'NUMBER_OUT_OF_RANGE' => new ApiErrorExample(
+                message: 'A altura deve estar entre 50 e 250 centímetros.',
+                field: 'heightCm',
+                additional: [
+                    [
+                        'code' => 'NUMBER_OUT_OF_RANGE',
+                        'field' => 'weightKg',
+                        'message' => 'O peso deve estar entre 20 e 300 quilogramas.',
+                    ],
+                ],
+                summary: 'Valor fora da faixa',
+                description: 'A altura ou o peso estão fora da faixa aceita.',
             ),
         ],
         fields: [
@@ -104,7 +105,7 @@ final class MeProfileController extends AbstractController
         HttpRequest $httpRequest,
     ): JsonResponse {
         $payload = $httpRequest->getPayload();
-        $this->assertPayloadHasChanges($request, $payload->has('name'), $payload->has('heightCm'), $payload->has('weightKg'));
+        $this->assertPayloadHasChanges($payload->has('name'), $payload->has('heightCm'), $payload->has('weightKg'));
 
         $securityUser = $this->getUser();
         assert($securityUser instanceof SecurityUser);
@@ -135,37 +136,12 @@ final class MeProfileController extends AbstractController
     }
 
     private function assertPayloadHasChanges(
-        UpdateProfileRequest $request,
         bool $hasName,
         bool $hasHeight,
         bool $hasWeight,
     ): void {
         if (!$hasName && !$hasHeight && !$hasWeight) {
-            throw RequestViolationFactory::unprocessable('body', 'Informe ao menos um campo para atualização.');
-        }
-
-        if (!$hasName) {
-            return;
-        }
-
-        if (null === $request->name) {
-            throw RequestViolationFactory::unprocessable('name', 'O nome não pode ser nulo.');
-        }
-
-        $name = trim($request->name);
-
-        if ('' === $name) {
-            throw RequestViolationFactory::unprocessable('name', 'O nome não pode ser vazio.');
-        }
-
-        $length = mb_strlen($name);
-
-        if ($length < 2) {
-            throw RequestViolationFactory::unprocessable('name', 'O nome deve ter no mínimo 2 caracteres.');
-        }
-
-        if ($length > 255) {
-            throw RequestViolationFactory::unprocessable('name', 'O nome deve ter no máximo 255 caracteres.');
+            throw RequestViolationFactory::unprocessable('FIELD_REQUIRED', 'body', 'Informe ao menos um campo para atualização.');
         }
     }
 }

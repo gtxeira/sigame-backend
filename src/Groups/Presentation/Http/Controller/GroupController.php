@@ -111,9 +111,9 @@ final class GroupController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['name' => 'O nome do grupo é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O nome do grupo é obrigatório.',
+                field: 'name',
                 summary: 'Erros de validação',
                 description: 'Nome, modalidade ou link estão ausentes ou em formato inválido.',
             ),
@@ -172,9 +172,9 @@ final class GroupController extends AbstractController
     #[ForbiddenResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['status' => 'O estado informado é inválido.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'O estado informado é inválido.',
+                field: 'status',
                 summary: 'Filtros inválidos',
                 description: 'A modalidade, o estado ou a paginação são inválidos.',
             ),
@@ -285,15 +285,15 @@ final class GroupController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['body' => 'Informe ao menos um campo para atualização.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'Informe ao menos um campo para atualização.',
+                field: 'body',
                 summary: 'Erros de validação',
                 description: 'O corpo está vazio ou um campo tem formato inválido.',
             ),
-            'GROUP_COMMUNICATION_LINK_INVALID' => new ApiErrorExample(
+            'INVALID_FORMAT' => new ApiErrorExample(
                 message: 'O link de comunicação deve ser uma URL http ou https válida.',
-                details: ['communicationLink' => 'Informe uma URL http ou https.'],
+                field: 'communicationLink',
                 summary: 'Link inválido',
                 description: 'O link não é uma URL http/https válida.',
             ),
@@ -324,15 +324,15 @@ final class GroupController extends AbstractController
         $hasMaxMembers = $payload->has('maxMembers');
 
         if (!$hasName && !$hasDescription && !$hasModality && !$hasLink && !$hasMaxMembers) {
-            throw RequestViolationFactory::unprocessable('body', 'Informe ao menos um campo para atualização.');
+            throw RequestViolationFactory::unprocessable('FIELD_REQUIRED', 'body', 'Informe ao menos um campo para atualização.');
         }
 
         if ($hasName && null === $request->name) {
-            throw RequestViolationFactory::unprocessable('name', 'O nome não pode ser nulo.');
+            throw RequestViolationFactory::unprocessable('FIELD_REQUIRED', 'name', 'O nome não pode ser nulo.');
         }
 
         if ($hasModality && null === $request->modality) {
-            throw RequestViolationFactory::unprocessable('modality', 'A modalidade não pode ser nula.');
+            throw RequestViolationFactory::unprocessable('INVALID_CHOICE', 'modality', 'A modalidade não pode ser nula.');
         }
 
         $actor = $this->actorId();

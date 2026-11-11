@@ -17,7 +17,7 @@ final readonly class SocialLinkRequest
         #[OA\Property(description: 'Ticket de vínculo recebido na resposta 409.', example: 'a1b2c3...')]
         #[Assert\NotBlank(message: 'O linkToken é obrigatório.')]
         #[Assert\Length(max: 128, maxMessage: 'O linkToken deve ter no máximo 128 caracteres.')]
-        public string $linkToken,
+        public string $linkToken = '',
     ) {
     }
 }

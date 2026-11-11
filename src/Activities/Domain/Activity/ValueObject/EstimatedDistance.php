@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Activities\Domain\Activity\ValueObject;
 
-use App\Activities\Domain\Error\ActivityErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 final readonly class EstimatedDistance
@@ -23,7 +23,10 @@ final readonly class EstimatedDistance
     {
         if ($meters < self::MIN_METERS || $meters > self::MAX_METERS) {
             return ValidationResult::invalid([
-                ActivityErrors::estimatedDistanceInvalid(self::MIN_METERS, self::MAX_METERS),
+                ValidationErrors::numberOutOfRange(
+                    'estimatedDistanceMeters',
+                    sprintf('A distância estimada deve estar entre %d e %d metros.', self::MIN_METERS, self::MAX_METERS),
+                ),
             ]);
         }
 

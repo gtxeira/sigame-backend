@@ -70,27 +70,27 @@ final class MeIdentityController extends AbstractController
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Identidade vinculada.')]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['code' => 'O authorization code é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O authorization code é obrigatório.',
+                field: 'code',
                 summary: 'Erros de Validação',
                 description: 'O payload do callback contém dados inválidos.',
             ),
             'SOCIAL_FLOW_INVALID' => new ApiErrorExample(
                 message: 'O fluxo de autenticação social expirou ou é inválido. Inicie novamente.',
-                details: ['state'],
+                field: 'state',
                 summary: 'Fluxo inválido',
                 description: 'O fluxo não foi iniciado por este usuário ou expirou.',
             ),
             'SOCIAL_PROVIDER_UNSUPPORTED' => new ApiErrorExample(
                 message: 'O provedor de login "apple" não é suportado.',
-                details: ['provider'],
+                field: 'provider',
                 summary: 'Provedor não suportado',
                 description: 'Somente o provedor google está habilitado.',
             ),
             'SOCIAL_EMAIL_NOT_VERIFIED' => new ApiErrorExample(
                 message: 'O provedor social não confirmou a verificação do e-mail.',
-                details: ['email'],
+                field: 'email',
                 summary: 'E-mail não verificado',
                 description: 'O provedor não confirmou que o e-mail pertence ao usuário.',
             ),
@@ -130,7 +130,7 @@ final class MeIdentityController extends AbstractController
         examples: [
             'ACCOUNT_SUSPENDED' => new ApiErrorExample(
                 message: 'Esta conta está suspensa e não pode autenticar.',
-                details: ['status'],
+                field: 'status',
                 summary: 'Conta suspensa',
                 description: 'A conta autenticada está suspensa.',
             ),
@@ -141,7 +141,7 @@ final class MeIdentityController extends AbstractController
         examples: [
             'SOCIAL_IDENTITY_ALREADY_LINKED' => new ApiErrorExample(
                 message: 'Esta conta do provedor já está vinculada a outro usuário.',
-                details: ['provider'],
+                field: 'provider',
                 summary: 'Identidade já vinculada',
                 description: 'A identidade social pertence a outro usuário.',
             ),

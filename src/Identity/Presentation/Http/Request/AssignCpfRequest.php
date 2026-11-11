@@ -26,7 +26,7 @@ final readonly class AssignCpfRequest
             pattern: '/^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/',
             message: 'O CPF deve conter apenas números ou estar no formato 000.000.000-00.',
         )]
-        public string $cpf,
+        public string $cpf = '',
     ) {
     }
 }

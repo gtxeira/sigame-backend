@@ -87,9 +87,9 @@ final class MePhotoController extends AbstractController
     #[ForbiddenResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['photo' => 'A foto de perfil deve ser uma imagem JPEG, PNG ou WebP.'],
+            'UNSUPPORTED_FILE_TYPE' => new ApiErrorExample(
+                message: 'A foto de perfil deve ser uma imagem JPEG, PNG ou WebP.',
+                field: 'photo',
                 summary: 'Foto inválida',
                 description: 'O arquivo não foi enviado, excede 2 MB, não é uma imagem aceita, está fora de 507 a 517 px por lado ou não é quadrada (1:1).',
             ),
@@ -129,7 +129,7 @@ final class MePhotoController extends AbstractController
         ?UploadedFile $photo = null,
     ): JsonResponse {
         if (null === $photo) {
-            throw RequestViolationFactory::unprocessable('photo', 'A foto de perfil é obrigatória.');
+            throw RequestViolationFactory::unprocessable('FIELD_REQUIRED', 'photo', 'A foto de perfil é obrigatória.');
         }
 
         $securityUser = $this->getUser();

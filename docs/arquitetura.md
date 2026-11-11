@@ -61,13 +61,16 @@ Os pacotes principais já estão instalados e declarados em `composer.json`. A l
 
 - **Falha esperada e recuperável** (regra de negócio que o cliente deve tratar) → `Result` com `list<DomainError>`. Não usar exceção.
 - **Invariante violada ou quebra de fluxo** (estado impossível, argumento inválido de VO) → `DomainException`, com subclasse concreta por erro.
-- **Todo código de erro nasce em um catálogo** (`*ErrorCode`) do módulo: `SharedErrorCode`, `IdentityErrorCode`, e assim por diante. Alterar o *valor* de um caso é breaking change de contrato com o cliente; renomear o caso não é.
-- **`new DomainError(...)` só dentro de fábricas `*Errors`** (`SharedErrors`, `IdentityErrors`). O código não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
+- **Todo código de erro nasce em um catálogo** (`*ErrorCode`): `ValidationErrorCode` no kernel para erros de forma; `IdentityErrorCode`, `GroupErrorCode`, `ActivityErrorCode` e `NotificationErrorCode` para negócio, conflito, autenticação, estado e recurso inexistente. Alterar o *valor* de um caso é breaking change de contrato com o cliente; renomear o caso não é.
+- **`new DomainError(...)` só dentro de fábricas `*Errors`** (`ValidationErrors`, `IdentityErrors`, `GroupErrors`, `ActivityErrors`). O código não deve ser montado no meio de um handler ou Value Object, para não divergir mensagem e `field`.
 - **Todo `DomainError` carrega um `ErrorKind`** (`Authentication`, `Forbidden`, `Validation` ou `Conflict`), derivado do catálogo de códigos. O `kind` não é serializado: é insumo interno para a presentation.
 - **Status HTTP é derivado, nunca hardcoded no controller**: `ErrorStatusResolver` mapeia `Authentication` → 401, `Forbidden` → 403, `NotFound` → 404, `Validation` → 422 e `Conflict` → 409. A precedência é `Authentication` > `Forbidden` > `NotFound` > `Validation` > `Conflict`; o corpo continua trazendo todos os erros.
 - **`DomainException` também declara `kind()`**, de modo que os dois caminhos (exceção e `Result`) usam a mesma regra de status.
 - **`ErrorKind` tem cinco valores**: `Authentication`, `Forbidden`, `NotFound`, `Validation` e `Conflict`. A precedência é `Authentication` > `Forbidden` > `NotFound` > `Validation` > `Conflict`.
-- Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`BAD_REQUEST`, `UNAUTHORIZED`, `ACCESS_TOKEN_MISSING`, `ACCESS_TOKEN_INVALID`, `ACCESS_TOKEN_EXPIRED`, `FORBIDDEN`, `ORIGIN_NOT_ALLOWED`, `NOT_FOUND`, `VALIDATION_ERROR`, `TOO_MANY_REQUESTS`, `INTERNAL_ERROR`, etc.) e não são erros de domínio.
+- **Cada erro é um item plano `{ code, field?, message }`**, um por falha, sem agrupamento e sem `details`. `field` usa o caminho de propriedade (`email`, `modalities[0]`). O status HTTP é derivado do `ErrorKind`; o corpo sempre traz todos os erros.
+- **A validação acontece em duas fases**: (1) todas as regras de campo independentes acumulam via `ValidationResult::combine()` ou `Result::failure([...])`; (2) guardas de acesso, existência, transição de estado, lock e conflito interrompem no primeiro erro.
+- **Cada regra tem um dono**: o DTO valida estrutura, tipo e presença; os Value Objects validam a semântica do campo; agregados, policies e repositórios validam estado e negócio. A mesma regra não é duplicada no DTO e no Value Object.
+- Códigos transversais da camada HTTP ficam em `ApiErrorCode` (`BAD_REQUEST`, `UNAUTHORIZED`, `ACCESS_TOKEN_MISSING`, `ACCESS_TOKEN_INVALID`, `ACCESS_TOKEN_EXPIRED`, `FORBIDDEN`, `ORIGIN_NOT_ALLOWED`, `NOT_FOUND`, `TOO_MANY_REQUESTS`, `INTERNAL_ERROR`, etc.) e não são erros de domínio.
 - **Mensagens públicas em PT-BR**: `DomainError::$message`, `DomainException::publicMessage()` e os `message` de `errorDetails()` são exibidos ao cliente da API.
 
 ### 2.2 Regras de fronteira entre módulos
@@ -103,7 +106,7 @@ src/
 ├── Shared/                                  # kernel compartilhado
 │   ├── Domain/
 │   │   ├── ValueObject/                     # BaseId, Email, Cpf, Instant, Modality
-│   │   ├── Error/                           # DomainError, ErrorKind, SharedErrorCode, SharedErrors
+│   │   ├── Error/                           # DomainError, ErrorKind, SharedErrorCode, ValidationErrorCode, ValidationErrors
 │   │   ├── Event/                           # DomainEventInterface, AbstractDomainEvent
 │   │   ├── Exception/                       # DomainException, InvalidArgumentException, InvalidUuidException
 │   │   └── Functional/                      # Result, ValidationResult

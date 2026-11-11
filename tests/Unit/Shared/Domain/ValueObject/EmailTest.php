@@ -45,7 +45,7 @@ it('rejects an email longer than the maximum length', function () {
 
     $error = $result->errors()[0];
 
-    expect($error->code)->toBe('EMAIL_INVALID')
+    expect($error->code)->toBe('STRING_TOO_LONG')
         ->and($error->field)->toBe('email')
         ->and($error->message)->toBe('O e-mail deve ter no máximo 255 caracteres.');
 });
@@ -57,7 +57,7 @@ it('reports invalid email with code and field', function () {
 
     $error = $result->errors()[0];
 
-    expect($error->code)->toBe('EMAIL_INVALID')
+    expect($error->code)->toBe('INVALID_FORMAT')
         ->and($error->field)->toBe('email');
 });
 

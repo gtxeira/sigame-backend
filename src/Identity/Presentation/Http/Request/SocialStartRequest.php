@@ -24,7 +24,7 @@ final readonly class SocialStartRequest
             choices: ['web', 'dev'],
             message: 'O cliente deve ser "web" ou "dev".',
         )]
-        public string $client,
+        public string $client = '',
     ) {
     }
 }

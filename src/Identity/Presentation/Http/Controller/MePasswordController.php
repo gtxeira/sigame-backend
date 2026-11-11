@@ -56,15 +56,15 @@ final class MePasswordController extends AbstractController
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Senha alterada; todas as sessões foram revogadas.')]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['currentPassword' => 'A senha atual é obrigatória.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'A senha atual é obrigatória.',
+                field: 'currentPassword',
                 summary: 'Erros de Validação',
                 description: 'O payload de troca contém dados inválidos.',
             ),
             'PASSWORD_CURRENT_INVALID' => new ApiErrorExample(
                 message: 'A senha atual informada é inválida.',
-                details: ['currentPassword'],
+                field: 'currentPassword',
                 summary: 'Senha atual inválida',
                 description: 'A senha atual não confere; a senha não foi alterada.',
             ),

@@ -17,7 +17,7 @@ final readonly class PasswordForgotRequest
         #[OA\Property(description: 'E-mail da conta.', format: 'email', example: 'user@example.com')]
         #[Assert\NotBlank(message: 'O email é obrigatório.')]
         #[Assert\Email(message: 'O formato do email é inválido.')]
-        public string $email,
+        public string $email = '',
     ) {
     }
 }

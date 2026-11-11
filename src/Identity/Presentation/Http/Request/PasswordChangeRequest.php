@@ -17,7 +17,7 @@ final readonly class PasswordChangeRequest
         #[OA\Property(description: 'Senha atual.', example: 'secret123')]
         #[Assert\NotBlank(message: 'A senha atual é obrigatória.')]
         #[Assert\Length(max: 255, maxMessage: 'A senha atual deve ter no máximo 255 caracteres.')]
-        public string $currentPassword,
+        public string $currentPassword = '',
 
         #[OA\Property(description: 'Nova senha.', example: 'new-secret-123')]
         #[Assert\NotBlank(message: 'A nova senha é obrigatória.')]
@@ -27,7 +27,7 @@ final readonly class PasswordChangeRequest
             minMessage: 'A nova senha deve ter no mínimo 8 caracteres.',
             maxMessage: 'A nova senha deve ter no máximo 255 caracteres.',
         )]
-        public string $newPassword,
+        public string $newPassword = '',
     ) {
     }
 }

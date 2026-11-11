@@ -6,6 +6,7 @@ namespace App\Shared\Presentation\Http\ExceptionListener;
 
 use App\Shared\Presentation\Http\Response\ApiResponse;
 use App\Shared\Presentation\Http\Response\ApiResponseErrorsMapper;
+use App\Shared\Presentation\Http\Validation\ConstraintViolationCodeResolver;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
@@ -18,6 +19,11 @@ use Symfony\Component\Validator\Exception\ValidationFailedException;
 #[AsEventListener(event: 'kernel.exception', priority: 30)]
 final class SymfonyValidatorExceptionListener
 {
+    public function __construct(
+        private readonly ConstraintViolationCodeResolver $codeResolver,
+    ) {
+    }
+
     public function __invoke(ExceptionEvent $event): void
     {
         $exception = $event->getThrowable();
@@ -28,13 +34,12 @@ final class SymfonyValidatorExceptionListener
         ) {
             /** @var ValidationFailedException $validationException */
             $validationException = $exception->getPrevious();
-            $violations = $validationException->getViolations();
-
-            $errors = ApiResponseErrorsMapper::fromViolations($violations);
-
-            $response = ApiResponse::error(
-                errors: $errors,
+            $errors = ApiResponseErrorsMapper::fromViolations(
+                $validationException->getViolations(),
+                $this->codeResolver,
             );
+
+            $response = ApiResponse::error(errors: $errors);
 
             $event->setResponse($response->toJsonResponse(Response::HTTP_UNPROCESSABLE_ENTITY));
         }

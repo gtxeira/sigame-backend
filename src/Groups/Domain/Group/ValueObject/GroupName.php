@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Groups\Domain\Group\ValueObject;
 
-use App\Groups\Domain\Error\GroupErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -28,9 +28,21 @@ final readonly class GroupName
         $normalized = trim($value);
         $length = mb_strlen($normalized);
 
-        if ($length < self::MIN_LENGTH || $length > self::MAX_LENGTH) {
+        if ($length < self::MIN_LENGTH) {
             return ValidationResult::invalid([
-                GroupErrors::nameInvalid(self::MIN_LENGTH, self::MAX_LENGTH),
+                ValidationErrors::stringTooShort(
+                    'name',
+                    sprintf('O nome do grupo deve ter entre %d e %d caracteres.', self::MIN_LENGTH, self::MAX_LENGTH),
+                ),
+            ]);
+        }
+
+        if ($length > self::MAX_LENGTH) {
+            return ValidationResult::invalid([
+                ValidationErrors::stringTooLong(
+                    'name',
+                    sprintf('O nome do grupo deve ter entre %d e %d caracteres.', self::MIN_LENGTH, self::MAX_LENGTH),
+                ),
             ]);
         }
 

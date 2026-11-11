@@ -19,10 +19,7 @@ enum IdentityErrorCode: string
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
     case UserNotFound = 'USER_NOT_FOUND';
     case CannotSuspendAdmin = 'CANNOT_SUSPEND_ADMIN';
-    case SuspensionReasonInvalid = 'SUSPENSION_REASON_INVALID';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
-    case UserHeightInvalid = 'USER_HEIGHT_INVALID';
-    case UserWeightInvalid = 'USER_WEIGHT_INVALID';
     case OnboardingAlreadyCompleted = 'ONBOARDING_ALREADY_COMPLETED';
     case OnboardingInvalidPrimaryModality = 'ONBOARDING_INVALID_PRIMARY_MODALITY';
     case OnboardingNoModalitySelected = 'ONBOARDING_NO_MODALITY_SELECTED';
@@ -65,11 +62,8 @@ enum IdentityErrorCode: string
             self::SocialLinkEmailMismatch => ErrorKind::Conflict,
 
             self::UserLevelInvalid,
-            self::UserHeightInvalid,
-            self::UserWeightInvalid,
             self::OnboardingInvalidPrimaryModality,
             self::OnboardingNoModalitySelected,
-            self::SuspensionReasonInvalid,
             self::SocialProviderUnsupported,
             self::SocialEmailNotVerified,
             self::SocialEmailMissing,

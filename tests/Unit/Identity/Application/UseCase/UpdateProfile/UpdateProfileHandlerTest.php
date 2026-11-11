@@ -153,7 +153,7 @@ it('fails with the business code when the height is out of range', function () {
     $result = ($this->handler)(updateProfileTestCommand($user, heightProvided: true, heightCm: 49));
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('USER_HEIGHT_INVALID')
+        ->and($result->errors()[0]->code)->toBe('NUMBER_OUT_OF_RANGE')
         ->and($user->height()?->centimeters())->toBe(165);
 });
 
@@ -166,7 +166,7 @@ it('fails with the business code when the weight is out of range', function () {
     $result = ($this->handler)(updateProfileTestCommand($user, weightProvided: true, weightKg: 19.9));
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('USER_WEIGHT_INVALID')
+        ->and($result->errors()[0]->code)->toBe('NUMBER_OUT_OF_RANGE')
         ->and($user->weight()?->kilograms())->toBe(62.5);
 });
 

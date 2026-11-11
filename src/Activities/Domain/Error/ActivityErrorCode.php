@@ -19,16 +19,8 @@ enum ActivityErrorCode: string
     case ActivityAttendanceNotFound = 'ACTIVITY_ATTENDANCE_NOT_FOUND';
     case ActivityEnrollmentNotFound = 'ACTIVITY_ENROLLMENT_NOT_FOUND';
 
-    case ActivityTitleInvalid = 'ACTIVITY_TITLE_INVALID';
-    case ActivityDescriptionInvalid = 'ACTIVITY_DESCRIPTION_INVALID';
-    case ActivityMeetingPointInvalid = 'ACTIVITY_MEETING_POINT_INVALID';
-    case ActivityRouteInvalid = 'ACTIVITY_ROUTE_INVALID';
-    case ActivityEstimatedDistanceInvalid = 'ACTIVITY_ESTIMATED_DISTANCE_INVALID';
     case ActivityWindowInvalid = 'ACTIVITY_WINDOW_INVALID';
     case ActivityStartInPast = 'ACTIVITY_START_IN_PAST';
-    case ActivityCancelReasonInvalid = 'ACTIVITY_CANCEL_REASON_INVALID';
-    case ActivityRescheduleReasonInvalid = 'ACTIVITY_RESCHEDULE_REASON_INVALID';
-    case ActivityInvalidationReasonRequired = 'ACTIVITY_INVALIDATION_REASON_REQUIRED';
 
     case ActivityPermissionDenied = 'ACTIVITY_PERMISSION_DENIED';
     case ActivityGroupMembershipRequired = 'ACTIVITY_GROUP_MEMBERSHIP_REQUIRED';
@@ -60,16 +52,8 @@ enum ActivityErrorCode: string
             self::ActivityAttendanceNotFound,
             self::ActivityEnrollmentNotFound => ErrorKind::NotFound,
 
-            self::ActivityTitleInvalid,
-            self::ActivityDescriptionInvalid,
-            self::ActivityMeetingPointInvalid,
-            self::ActivityRouteInvalid,
-            self::ActivityEstimatedDistanceInvalid,
             self::ActivityWindowInvalid,
-            self::ActivityStartInPast,
-            self::ActivityCancelReasonInvalid,
-            self::ActivityRescheduleReasonInvalid,
-            self::ActivityInvalidationReasonRequired => ErrorKind::Validation,
+            self::ActivityStartInPast => ErrorKind::Validation,
 
             self::ActivityPermissionDenied,
             self::ActivityGroupMembershipRequired,

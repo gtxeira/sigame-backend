@@ -47,6 +47,29 @@ it('updates, reschedules and lists the activity history', function () {
         ->and(authTestBody($history)['data'][0]['reason'])->toBe('Mudança de horário');
 });
 
+it('reports every invalid update field together', function () {
+    $context = activityTestGroupWithMembers($this, 'activities-update-multi-error');
+    $activity = activityTestCreate($this, $context['adminToken'], $context['groupId']);
+
+    $response = $this->api->patch(
+        'app_activity_update',
+        [
+            'title' => 'ab',
+            'startsAt' => 'ontem',
+            'meetingPoint' => 'x',
+        ],
+        ['id' => $activity['id']],
+        groupTestServer($context['adminToken']),
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe([
+            'STRING_TOO_SHORT',
+            'STRING_TOO_SHORT',
+            'INVALID_FORMAT',
+        ]);
+});
+
 it('cancels and invalidates activities through the lifecycle endpoints', function () {
     $context = activityTestGroupWithMembers($this, 'activities-lifecycle');
     $activity = activityTestCreate($this, $context['adminToken'], $context['groupId'], [

@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Documenta a resposta `409 Conflict`.
  *
  * Os códigos possíveis são derivados das chaves de `$examples`, e os campos de
- * `details[].field` das chaves de `$fields`, de modo que a documentação não
+ * `field` das chaves de `$fields`, de modo que a documentação não
  * divirja dos erros realmente retornados pelo endpoint.
  */
 #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
@@ -19,7 +19,7 @@ final class ResourceConflictResponse extends ApiErrorResponse
 {
     /**
      * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
-     * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
+     * @param array<string, string>          $fields   campos possíveis em `field` => descrição
      * @param ApiMeta|null                   $meta     campos adicionais de `meta` além do timestamp
      */
     public function __construct(

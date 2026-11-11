@@ -15,12 +15,14 @@ use App\Activities\Domain\Activity\ValueObject\ActivityRoute;
 use App\Activities\Domain\Activity\ValueObject\ActivityTitle;
 use App\Activities\Domain\Activity\ValueObject\ActivityWindow;
 use App\Activities\Domain\Activity\ValueObject\EstimatedDistance;
+use App\Activities\Domain\Activity\ValueObject\EstimatedDuration;
 use App\Activities\Domain\Activity\ValueObject\MeetingPoint;
-use App\Activities\Domain\Error\ActivityErrorCode;
 use App\Activities\Domain\Error\ActivityErrors;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Application\Group\GroupAccessReaderInterface;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\Functional\ValidationResult;
 use App\Shared\Domain\ValueObject\Instant;
 
 /**
@@ -67,118 +69,71 @@ final readonly class UpdateActivityHandler
             $windowChanged = $command->startsAtProvided || $command->durationProvided;
 
             if (!$detailsProvided && !$windowChanged) {
-                return Result::failure([ActivityErrors::windowInvalid(
-                    \App\Activities\Domain\Activity\Policy\ActivityPolicy::MIN_ESTIMATED_DURATION_MINUTES,
-                    \App\Activities\Domain\Activity\Policy\ActivityPolicy::MAX_ESTIMATED_DURATION_MINUTES,
-                )]);
+                return Result::failure([
+                    ValidationErrors::fieldRequired('body', 'Informe ao menos um campo para atualização.'),
+                ]);
             }
 
-            $title = $activity->title();
-            $description = $activity->description();
-            $meetingPoint = $activity->meetingPoint();
-            $route = $activity->route();
-            $distance = EstimatedDistance::fromMeters($activity->estimatedDistanceMeters())->value();
+            $validation = ValidationResult::combine(
+                $command->titleProvided
+                    ? ActivityTitle::fromString($command->title ?? '')
+                    : ValidationResult::valid($activity->title()),
+                match (true) {
+                    !$command->descriptionProvided => ValidationResult::valid($activity->description()),
+                    null === $command->description || '' === trim($command->description) => ValidationResult::valid(null),
+                    default => ActivityDescription::fromString($command->description),
+                },
+                $command->meetingPointProvided
+                    ? MeetingPoint::fromString($command->meetingPoint ?? '')
+                    : ValidationResult::valid($activity->meetingPoint()),
+                $command->routeProvided
+                    ? ActivityRoute::fromString($command->route ?? '')
+                    : ValidationResult::valid($activity->route()),
+                $command->distanceProvided
+                    ? EstimatedDistance::fromMeters($command->estimatedDistanceMeters ?? 0)
+                    : ValidationResult::valid(EstimatedDistance::fromMeters($activity->estimatedDistanceMeters())->value()),
+                $command->startsAtProvided
+                    ? Instant::fromString($command->startsAt ?? '', 'startsAt')
+                    : ValidationResult::valid($activity->window()->startsAt()),
+                $command->durationProvided
+                    ? EstimatedDuration::fromMinutes($command->estimatedDurationMinutes)
+                    : ValidationResult::valid(EstimatedDuration::fromMinutes($activity->window()->estimatedDurationMinutes())->value()),
+                null === $command->reason || '' === trim($command->reason)
+                    ? ValidationResult::valid(null)
+                    : ActivityReason::fromString($command->reason),
+            );
 
-            if ($command->titleProvided) {
-                $result = ActivityTitle::fromString($command->title ?? '');
-
-                if ($result->isInvalid()) {
-                    return Result::failure($result->errors());
-                }
-
-                $title = $result->value();
+            if ($validation->isInvalid()) {
+                return Result::failure($validation->errors());
             }
 
-            if ($command->descriptionProvided) {
-                if (null === $command->description || '' === trim($command->description)) {
-                    $description = null;
-                } else {
-                    $result = ActivityDescription::fromString($command->description);
-
-                    if ($result->isInvalid()) {
-                        return Result::failure($result->errors());
-                    }
-
-                    $description = $result->value();
-                }
-            }
-
-            if ($command->meetingPointProvided) {
-                $result = MeetingPoint::fromString($command->meetingPoint ?? '');
-
-                if ($result->isInvalid()) {
-                    return Result::failure($result->errors());
-                }
-
-                $meetingPoint = $result->value();
-            }
-
-            if ($command->routeProvided) {
-                $result = ActivityRoute::fromString($command->route ?? '');
-
-                if ($result->isInvalid()) {
-                    return Result::failure($result->errors());
-                }
-
-                $route = $result->value();
-            }
-
-            if ($command->distanceProvided) {
-                $result = EstimatedDistance::fromMeters($command->estimatedDistanceMeters ?? 0);
-
-                if ($result->isInvalid()) {
-                    return Result::failure($result->errors());
-                }
-
-                $distance = $result->value();
-            }
-
-            $reason = null;
-
-            if (null !== $command->reason && '' !== trim($command->reason)) {
-                $reasonResult = ActivityReason::fromString(
-                    $command->reason,
-                    ActivityErrorCode::ActivityRescheduleReasonInvalid,
-                );
-
-                if ($reasonResult->isInvalid()) {
-                    return Result::failure($reasonResult->errors());
-                }
-
-                $reason = $reasonResult->value();
-            }
+            [
+                $title,
+                $description,
+                $meetingPoint,
+                $route,
+                $estimatedDistance,
+                $startsAt,
+                $estimatedDuration,
+                $reason,
+            ] = $validation->value();
 
             $previousStartsAt = $activity->window()->startsAt();
 
             if ($windowChanged) {
-                $startsAt = $activity->window()->startsAt();
+                $windowResult = ActivityWindow::fromStart($startsAt, $estimatedDuration?->minutes());
+                $windowErrors = $windowResult->isInvalid() ? $windowResult->errors() : [];
 
-                if ($command->startsAtProvided) {
-                    $startsAtResult = Instant::fromString($command->startsAt ?? '');
-
-                    if ($startsAtResult->isInvalid()) {
-                        return Result::failure($startsAtResult->errors());
-                    }
-
-                    $startsAt = $startsAtResult->value();
+                if (!$startsAt->isAfter(Instant::now())) {
+                    $windowErrors[] = ActivityErrors::startInPast();
                 }
 
-                $duration = $command->durationProvided
-                    ? $command->estimatedDurationMinutes
-                    : $activity->window()->estimatedDurationMinutes();
-
-                $windowResult = ActivityWindow::fromStart($startsAt, $duration);
-
-                if ($windowResult->isInvalid()) {
-                    return Result::failure($windowResult->errors());
+                if ([] !== $windowErrors) {
+                    return Result::failure($windowErrors);
                 }
 
                 /** @var ActivityWindow $window */
                 $window = $windowResult->value();
-
-                if (!$window->startsAt()->isAfter(Instant::now())) {
-                    return Result::failure([ActivityErrors::startInPast()]);
-                }
 
                 if ([] !== $this->activityRepository->conflictingParticipants($activity->id(), $window)) {
                     return Result::failure([ActivityErrors::rescheduleConflict()]);
@@ -202,7 +157,7 @@ final readonly class UpdateActivityHandler
                     description: $description,
                     meetingPoint: $meetingPoint,
                     route: $route,
-                    estimatedDistance: $distance,
+                    estimatedDistance: $estimatedDistance,
                 );
 
                 if ($details->isFailure()) {

@@ -94,21 +94,21 @@ final class SocialAuthController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['client' => 'O cliente é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O cliente é obrigatório.',
+                field: 'client',
                 summary: 'Erros de Validação',
                 description: 'O payload de início contém dados inválidos.',
             ),
             'SOCIAL_PROVIDER_UNSUPPORTED' => new ApiErrorExample(
                 message: 'O provedor de login "apple" não é suportado.',
-                details: ['provider'],
+                field: 'provider',
                 summary: 'Provedor não suportado',
                 description: 'Somente o provedor google está habilitado.',
             ),
             'SOCIAL_CLIENT_UNSUPPORTED' => new ApiErrorExample(
                 message: 'O cliente de login "mobile" não é suportado.',
-                details: ['client'],
+                field: 'client',
                 summary: 'Cliente não suportado',
                 description: 'O cliente não está configurado neste ambiente.',
             ),
@@ -187,27 +187,27 @@ final class SocialAuthController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['code' => 'O authorization code é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O authorization code é obrigatório.',
+                field: 'code',
                 summary: 'Erros de Validação',
                 description: 'O payload do callback contém dados inválidos.',
             ),
             'SOCIAL_FLOW_INVALID' => new ApiErrorExample(
                 message: 'O fluxo de autenticação social expirou ou é inválido. Inicie novamente.',
-                details: ['state'],
+                field: 'state',
                 summary: 'Fluxo inválido',
                 description: 'O cookie de fluxo, o state ou a validade não conferem.',
             ),
             'SOCIAL_PROVIDER_UNSUPPORTED' => new ApiErrorExample(
                 message: 'O provedor de login "apple" não é suportado.',
-                details: ['provider'],
+                field: 'provider',
                 summary: 'Provedor não suportado',
                 description: 'Somente o provedor google está habilitado.',
             ),
             'SOCIAL_EMAIL_NOT_VERIFIED' => new ApiErrorExample(
                 message: 'O provedor social não confirmou a verificação do e-mail.',
-                details: ['email'],
+                field: 'email',
                 summary: 'E-mail não verificado',
                 description: 'O provedor não confirmou que o e-mail pertence ao usuário.',
             ),
@@ -232,7 +232,7 @@ final class SocialAuthController extends AbstractController
         examples: [
             'ACCOUNT_SUSPENDED' => new ApiErrorExample(
                 message: 'Esta conta está suspensa e não pode autenticar.',
-                details: ['status'],
+                field: 'status',
                 summary: 'Conta suspensa',
                 description: 'A conta vinculada ao provedor está suspensa.',
             ),
@@ -243,7 +243,7 @@ final class SocialAuthController extends AbstractController
         examples: [
             'SOCIAL_ACCOUNT_LINK_REQUIRED' => new ApiErrorExample(
                 message: 'Já existe uma conta cadastrada com este e-mail. Faça login com sua senha para vincular sua conta do Google.',
-                details: ['email'],
+                field: 'email',
                 summary: 'Vínculo explícito necessário',
                 description: 'A conta existente possui senha local. O ticket de vínculo vem em meta.link.',
             ),
@@ -358,21 +358,21 @@ final class SocialAuthController extends AbstractController
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Identidade vinculada.')]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['linkToken' => 'O linkToken é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O linkToken é obrigatório.',
+                field: 'linkToken',
                 summary: 'Erros de Validação',
                 description: 'O payload de vínculo contém dados inválidos.',
             ),
             'SOCIAL_LINK_TOKEN_INVALID' => new ApiErrorExample(
                 message: 'O vínculo de conta expirou ou é inválido. Inicie o login novamente.',
-                details: ['linkToken'],
+                field: 'linkToken',
                 summary: 'Ticket inválido',
                 description: 'O ticket expirou ou já foi utilizado.',
             ),
             'SOCIAL_PROVIDER_UNSUPPORTED' => new ApiErrorExample(
                 message: 'O provedor de login "apple" não é suportado.',
-                details: ['provider'],
+                field: 'provider',
                 summary: 'Provedor não suportado',
                 description: 'Somente o provedor google está habilitado.',
             ),
@@ -387,13 +387,13 @@ final class SocialAuthController extends AbstractController
         examples: [
             'SOCIAL_LINK_EMAIL_MISMATCH' => new ApiErrorExample(
                 message: 'A conta do provedor informada não corresponde ao e-mail desta conta.',
-                details: ['email'],
+                field: 'email',
                 summary: 'E-mail divergente',
                 description: 'O ticket foi emitido para outra conta.',
             ),
             'SOCIAL_IDENTITY_ALREADY_LINKED' => new ApiErrorExample(
                 message: 'Esta conta do provedor já está vinculada a outro usuário.',
-                details: ['provider'],
+                field: 'provider',
                 summary: 'Identidade já vinculada',
                 description: 'A identidade social pertence a outro usuário.',
             ),

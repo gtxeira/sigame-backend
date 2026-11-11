@@ -44,51 +44,6 @@ final class ActivityErrors
         );
     }
 
-    public static function titleInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityTitleInvalid,
-            message: sprintf('O título da atividade deve ter entre %d e %d caracteres.', $minimum, $maximum),
-            field: 'title',
-        );
-    }
-
-    public static function descriptionInvalid(int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityDescriptionInvalid,
-            message: sprintf('A descrição da atividade deve ter no máximo %d caracteres.', $maximum),
-            field: 'description',
-        );
-    }
-
-    public static function meetingPointInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityMeetingPointInvalid,
-            message: sprintf('O ponto de encontro deve ter entre %d e %d caracteres.', $minimum, $maximum),
-            field: 'meetingPoint',
-        );
-    }
-
-    public static function routeInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityRouteInvalid,
-            message: sprintf('O trajeto ou ponto final deve ter entre %d e %d caracteres.', $minimum, $maximum),
-            field: 'route',
-        );
-    }
-
-    public static function estimatedDistanceInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityEstimatedDistanceInvalid,
-            message: sprintf('A distância estimada deve estar entre %d e %d metros.', $minimum, $maximum),
-            field: 'estimatedDistanceMeters',
-        );
-    }
-
     public static function windowInvalid(int $minimum, int $maximum): DomainError
     {
         return self::error(
@@ -104,33 +59,6 @@ final class ActivityErrors
             code: ActivityErrorCode::ActivityStartInPast,
             message: 'O início da atividade deve estar no futuro.',
             field: 'startsAt',
-        );
-    }
-
-    public static function cancelReasonInvalid(int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityCancelReasonInvalid,
-            message: sprintf('O motivo do cancelamento deve ter no máximo %d caracteres.', $maximum),
-            field: 'reason',
-        );
-    }
-
-    public static function rescheduleReasonInvalid(int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityRescheduleReasonInvalid,
-            message: sprintf('O motivo da remarcação deve ter no máximo %d caracteres.', $maximum),
-            field: 'reason',
-        );
-    }
-
-    public static function invalidationReasonRequired(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: ActivityErrorCode::ActivityInvalidationReasonRequired,
-            message: sprintf('O motivo da invalidação é obrigatório e deve ter entre %d e %d caracteres.', $minimum, $maximum),
-            field: 'reason',
         );
     }
 

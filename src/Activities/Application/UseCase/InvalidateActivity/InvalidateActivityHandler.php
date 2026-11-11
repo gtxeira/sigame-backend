@@ -9,7 +9,6 @@ use App\Activities\Domain\Activity\Entity\Activity;
 use App\Activities\Domain\Activity\Event\ActivityInvalidated;
 use App\Activities\Domain\Activity\Repository\ActivityRepositoryInterface;
 use App\Activities\Domain\Activity\ValueObject\ActivityReason;
-use App\Activities\Domain\Error\ActivityErrorCode;
 use App\Activities\Domain\Error\ActivityErrors;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Application\Group\GroupAccessReaderInterface;
@@ -48,10 +47,7 @@ final readonly class InvalidateActivityHandler
                 return Result::failure([$accessError]);
             }
 
-            $reason = ActivityReason::fromString(
-                $command->reason,
-                ActivityErrorCode::ActivityInvalidationReasonRequired,
-            );
+            $reason = ActivityReason::fromString($command->reason);
 
             if ($reason->isInvalid()) {
                 return Result::failure($reason->errors());

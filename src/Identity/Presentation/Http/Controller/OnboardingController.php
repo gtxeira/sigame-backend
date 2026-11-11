@@ -81,21 +81,21 @@ final class OnboardingController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['modalities' => 'A modalidade informada é inválida.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'A modalidade informada é inválida.',
+                field: 'modalities',
                 summary: 'Erros de Validação',
                 description: 'O payload contém dados com tipo, formato ou valor inválido.',
             ),
             'ONBOARDING_NO_MODALITY_SELECTED' => new ApiErrorExample(
                 message: 'Pelo menos uma modalidade deve ser selecionada.',
-                details: ['modalities'],
+                field: 'modalities',
                 summary: 'Nenhuma modalidade',
                 description: 'O onboarding exige ao menos uma modalidade ativa.',
             ),
             'ONBOARDING_INVALID_PRIMARY_MODALITY' => new ApiErrorExample(
                 message: 'A modalidade principal deve ser uma das modalidades selecionadas.',
-                details: ['primaryModality'],
+                field: 'primaryModality',
                 summary: 'Modalidade principal inválida',
                 description: 'A modalidade principal informada não está entre as modalidades selecionadas.',
             ),

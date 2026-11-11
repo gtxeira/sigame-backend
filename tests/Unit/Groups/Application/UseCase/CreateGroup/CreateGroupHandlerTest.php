@@ -92,7 +92,7 @@ it('rejects a member limit below three', function () {
     ));
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('GROUP_MEMBER_LIMIT_INVALID');
+        ->and($result->errors()[0]->code)->toBe('NUMBER_OUT_OF_RANGE');
 });
 
 it('rejects group creation below level 2', function () {
@@ -167,5 +167,5 @@ it('validates group fields before touching persistence', function () {
 
     expect($result->isFailure())->toBeTrue()
         ->and(array_map(static fn ($error): string => $error->code, $result->errors()))
-        ->toBe(['GROUP_NAME_INVALID', 'GROUP_COMMUNICATION_LINK_INVALID']);
+        ->toBe(['STRING_TOO_SHORT', 'INVALID_FORMAT']);
 });

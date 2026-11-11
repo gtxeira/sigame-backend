@@ -28,7 +28,7 @@ it('rejects weights outside the allowed range', function (float $kilograms) {
 
     $error = $result->errors()[0];
 
-    expect($error->code)->toBe('USER_WEIGHT_INVALID')
+    expect($error->code)->toBe('NUMBER_OUT_OF_RANGE')
         ->and($error->field)->toBe('weightKg');
 })->with([
     Weight::MIN_KILOGRAMS - 0.1,
@@ -39,7 +39,7 @@ it('rejects non-finite weights', function (float $kilograms) {
     $result = Weight::fromKilograms($kilograms);
 
     expect($result->isInvalid())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('USER_WEIGHT_INVALID');
+        ->and($result->errors()[0]->code)->toBe('NUMBER_OUT_OF_RANGE');
 })->with([
     'nan' => NAN,
     'positive infinity' => INF,

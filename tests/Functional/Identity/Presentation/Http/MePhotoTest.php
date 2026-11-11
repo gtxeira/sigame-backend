@@ -70,15 +70,15 @@ function mePhotoKeyFromUrl(string $url): string
  */
 function mePhotoErrorMessages(Response $response): array
 {
-    $details = authTestBody($response)['errors'][0]['details'] ?? [];
+    $errors = authTestBody($response)['errors'] ?? [];
 
-    if (!is_array($details)) {
+    if (!is_array($errors)) {
         return [];
     }
 
     return array_values(array_map(
-        static fn (mixed $detail): string => is_array($detail) ? (string) ($detail['message'] ?? '') : '',
-        $details,
+        static fn (mixed $error): string => is_array($error) ? (string) ($error['message'] ?? '') : '',
+        $errors,
     ));
 }
 
@@ -160,9 +160,9 @@ it('rejects a request without a photo', function () {
     $response = $this->api->postMultipart('app_me_photo_update', server: $server);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['FIELD_REQUIRED']);
 
-    expect(authTestBody($response)['errors'][0]['details'][0]['field'])->toBe('photo');
+    expect(authTestBody($response)['errors'][0]['field'])->toBe('photo');
 });
 
 it('rejects a file that is not an image', function () {
@@ -175,7 +175,7 @@ it('rejects a file that is not an image', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['UNSUPPORTED_FILE_TYPE']);
 });
 
 it('rejects a corrupted image', function () {
@@ -188,7 +188,7 @@ it('rejects a corrupted image', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['UNSUPPORTED_FILE_TYPE']);
 });
 
 it('accepts a square image within the 512 pixel tolerance', function (int $side) {
@@ -218,7 +218,7 @@ it('rejects an image below the minimum dimensions', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and($this->api->errorCodes())->toBe(['INVALID_IMAGE_DIMENSIONS'])
         ->and(mePhotoErrorMessages($response))
         ->toContain('A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).');
 });
@@ -233,7 +233,7 @@ it('rejects an image above the maximum dimensions', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and($this->api->errorCodes())->toBe(['INVALID_IMAGE_DIMENSIONS'])
         ->and(mePhotoErrorMessages($response))
         ->toContain('A foto de perfil deve ter 512×512 pixels (tolerância de 5 pixels por lado).');
 });
@@ -248,7 +248,7 @@ it('rejects a non square image even within the size range', function (int $width
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and($this->api->errorCodes())->toBe(['INVALID_IMAGE_ASPECT_RATIO'])
         ->and(mePhotoErrorMessages($response))
         ->toContain('A foto de perfil deve ser quadrada (proporção 1:1).');
 })->with([
@@ -268,7 +268,7 @@ it('rejects an image above the maximum file size', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and($this->api->errorCodes())->toBe(['FILE_TOO_LARGE'])
         ->and(mePhotoErrorMessages($response))->toContain('A foto de perfil deve ter no máximo 2 MB.');
 });
 

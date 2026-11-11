@@ -101,13 +101,13 @@ final class MeController extends AbstractController
         examples: [
             'USER_CPF_ALREADY_SET' => new ApiErrorExample(
                 message: 'O CPF já foi definido e não pode ser alterado.',
-                details: ['cpf'],
+                field: 'cpf',
                 summary: 'CPF já definido',
                 description: 'O CPF é write-once: uma vez definido, o próprio usuário não pode alterá-lo.',
             ),
             'USER_CPF_ALREADY_EXISTS' => new ApiErrorExample(
                 message: 'Já existe um usuário com este CPF.',
-                details: ['cpf'],
+                field: 'cpf',
                 summary: 'CPF em uso',
                 description: 'O CPF informado pertence a outro usuário.',
             ),
@@ -116,15 +116,15 @@ final class MeController extends AbstractController
     )]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['cpf' => 'O CPF é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O CPF é obrigatório.',
+                field: 'cpf',
                 summary: 'Erros de Validação',
                 description: 'O CPF não foi informado ou está em formato inválido.',
             ),
-            'CPF_INVALID' => new ApiErrorExample(
+            'INVALID_FORMAT' => new ApiErrorExample(
                 message: 'O CPF possui dígitos verificadores inválidos.',
-                details: ['cpf'],
+                field: 'cpf',
                 summary: 'CPF inválido',
                 description: 'O CPF não passou na validação de dígitos verificadores.',
             ),

@@ -8,6 +8,7 @@ use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Notifications\Domain\Error\NotificationErrorCode;
 use App\Shared\Domain\Error\ErrorKind;
 use App\Shared\Domain\Error\SharedErrorCode;
+use App\Shared\Domain\Error\ValidationErrorCode;
 use App\Shared\Presentation\Http\Response\ApiErrorCode;
 
 /**
@@ -27,7 +28,7 @@ function allErrorCodes(): array
 }
 
 /**
- * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|NotificationErrorCode|ApiErrorCode>>
+ * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|NotificationErrorCode|ValidationErrorCode|ApiErrorCode>>
  */
 function errorCodeCatalogs(): array
 {
@@ -37,6 +38,7 @@ function errorCodeCatalogs(): array
         GroupErrorCode::class,
         ActivityErrorCode::class,
         NotificationErrorCode::class,
+        ValidationErrorCode::class,
         ApiErrorCode::class,
     ];
 }
@@ -75,23 +77,17 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode|GroupEr
     GroupErrorCode::GroupMemberLimitBelowApproved,
 ]);
 
-it('classifies input problems as validation', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode $code) {
+it('classifies input problems as validation', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode|ValidationErrorCode $code) {
     expect($code->kind())->toBe(ErrorKind::Validation);
 })->with([
-    SharedErrorCode::CpfInvalid,
-    SharedErrorCode::EmailInvalid,
-    SharedErrorCode::DateTimeInvalid,
     SharedErrorCode::InvalidUuid,
     IdentityErrorCode::UserLevelInvalid,
-    IdentityErrorCode::UserHeightInvalid,
-    IdentityErrorCode::UserWeightInvalid,
     IdentityErrorCode::OnboardingInvalidPrimaryModality,
     IdentityErrorCode::OnboardingNoModalitySelected,
     IdentityErrorCode::SocialProviderUnsupported,
     IdentityErrorCode::SocialEmailNotVerified,
     IdentityErrorCode::SocialEmailMissing,
-    IdentityErrorCode::SuspensionReasonInvalid,
-    GroupErrorCode::GroupMemberLimitInvalid,
+    ...ValidationErrorCode::cases(),
 ]);
 
 it('classifies authentication problems as authentication', function (IdentityErrorCode $code) {

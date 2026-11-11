@@ -17,7 +17,7 @@ final readonly class EmailVerifyRequest
         #[OA\Property(description: 'Token enviado por e-mail.', example: 'a1b2c3...')]
         #[Assert\NotBlank(message: 'O token é obrigatório.')]
         #[Assert\Length(max: 128, maxMessage: 'O token deve ter no máximo 128 caracteres.')]
-        public string $token,
+        public string $token = '',
     ) {
     }
 }

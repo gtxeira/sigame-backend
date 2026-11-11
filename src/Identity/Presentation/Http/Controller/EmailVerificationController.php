@@ -61,21 +61,21 @@ final class EmailVerificationController extends AbstractController
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'E-mail verificado.')]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['token' => 'O token é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O token é obrigatório.',
+                field: 'token',
                 summary: 'Erros de Validação',
                 description: 'O payload de verificação contém dados inválidos.',
             ),
             'EMAIL_VERIFICATION_TOKEN_INVALID' => new ApiErrorExample(
                 message: 'O token de verificação de e-mail é inválido.',
-                details: ['token'],
+                field: 'token',
                 summary: 'Token inválido',
                 description: 'O token não existe ou já foi utilizado.',
             ),
             'EMAIL_VERIFICATION_TOKEN_EXPIRED' => new ApiErrorExample(
                 message: 'O token de verificação de e-mail expirou. Solicite um novo.',
-                details: ['token'],
+                field: 'token',
                 summary: 'Token expirado',
                 description: 'O token passou do prazo de validade.',
             ),

@@ -85,24 +85,6 @@ final class IdentityErrors
         );
     }
 
-    public static function userHeightInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::UserHeightInvalid,
-            message: sprintf('A altura deve estar entre %d e %d centímetros.', $minimum, $maximum),
-            field: 'heightCm',
-        );
-    }
-
-    public static function userWeightInvalid(float $minimum, float $maximum): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::UserWeightInvalid,
-            message: sprintf('O peso deve estar entre %s e %s quilogramas.', $minimum, $maximum),
-            field: 'weightKg',
-        );
-    }
-
     public static function invalidCredentials(): DomainError
     {
         return self::error(
@@ -321,15 +303,6 @@ final class IdentityErrors
             code: IdentityErrorCode::CannotSuspendAdmin,
             message: 'Contas de administração SIGAME não podem ser suspensas por este endpoint.',
             field: 'id',
-        );
-    }
-
-    public static function suspensionReasonInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::SuspensionReasonInvalid,
-            message: sprintf('O motivo deve ter entre %d e %d caracteres.', $minimum, $maximum),
-            field: 'reason',
         );
     }
 

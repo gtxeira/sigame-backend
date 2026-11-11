@@ -107,9 +107,9 @@ final class ActivityController extends AbstractController
     ])]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['title' => 'O título é obrigatório.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'O título é obrigatório.',
+                field: 'title',
                 summary: 'Erros de validação',
                 description: 'Um ou mais campos da atividade estão ausentes ou inválidos.',
             ),
@@ -175,9 +175,9 @@ final class ActivityController extends AbstractController
     #[NotFoundResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['status' => 'O estado informado é inválido.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'O estado informado é inválido.',
+                field: 'status',
                 summary: 'Filtros inválidos',
                 description: 'A paginação, o estado ou o intervalo de datas são inválidos.',
             ),
@@ -288,9 +288,9 @@ final class ActivityController extends AbstractController
     ])]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['body' => 'Informe ao menos um campo para atualização.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'Informe ao menos um campo para atualização.',
+                field: 'body',
                 summary: 'Erros de validação',
                 description: 'O corpo está vazio ou um campo tem formato inválido.',
             ),
@@ -323,7 +323,7 @@ final class ActivityController extends AbstractController
         if (!$has('title') && !$has('description') && !$has('meetingPoint') && !$has('route')
             && !$has('estimatedDistanceMeters') && !$has('startsAt') && !$has('estimatedDurationMinutes')
         ) {
-            throw RequestViolationFactory::unprocessable('body', 'Informe ao menos um campo para atualização.');
+            throw RequestViolationFactory::unprocessable('FIELD_REQUIRED', 'body', 'Informe ao menos um campo para atualização.');
         }
 
         $actor = $this->actorId();
@@ -417,7 +417,7 @@ final class ActivityController extends AbstractController
         $instant = Instant::fromString($value);
 
         if ($instant->isInvalid()) {
-            throw RequestViolationFactory::unprocessable($field, 'Data/hora inválida.');
+            throw RequestViolationFactory::unprocessable('INVALID_FORMAT', $field, 'Data/hora inválida.');
         }
 
         return $instant->value();

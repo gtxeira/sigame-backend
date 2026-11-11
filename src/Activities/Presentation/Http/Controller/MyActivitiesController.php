@@ -58,9 +58,9 @@ final class MyActivitiesController extends AbstractController
     #[UnauthorizedResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['status' => 'O estado informado é inválido.'],
+            'INVALID_CHOICE' => new ApiErrorExample(
+                message: 'O estado informado é inválido.',
+                field: 'status',
                 summary: 'Filtros inválidos',
                 description: 'A paginação, o estado ou o intervalo de datas são inválidos.',
             ),
@@ -119,7 +119,7 @@ final class MyActivitiesController extends AbstractController
         $instant = Instant::fromString($value);
 
         if ($instant->isInvalid()) {
-            throw RequestViolationFactory::unprocessable($field, 'Data/hora inválida.');
+            throw RequestViolationFactory::unprocessable('INVALID_FORMAT', $field, 'Data/hora inválida.');
         }
 
         return $instant->value();

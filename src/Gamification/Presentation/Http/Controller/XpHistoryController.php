@@ -53,9 +53,9 @@ final class XpHistoryController extends AbstractController
     #[UnauthorizedResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['perPage' => 'O valor deve estar entre 1 e 30.'],
+            'NUMBER_OUT_OF_RANGE' => new ApiErrorExample(
+                message: 'O valor deve estar entre 1 e 30.',
+                field: 'perPage',
                 summary: 'Paginação inválida',
                 description: 'A página ou o tamanho da página são inválidos.',
             ),

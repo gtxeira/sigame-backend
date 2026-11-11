@@ -135,27 +135,48 @@ it('clears both physical fields in a single request', function () {
         ->and($profile->photoKey())->toBe('users/profile/photo.png');
 });
 
-it('rejects a request without any known field', function (array $payload, string $field) {
+it('rejects a request without any known field', function (array $payload, string $field, string $code) {
     [, $server] = meProfileTestUser($this);
 
     $response = $this->api->patch('app_me_profile_update', $payload, server: $server);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe([$code]);
 
     $error = authTestBody($response)['errors'][0];
 
-    expect($error['details'][0]['field'])->toBe($field);
+    expect($error['field'])->toBe($field);
 })->with([
-    'empty body' => [[], 'body'],
-    'unknown fields only' => [['nickname' => 'maria'], 'body'],
-    'null name' => [['name' => null], 'name'],
-    'blank name' => [['name' => '   '], 'name'],
-    'short name' => [['name' => 'a'], 'name'],
-    'numeric name' => [['name' => 123], 'name'],
+    'empty body' => [[], 'body', 'FIELD_REQUIRED'],
+    'unknown fields only' => [['nickname' => 'maria'], 'body', 'FIELD_REQUIRED'],
+    'null name' => [['name' => null], 'name', 'FIELD_REQUIRED'],
+    'blank name' => [['name' => '   '], 'name', 'FIELD_REQUIRED'],
+    'short name' => [['name' => 'a'], 'name', 'STRING_TOO_SHORT'],
+    'numeric name' => [['name' => 123], 'name', 'INVALID_TYPE'],
 ]);
 
-it('rejects physically invalid values with business codes', function (array $payload, string $code) {
+it('reports name, height and weight errors together', function () {
+    [, $server] = meProfileTestUser($this);
+
+    $response = $this->api->patch(
+        'app_me_profile_update',
+        ['name' => 'J', 'heightCm' => 49, 'weightKg' => 19.9],
+        server: $server,
+    );
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toBe([
+            'STRING_TOO_SHORT',
+            'NUMBER_OUT_OF_RANGE',
+            'NUMBER_OUT_OF_RANGE',
+        ]);
+
+    $errors = authTestBody($response)['errors'];
+
+    expect(array_column($errors, 'field'))->toBe(['name', 'heightCm', 'weightKg']);
+});
+
+it('rejects physically invalid values with field codes', function (array $payload, string $code) {
     [$user, $server] = meProfileTestUser($this);
 
     $response = $this->api->patch('app_me_profile_update', $payload, server: $server);
@@ -170,10 +191,10 @@ it('rejects physically invalid values with business codes', function (array $pay
     expect($profile->height()?->centimeters())->toBe(165)
         ->and($profile->weight()?->kilograms())->toBe(62.5);
 })->with([
-    'height below the minimum' => [['heightCm' => 49], 'USER_HEIGHT_INVALID'],
-    'height above the maximum' => [['heightCm' => 251], 'USER_HEIGHT_INVALID'],
-    'weight below the minimum' => [['weightKg' => 19.9], 'USER_WEIGHT_INVALID'],
-    'weight above the maximum' => [['weightKg' => 300.1], 'USER_WEIGHT_INVALID'],
+    'height below the minimum' => [['heightCm' => 49], 'NUMBER_OUT_OF_RANGE'],
+    'height above the maximum' => [['heightCm' => 251], 'NUMBER_OUT_OF_RANGE'],
+    'weight below the minimum' => [['weightKg' => 19.9], 'NUMBER_OUT_OF_RANGE'],
+    'weight above the maximum' => [['weightKg' => 300.1], 'NUMBER_OUT_OF_RANGE'],
 ]);
 
 it('rejects a value with an invalid type', function () {
@@ -182,7 +203,7 @@ it('rejects a value with an invalid type', function () {
     $response = $this->api->patch('app_me_profile_update', ['heightCm' => 'x'], server: $server);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['INVALID_TYPE']);
 });
 
 it('rejects a partial update without a bearer token', function () {

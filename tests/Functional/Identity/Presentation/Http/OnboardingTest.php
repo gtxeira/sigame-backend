@@ -106,7 +106,7 @@ it('rejects an unknown modality', function () {
     ], server: ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken]);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['INVALID_CHOICE']);
 });
 
 it('rate limits repeated onboarding attempts', function () {

@@ -92,6 +92,6 @@ it('keeps framework details out of validation errors', function () {
     $response = $this->api->getKernelBrowser()->getResponse();
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR'])
+        ->and($this->api->errorCodes())->toBe(['FIELD_REQUIRED', 'FIELD_REQUIRED', 'FIELD_REQUIRED'])
         ->and((string) $response->getContent())->not->toContain('Symfony\\');
 });

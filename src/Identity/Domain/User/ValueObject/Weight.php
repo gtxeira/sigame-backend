@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Domain\User\ValueObject;
 
-use App\Identity\Domain\Error\IdentityErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 /**
@@ -27,7 +27,7 @@ final readonly class Weight
     {
         if ($kilograms < self::MIN_KILOGRAMS || $kilograms > self::MAX_KILOGRAMS || !is_finite($kilograms)) {
             return ValidationResult::invalid([
-                IdentityErrors::userWeightInvalid(self::MIN_KILOGRAMS, self::MAX_KILOGRAMS),
+                ValidationErrors::numberOutOfRange('weightKg', sprintf('O peso deve estar entre %s e %s quilogramas.', self::MIN_KILOGRAMS, self::MAX_KILOGRAMS)),
             ]);
         }
 

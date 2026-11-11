@@ -26,14 +26,10 @@ use const JSON_UNESCAPED_UNICODE;
  *     timestamp: string,
  *     pagination?: PaginationMeta
  * } & array<string, mixed>
- * @phpstan-type ApiErrorDetail array{
- *     field?: string,
- *     message?: string
- * }
  * @phpstan-type ApiErrorItem array{
  *     code: string,
- *     message: string,
- *     details?: list<ApiErrorDetail>
+ *     field?: string,
+ *     message: string
  * }
  * @phpstan-type ApiErrors list<ApiErrorItem>
  */

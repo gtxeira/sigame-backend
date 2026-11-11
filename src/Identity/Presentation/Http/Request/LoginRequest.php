@@ -17,12 +17,12 @@ final readonly class LoginRequest
         #[OA\Property(description: 'E-mail cadastrado.', format: 'email', example: 'user@example.com')]
         #[Assert\NotBlank(message: 'O email é obrigatório.')]
         #[Assert\Email(message: 'O formato do email é inválido.')]
-        public string $email,
+        public string $email = '',
 
         #[OA\Property(description: 'Senha do usuário.', example: 'secret123')]
         #[Assert\NotBlank(message: 'A senha é obrigatória.')]
         #[Assert\Length(max: 255, maxMessage: 'A senha deve ter no máximo 255 caracteres.')]
-        public string $password,
+        public string $password = '',
     ) {
     }
 }

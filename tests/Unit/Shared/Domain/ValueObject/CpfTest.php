@@ -35,7 +35,7 @@ it('reports invalid cpf with code and field', function () {
 
     $error = $result->errors()[0];
 
-    expect($error->code)->toBe('CPF_INVALID')
+    expect($error->code)->toBe('INVALID_FORMAT')
         ->and($error->field)->toBe('cpf');
 });
 

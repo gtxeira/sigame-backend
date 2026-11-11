@@ -84,15 +84,15 @@ final class GroupSupervisorController extends AbstractController
     #[NotFoundResponse]
     #[ValidationErrorResponse(
         examples: [
-            'VALIDATION_ERROR' => new ApiErrorExample(
-                message: 'Um ou mais erros de validação foram encontrados.',
-                details: ['membershipId' => 'A participação é obrigatória.'],
+            'FIELD_REQUIRED' => new ApiErrorExample(
+                message: 'A participação é obrigatória.',
+                field: 'membershipId',
                 summary: 'Participação inválida',
                 description: 'A participação não foi informada ou não é um UUID válido.',
             ),
             'GROUP_SUPERVISOR_NOT_MEMBER' => new ApiErrorExample(
                 message: 'O supervisor deve ser um membro aprovado do grupo.',
-                details: ['membershipId' => 'A participação informada não está aprovada.'],
+                field: 'membershipId',
                 summary: 'Membro não aprovado',
                 description: 'Apenas membros aprovados podem ser designados supervisores.',
             ),

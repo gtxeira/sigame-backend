@@ -10,26 +10,42 @@ use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 /**
- * Monta o mesmo erro `422 VALIDATION_ERROR` usado pelo `MapRequestPayload`.
+ * Monta o erro `422` usado pelo `MapRequestPayload` a partir de uma lista de
+ * itens `{code, field, message}`.
  *
  * Existe para validações que dependem do corpo bruto (presença de campo,
  * arquivo ausente) e não podem ser expressas só por constraints no DTO.
  */
 final class RequestViolationFactory
 {
-    public static function unprocessable(string $field, string $message): UnprocessableEntityHttpException
+    public static function unprocessable(string $code, string $field, string $message): UnprocessableEntityHttpException
     {
-        $violations = new ConstraintViolationList([
-            new ConstraintViolation(
-                message: $message,
-                messageTemplate: $message,
-                parameters: [],
-                root: null,
-                propertyPath: $field,
-                invalidValue: null,
-            ),
+        return self::unprocessableMany([
+            ['code' => $code, 'field' => $field, 'message' => $message],
         ]);
+    }
 
-        return new UnprocessableEntityHttpException($message, new ValidationFailedException(null, $violations));
+    /**
+     * @param list<array{code: string, field: string, message: string}> $errors
+     */
+    public static function unprocessableMany(array $errors): UnprocessableEntityHttpException
+    {
+        $violations = new ConstraintViolationList();
+
+        foreach ($errors as $error) {
+            $violations->add(new ConstraintViolation(
+                message: $error['message'],
+                messageTemplate: $error['message'],
+                parameters: ['code' => $error['code']],
+                root: null,
+                propertyPath: $error['field'],
+                invalidValue: null,
+            ));
+        }
+
+        return new UnprocessableEntityHttpException(
+            $errors[0]['message'] ?? 'Erro de validação.',
+            new ValidationFailedException(null, $violations),
+        );
     }
 }

@@ -11,16 +11,16 @@ use OpenApi\Attributes as OA;
 /**
  * Documenta uma resposta de erro da API.
  *
- * Os códigos possíveis são derivados das chaves de `$examples`, de modo que
- * o enum do schema e os exemplos nunca divergem. Códigos internos ou
- * inalcançáveis no endpoint não devem ser declarados aqui.
+ * Os códigos possíveis são derivados dos exemplos, de modo que o enum do
+ * schema e os exemplos nunca divergem. Códigos internos ou inalcançáveis no
+ * endpoint não devem ser declarados aqui.
  */
 #[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 class ApiErrorResponse extends OA\Response
 {
     /**
      * @param array<string, ApiErrorExample> $examples exemplos nomeados pelo código do erro
-     * @param array<string, string>          $fields   campos possíveis em `details[].field` => descrição
+     * @param array<string, string>          $fields   campos possíveis em `field` => descrição
      * @param ApiMeta|null                   $meta     campos adicionais de `meta` além do timestamp
      */
     public function __construct(
@@ -30,6 +30,14 @@ class ApiErrorResponse extends OA\Response
         array $fields = [],
         ?ApiMeta $meta = null,
     ) {
+        $codes = [];
+
+        foreach ($examples as $code => $example) {
+            foreach ($example->codes($code) as $exampleCode) {
+                $codes[$exampleCode] = true;
+            }
+        }
+
         $properties = [
             new OA\Property(
                 property: 'errors',
@@ -41,29 +49,18 @@ class ApiErrorResponse extends OA\Response
                             property: 'code',
                             description: 'Código público do erro. É o contrato estável: novos códigos podem ser adicionados, os existentes não mudam de significado.',
                             type: 'string',
-                            enum: array_keys($examples),
+                            enum: array_keys($codes),
                         ),
-                        new OA\Property(property: 'message', type: 'string'),
                         new OA\Property(
-                            property: 'details',
-                            description: 'Detalhes do erro. `field` indica o campo afetado; `message` só é preenchido quando `code` é VALIDATION_ERROR.',
-                            type: 'array',
-                            items: new OA\Items(
-                                properties: [
-                                    new OA\Property(
-                                        property: 'field',
-                                        description: self::describeFields($fields),
-                                        type: 'string',
-                                        enum: [] === $fields ? null : array_keys($fields),
-                                    ),
-                                    new OA\Property(
-                                        property: 'message',
-                                        description: 'Mensagem de validação do campo. Presente apenas quando `code` é VALIDATION_ERROR.',
-                                        type: 'string',
-                                    ),
-                                ],
-                                type: 'object',
-                            ),
+                            property: 'field',
+                            description: self::describeFields($fields),
+                            type: 'string',
+                            enum: [] === $fields ? null : array_keys($fields),
+                        ),
+                        new OA\Property(
+                            property: 'message',
+                            description: 'Mensagem pública do erro, em PT-BR.',
+                            type: 'string',
                         ),
                     ],
                     type: 'object',
@@ -108,7 +105,7 @@ class ApiErrorResponse extends OA\Response
                 example: $code,
                 summary: $example->summary ?? $code,
                 description: $example->description ?? $example->message,
-                value: ['errors' => [$example->toError($code)]],
+                value: ['errors' => $example->toErrors($code)],
             );
         }
 
@@ -147,7 +144,7 @@ class ApiErrorResponse extends OA\Response
             return 'Campo afetado pelo erro, quando aplicável.';
         }
 
-        $lines = ['Campos que podem aparecer em `details[].field`:'];
+        $lines = ['Campos que podem aparecer em `field`:'];
 
         foreach ($fields as $field => $description) {
             $lines[] = sprintf('- `%s`: %s', $field, $description);

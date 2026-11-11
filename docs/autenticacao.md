@@ -176,7 +176,7 @@ Todas as rotas de negócio usam o prefixo `/api/v1`.
 - A resposta `201` traz os dados do usuário.
 - O cadastro **não autentica**: chame o login em seguida.
 - Um e-mail de confirmação é enfileirado e enviado pelo worker; o cadastro continua válido mesmo se o envio falhar (use o reenvio).
-- Erros: `VALIDATION_ERROR`, `CPF_INVALID`, `EMAIL_INVALID`, `USER_CPF_ALREADY_EXISTS`, `EMAIL_ALREADY_EXISTS`.
+- Erros: `FIELD_REQUIRED`, `INVALID_FORMAT`, `STRING_TOO_SHORT`, `STRING_TOO_LONG`, `USER_CPF_ALREADY_EXISTS`, `EMAIL_ALREADY_EXISTS`.
 - Limite: 5 tentativas por minuto por e-mail + IP.
 
 ### 2.2 Login local
@@ -265,7 +265,7 @@ Revoga todas as famílias do usuário autenticado. Retorna `204`.
 { "cpf": "477.051.220-14" }
 ```
 
-O CPF é write-once. Erros: `USER_CPF_ALREADY_SET`, `USER_CPF_ALREADY_EXISTS`, `CPF_INVALID`.
+O CPF é write-once. Erros: `USER_CPF_ALREADY_SET`, `USER_CPF_ALREADY_EXISTS`, `INVALID_FORMAT`.
 
 ### 2.6 Erros do access token
 

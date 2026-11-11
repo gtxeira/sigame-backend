@@ -17,7 +17,7 @@ final readonly class PasswordResetRequest
         #[OA\Property(description: 'Token enviado por e-mail.', example: 'a1b2c3...')]
         #[Assert\NotBlank(message: 'O token é obrigatório.')]
         #[Assert\Length(max: 128, maxMessage: 'O token deve ter no máximo 128 caracteres.')]
-        public string $token,
+        public string $token = '',
 
         #[OA\Property(description: 'Nova senha.', example: 'secret123')]
         #[Assert\NotBlank(message: 'A senha é obrigatória.')]
@@ -27,7 +27,7 @@ final readonly class PasswordResetRequest
             minMessage: 'A senha deve ter no mínimo 8 caracteres.',
             maxMessage: 'A senha deve ter no máximo 255 caracteres.',
         )]
-        public string $password,
+        public string $password = '',
     ) {
     }
 }

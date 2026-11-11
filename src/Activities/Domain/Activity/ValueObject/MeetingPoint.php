@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Activities\Domain\Activity\ValueObject;
 
-use App\Activities\Domain\Error\ActivityErrors;
+use App\Shared\Domain\Error\ValidationErrors;
 use App\Shared\Domain\Functional\ValidationResult;
 
 final readonly class MeetingPoint
@@ -24,9 +24,21 @@ final readonly class MeetingPoint
         $normalized = trim($value);
         $length = mb_strlen($normalized);
 
-        if ($length < self::MIN_LENGTH || $length > self::MAX_LENGTH) {
+        if ($length < self::MIN_LENGTH) {
             return ValidationResult::invalid([
-                ActivityErrors::meetingPointInvalid(self::MIN_LENGTH, self::MAX_LENGTH),
+                ValidationErrors::stringTooShort(
+                    'meetingPoint',
+                    sprintf('O ponto de encontro deve ter entre %d e %d caracteres.', self::MIN_LENGTH, self::MAX_LENGTH),
+                ),
+            ]);
+        }
+
+        if ($length > self::MAX_LENGTH) {
+            return ValidationResult::invalid([
+                ValidationErrors::stringTooLong(
+                    'meetingPoint',
+                    sprintf('O ponto de encontro deve ter entre %d e %d caracteres.', self::MIN_LENGTH, self::MAX_LENGTH),
+                ),
             ]);
         }
 

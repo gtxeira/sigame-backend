@@ -8,61 +8,59 @@ namespace App\Shared\Presentation\Http\OpenApi;
  * Exemplo nomeado de um erro da API.
  *
  * O `code` não é informado aqui: ele vem da chave do array de exemplos, de
- * forma que o contrato documentado e o corpo do exemplo nunca divergem. O
- * envelope `{"errors": [...]}` também é montado pelo `ApiErrorResponse`.
+ * forma que o contrato documentado e o corpo do exemplo nunca divergem.
+ * Itens adicionais permitem documentar respostas com múltiplos erros.
  */
 final readonly class ApiErrorExample
 {
     /**
-     * @param string                                  $message     mensagem pública do erro
-     * @param array<string, string|null>|list<string> $details     lista de campos (sem mensagem)
-     *                                                             ou mapa field => mensagem|null
-     * @param string|null                             $summary     resumo exibido na documentação
-     * @param string|null                             $description contexto do exemplo
+     * @param string                                                     $message     mensagem pública do erro
+     * @param string|null                                                $field       campo afetado
+     * @param list<array{code: string, field?: string, message: string}> $additional  erros adicionais do mesmo exemplo
+     * @param string|null                                                $summary     resumo exibido na documentação
+     * @param string|null                                                $description contexto do exemplo
      */
     public function __construct(
         public string $message,
-        public array $details = [],
+        public ?string $field = null,
+        public array $additional = [],
         public ?string $summary = null,
         public ?string $description = null,
     ) {
     }
 
     /**
-     * @return array{code: string, message: string, details?: list<array{field: string, message?: string}>}
+     * @return list<array{code: string, field?: string, message: string}>
      */
-    public function toError(string $code): array
+    public function toErrors(string $code): array
     {
-        $error = [
-            'code' => $code,
-            'message' => $this->message,
-        ];
+        $errors = [self::item($code, $this->message, $this->field)];
 
-        if ([] === $this->details) {
-            return $error;
+        foreach ($this->additional as $additional) {
+            $errors[] = self::item(
+                $additional['code'],
+                $additional['message'],
+                $additional['field'] ?? null,
+            );
         }
 
-        $details = [];
+        return $errors;
+    }
 
-        if (array_is_list($this->details)) {
-            foreach ($this->details as $field) {
-                $details[] = ['field' => $field];
-            }
-        } else {
-            foreach ($this->details as $field => $message) {
-                $detail = ['field' => $field];
+    /**
+     * @return list<string>
+     */
+    public function codes(string $primaryCode): array
+    {
+        $codes = [$primaryCode];
 
-                if (null !== $message) {
-                    $detail['message'] = $message;
-                }
-
-                $details[] = $detail;
+        foreach ($this->additional as $additional) {
+            if (!in_array($additional['code'], $codes, true)) {
+                $codes[] = $additional['code'];
             }
         }
 
-        $error['details'] = $details;
-
-        return $error;
+        return $codes;
     }
 
     /**
@@ -70,10 +68,30 @@ final readonly class ApiErrorExample
      */
     public function detailFields(): array
     {
-        if (array_is_list($this->details)) {
-            return $this->details;
+        $fields = null === $this->field ? [] : [$this->field];
+
+        foreach ($this->additional as $additional) {
+            $field = $additional['field'] ?? null;
+
+            if (null !== $field && !in_array($field, $fields, true)) {
+                $fields[] = $field;
+            }
         }
 
-        return array_keys($this->details);
+        return $fields;
+    }
+
+    /**
+     * @return array{code: string, field?: string, message: string}
+     */
+    private static function item(string $code, string $message, ?string $field): array
+    {
+        $item = ['code' => $code, 'message' => $message];
+
+        if (null !== $field && '' !== $field) {
+            $item = ['code' => $code, 'field' => $field, 'message' => $message];
+        }
+
+        return $item;
     }
 }

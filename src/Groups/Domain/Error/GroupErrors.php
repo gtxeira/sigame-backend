@@ -30,42 +30,6 @@ final class GroupErrors
         );
     }
 
-    public static function nameInvalid(int $minimum, int $maximum): DomainError
-    {
-        return self::error(
-            code: GroupErrorCode::GroupNameInvalid,
-            message: sprintf('O nome do grupo deve ter entre %d e %d caracteres.', $minimum, $maximum),
-            field: 'name',
-        );
-    }
-
-    public static function descriptionInvalid(int $maximum): DomainError
-    {
-        return self::error(
-            code: GroupErrorCode::GroupDescriptionInvalid,
-            message: sprintf('A descrição do grupo deve ter no máximo %d caracteres.', $maximum),
-            field: 'description',
-        );
-    }
-
-    public static function communicationLinkInvalid(): DomainError
-    {
-        return self::error(
-            code: GroupErrorCode::GroupCommunicationLinkInvalid,
-            message: 'O link de comunicação deve ser uma URL http ou https válida.',
-            field: 'communicationLink',
-        );
-    }
-
-    public static function memberLimitInvalid(int $minimum): DomainError
-    {
-        return self::error(
-            code: GroupErrorCode::GroupMemberLimitInvalid,
-            message: sprintf('O limite de membros deve ser no mínimo %d ou nulo para ilimitado.', $minimum),
-            field: 'maxMembers',
-        );
-    }
-
     public static function memberLimitBelowApproved(int $requested, int $approved): DomainError
     {
         return self::error(
@@ -76,15 +40,6 @@ final class GroupErrors
                 $approved,
             ),
             field: 'maxMembers',
-        );
-    }
-
-    public static function removalReasonRequired(int $maximum): DomainError
-    {
-        return self::error(
-            code: GroupErrorCode::GroupRemovalReasonRequired,
-            message: sprintf('O motivo da remoção é obrigatório e deve ter no máximo %d caracteres.', $maximum),
-            field: 'reason',
         );
     }
 

@@ -123,7 +123,7 @@ it('validates the social start payload', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['FIELD_REQUIRED']);
 });
 
 it('starts a social flow with state, PKCE and a flow cookie', function () {

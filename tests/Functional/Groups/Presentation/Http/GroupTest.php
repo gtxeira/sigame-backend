@@ -61,7 +61,7 @@ it('rejects a member limit below three', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['NUMBER_OUT_OF_RANGE']);
 });
 
 it('validates group creation payload', function () {
@@ -75,7 +75,7 @@ it('validates group creation payload', function () {
     );
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['VALIDATION_ERROR']);
+        ->and($this->api->errorCodes())->toBe(['STRING_TOO_SHORT', 'INVALID_CHOICE']);
 });
 
 it('lists and filters groups', function () {
