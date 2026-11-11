@@ -106,6 +106,13 @@ O ambiente de teste cria um banco com sufixo `_test`; o ambiente de desenvolvime
 | `AUTH_REFRESH_RATE_LIMIT` | `30` | Renovações por minuto |
 | `USER_CPF_RATE_LIMIT` | `10` | Definições de CPF por minuto |
 | `JWKS_CACHE_TTL` | `3600` | Cache do JWKS do provedor social |
+| `SYMFONY_TRUSTED_PROXIES` | — | Proxies confiáveis (no dev, `private_ranges`); obrigatório junto com `SYMFONY_TRUSTED_HEADERS` |
+| `SYMFONY_TRUSTED_HEADERS` | — | Cabeçalhos aceitos do proxy; o BFF do Nuxt envia `x-forwarded-for` |
+
+> O front-end chama a API somente pelo BFF do Nuxt. O BFF sobrescreve
+> `X-Forwarded-For` com o IP real do navegador, e a API só aceita o cabeçalho
+> quando a conexão vem de um proxy confiável. Sem essas duas variáveis, todos
+> os usuários compartilham o IP do servidor Nuxt nos limitadores de taxa.
 
 ### 3.4 Login social
 
@@ -113,7 +120,8 @@ O ambiente de teste cria um banco com sufixo `_test`; o ambiente de desenvolvime
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | — | Client ID do Google Cloud |
 | `GOOGLE_CLIENT_SECRET` | — | Client secret do Google Cloud |
-| `GOOGLE_REDIRECT_URIS` | `https://sigame.com.br/login/google/callback` | Allowlist exata de redirect URIs |
+| `GOOGLE_REDIRECT_URI_WEB` | `http://localhost:3000/auth/google/callback` | Redirect URI do cliente `web` (front-end); precisa ser idêntico ao cadastrado no Google |
+| `GOOGLE_REDIRECT_URI_DEV` | `https://localhost:8443/dev/google-oauth` | Redirect URI da página de diagnóstico (somente em `dev`) |
 
 Detalhes do fluxo e do Playground estão em [autenticacao.md](autenticacao.md).
 

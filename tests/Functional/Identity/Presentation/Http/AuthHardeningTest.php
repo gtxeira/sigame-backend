@@ -155,6 +155,37 @@ it('rate limits repeated social flow starts', function () {
     expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
 });
 
+it('keys the social flow rate limit by the forwarded client ip', function () {
+    $firstBrowser = ['HTTP_X_FORWARDED_FOR' => '203.0.113.10'];
+    $secondBrowser = ['HTTP_X_FORWARDED_FOR' => '203.0.113.11'];
+
+    for ($attempt = 0; $attempt < 20; ++$attempt) {
+        $this->api->post(
+            'app_auth_social_start',
+            ['client' => 'web'],
+            ['provider' => 'google'],
+            $firstBrowser,
+        );
+    }
+
+    $blocked = $this->api->post(
+        'app_auth_social_start',
+        ['client' => 'web'],
+        ['provider' => 'google'],
+        $firstBrowser,
+    );
+
+    $otherBrowser = $this->api->post(
+        'app_auth_social_start',
+        ['client' => 'web'],
+        ['provider' => 'google'],
+        $secondBrowser,
+    );
+
+    expect($blocked->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS)
+        ->and($otherBrowser->getStatusCode())->toBe(Response::HTTP_OK);
+});
+
 it('rate limits repeated social callbacks', function () {
     for ($attempt = 0; $attempt < 10; ++$attempt) {
         $this->api->post(
