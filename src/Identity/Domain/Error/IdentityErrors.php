@@ -76,6 +76,14 @@ final class IdentityErrors
         );
     }
 
+    public static function onboardingNotCompleted(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::OnboardingNotCompleted,
+            message: 'Conclua o onboarding antes de alterar as modalidades.',
+        );
+    }
+
     public static function onboardingNoModalitySelected(): DomainError
     {
         return self::error(

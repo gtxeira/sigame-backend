@@ -272,6 +272,7 @@ it('documents every public api operation', function () {
             '/api/v1/users/me/birth-date',
             '/api/v1/users/me/cpf',
             '/api/v1/users/me/identities/{provider}',
+            '/api/v1/users/me/modalities',
             '/api/v1/users/me/onboarding',
             '/api/v1/users/me/profile',
             '/api/v1/users/me/photo',

@@ -60,4 +60,15 @@ final class UserModality
     {
         return $this->isPrimary;
     }
+
+    /**
+     * Marca ou desmarca a modalidade como principal.
+     *
+     * O índice único parcial do banco garante no máximo uma principal por usuário;
+     * quem altera o conjunto precisa desmarcar as demais na mesma transação.
+     */
+    public function setPrimary(bool $isPrimary): void
+    {
+        $this->isPrimary = $isPrimary;
+    }
 }

@@ -130,6 +130,7 @@ Summaries atuais, usados como referência:
 | `GET /users/me` | `Obter os dados do usuário autenticado` |
 | `PATCH /users/me/cpf` | `Definir o CPF do usuário autenticado` |
 | `PATCH /users/me/profile` | `Atualizar o perfil` |
+| `PATCH /users/me/modalities` | `Atualizar as modalidades` |
 | `POST /users/me/photo` | `Alterar a foto de perfil` |
 | `DELETE /users/me/photo` | `Remover a foto de perfil` |
 | `GET /users/me/groups` | `Listar meus grupos` |

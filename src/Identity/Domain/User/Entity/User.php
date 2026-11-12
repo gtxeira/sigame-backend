@@ -318,6 +318,86 @@ final class User
     }
 
     /**
+     * Substitui as modalidades de um usuário que já concluiu o onboarding.
+     *
+     * Diferente do onboarding, não concede XP nem altera o nível: a recompensa
+     * de 100 XP é exclusiva da primeira conclusão.
+     *
+     * A modalidade principal é apenas **validada** aqui. Quem aplica é
+     * {@see self::setPrimaryModality()}, em uma segunda gravação: o índice único
+     * parcial de "principal" não aceita a nova principal antes de desmarcar a
+     * anterior, e o Doctrine executa INSERTs antes dos UPDATEs na mesma unidade
+     * de trabalho.
+     *
+     * @param list<Modality> $modalities
+     *
+     * @return Result<$this>
+     */
+    public function replaceModalities(array $modalities, ?Modality $primaryModality): Result
+    {
+        if (OnboardingStatus::COMPLETED !== $this->onboardingStatus) {
+            return Result::failure([IdentityErrors::onboardingNotCompleted()]);
+        }
+
+        $modalities = self::uniqueModalities($modalities);
+        $errors = [];
+
+        if ([] === $modalities) {
+            $errors[] = IdentityErrors::onboardingNoModalitySelected();
+        }
+
+        if (null !== $primaryModality && !in_array($primaryModality, $modalities, true)) {
+            $errors[] = IdentityErrors::onboardingInvalidPrimaryModality();
+        }
+
+        if ([] !== $errors) {
+            return Result::failure($errors);
+        }
+
+        // Atualiza a coleção em vez de recriá-la: recriar todas as linhas na mesma
+        // transação pode violar a chave primária composta (user_id, modality).
+        foreach ($this->modalities->toArray() as $existing) {
+            if (!in_array($existing->modality(), $modalities, true)) {
+                $this->modalities->removeElement($existing);
+            }
+        }
+
+        foreach ($modalities as $modality) {
+            if (!$this->hasModality($modality)) {
+                $this->modalities->add(UserModality::create(
+                    user: $this,
+                    modality: $modality,
+                ));
+            }
+        }
+
+        // Desmarca a principal anterior nesta gravação; a nova é marcada depois.
+        foreach ($this->modalities as $existing) {
+            $existing->setPrimary(false);
+        }
+
+        $this->touch();
+
+        return Result::success($this);
+    }
+
+    /**
+     * Define (ou remove, com `null`) a modalidade principal.
+     *
+     * Deve ser chamado em uma gravação separada de {@see self::replaceModalities()}:
+     * naquele ponto todas as modalidades já estão sem principal, então esta
+     * gravação apenas marca uma única linha como principal.
+     */
+    public function setPrimaryModality(?Modality $primaryModality): void
+    {
+        foreach ($this->modalities as $existing) {
+            $existing->setPrimary($existing->modality() === $primaryModality);
+        }
+
+        $this->touch();
+    }
+
+    /**
      * Substitui os dados de perfil do usuário.
      *
      * A foto é mantida porque tem ciclo de vida próprio e não é alterada por

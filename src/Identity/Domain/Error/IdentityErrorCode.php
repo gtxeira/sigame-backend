@@ -24,6 +24,7 @@ enum IdentityErrorCode: string
     case CannotSuspendAdmin = 'CANNOT_SUSPEND_ADMIN';
     case UserLevelInvalid = 'USER_LEVEL_INVALID';
     case OnboardingAlreadyCompleted = 'ONBOARDING_ALREADY_COMPLETED';
+    case OnboardingNotCompleted = 'ONBOARDING_NOT_COMPLETED';
     case OnboardingInvalidPrimaryModality = 'ONBOARDING_INVALID_PRIMARY_MODALITY';
     case OnboardingNoModalitySelected = 'ONBOARDING_NO_MODALITY_SELECTED';
 
@@ -59,6 +60,7 @@ enum IdentityErrorCode: string
             self::UserBirthDateAlreadySet,
             self::EmailAlreadyExists,
             self::OnboardingAlreadyCompleted,
+            self::OnboardingNotCompleted,
             self::EmailAlreadyVerified,
             self::RefreshInProgress,
             self::SocialAccountLinkRequired,
