@@ -293,6 +293,7 @@ it('documents every public api operation', function () {
             '/api/v1/groups/{id}/unarchive',
             '/api/v1/groups/{id}/membership',
             '/api/v1/groups/{id}/membership-requests',
+            '/api/v1/groups/{id}/members',
             '/api/v1/groups/{id}/memberships',
             '/api/v1/groups/{id}/memberships/{membershipId}/approve',
             '/api/v1/groups/{id}/memberships/{membershipId}/reject',

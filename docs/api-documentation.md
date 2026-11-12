@@ -141,6 +141,7 @@ Summaries atuais, usados como referência:
 | `POST /groups` | `Criar grupo` |
 | `GET /groups` | `Listar grupos` |
 | `GET /groups/{id}` | `Obter grupo` |
+| `GET /groups/{id}/members` | `Listar membros aprovados` |
 | `PATCH /groups/{id}` | `Atualizar grupo` |
 | `POST /groups/{id}/archive` | `Arquivar grupo` |
 | `POST /groups/{id}/unarchive` | `Reativar grupo` |

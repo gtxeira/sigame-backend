@@ -26,6 +26,7 @@ use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Groups\Presentation\Http\Request\ChangeMembershipRoleRequest;
 use App\Groups\Presentation\Http\Request\RemoveMemberRequest;
 use App\Groups\Presentation\Http\Response\MembershipResponse;
+use App\Shared\Application\User\UserMemberProfileReaderInterface;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
@@ -70,6 +71,7 @@ final class GroupMembershipController extends AbstractController
         private readonly ChangeMembershipRoleHandler $changeMembershipRoleHandler,
         private readonly ListMembershipsHandler $listMembershipsHandler,
         private readonly LeaveGroupHandler $leaveGroupHandler,
+        private readonly UserMemberProfileReaderInterface $memberProfiles,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.group_membership_request')]
@@ -142,7 +144,7 @@ final class GroupMembershipController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(static fn (Membership $membership): MembershipResponse => MembershipResponse::fromEntity($membership)),
+            $result->map(fn (Membership $membership): MembershipResponse => $this->membershipResponse($membership)),
             Response::HTTP_CREATED,
         );
     }
@@ -250,10 +252,21 @@ final class GroupMembershipController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(static fn (array $memberships): array => array_map(
-                static fn (Membership $membership): MembershipResponse => MembershipResponse::fromEntity($membership),
-                $memberships,
-            )),
+            $result->map(function (array $memberships): array {
+                /** @var list<Membership> $memberships */
+                $profiles = $this->memberProfiles->profiles(array_map(
+                    static fn (Membership $membership): string => $membership->userId()->value(),
+                    $memberships,
+                ));
+
+                return array_map(
+                    static fn (Membership $membership): MembershipResponse => MembershipResponse::fromEntity(
+                        $membership,
+                        $profiles[$membership->userId()->value()] ?? null,
+                    ),
+                    $memberships,
+                );
+            }),
         );
     }
 
@@ -544,7 +557,17 @@ final class GroupMembershipController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(static fn (Membership $membership): MembershipResponse => MembershipResponse::fromEntity($membership)),
+            $result->map(fn (Membership $membership): MembershipResponse => $this->membershipResponse($membership)),
+        );
+    }
+
+    private function membershipResponse(Membership $membership): MembershipResponse
+    {
+        $profiles = $this->memberProfiles->profiles([$membership->userId()->value()]);
+
+        return MembershipResponse::fromEntity(
+            $membership,
+            $profiles[$membership->userId()->value()] ?? null,
         );
     }
 

@@ -14,6 +14,7 @@ use App\Groups\Domain\Group\ValueObject\MembershipId;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Groups\Presentation\Http\Request\DesignateSupervisorRequest;
 use App\Groups\Presentation\Http\Response\MembershipResponse;
+use App\Shared\Application\User\UserMemberProfileReaderInterface;
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\ForbiddenResponse;
@@ -49,6 +50,7 @@ final class GroupSupervisorController extends AbstractController
     public function __construct(
         private readonly DesignateSupervisorHandler $designateSupervisorHandler,
         private readonly ClearSupervisorHandler $clearSupervisorHandler,
+        private readonly UserMemberProfileReaderInterface $memberProfiles,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.group_manage')]
@@ -121,7 +123,14 @@ final class GroupSupervisorController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(static fn (Membership $membership): MembershipResponse => MembershipResponse::fromEntity($membership)),
+            $result->map(function (Membership $membership): MembershipResponse {
+                $profiles = $this->memberProfiles->profiles([$membership->userId()->value()]);
+
+                return MembershipResponse::fromEntity(
+                    $membership,
+                    $profiles[$membership->userId()->value()] ?? null,
+                );
+            }),
         );
     }
 

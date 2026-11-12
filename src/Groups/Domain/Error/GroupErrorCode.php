@@ -20,6 +20,7 @@ enum GroupErrorCode: string
     case GroupSupervisorNotMember = 'GROUP_SUPERVISOR_NOT_MEMBER';
     case GroupLevelInsufficient = 'GROUP_LEVEL_INSUFFICIENT';
     case GroupAdminRequired = 'GROUP_ADMIN_REQUIRED';
+    case GroupMembersOnly = 'GROUP_MEMBERS_ONLY';
     case GroupOwnerRequired = 'GROUP_OWNER_REQUIRED';
     case GroupOwnerTransferRequired = 'GROUP_OWNER_TRANSFER_REQUIRED';
     case GroupLimitReached = 'GROUP_LIMIT_REACHED';
@@ -43,6 +44,7 @@ enum GroupErrorCode: string
 
             self::GroupLevelInsufficient,
             self::GroupAdminRequired,
+            self::GroupMembersOnly,
             self::GroupOwnerRequired => ErrorKind::Forbidden,
 
             self::GroupLimitReached,

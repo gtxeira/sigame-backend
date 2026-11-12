@@ -14,6 +14,7 @@ it('builds the public group errors with messages and kinds', function () {
         GroupErrors::supervisorNotMember(),
         GroupErrors::levelInsufficient(2),
         GroupErrors::adminRequired(),
+        GroupErrors::membersOnly(),
         GroupErrors::ownerRequired(),
         GroupErrors::ownerTransferRequiredToLeave(),
         GroupErrors::ownerTransferRequiredToRemove(),

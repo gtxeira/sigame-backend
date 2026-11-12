@@ -7,6 +7,7 @@ namespace App\Groups\Presentation\Http\Response;
 use App\Groups\Domain\Group\Entity\Membership;
 use App\Groups\Domain\Group\ValueObject\MembershipRole;
 use App\Groups\Domain\Group\ValueObject\MembershipStatus;
+use App\Shared\Application\User\UserMemberProfile;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(description: 'Participação de um usuário em um grupo.')]
@@ -42,10 +43,16 @@ final readonly class MembershipResponse
 
         #[OA\Property(description: 'Motivo registrado na remoção.', example: null, nullable: true)]
         public ?string $removalReason,
+
+        #[OA\Property(
+            description: 'Dados públicos do usuário da participação, quando resolvidos.',
+            nullable: true,
+        )]
+        public ?MembershipUserResponse $user,
     ) {
     }
 
-    public static function fromEntity(Membership $membership): self
+    public static function fromEntity(Membership $membership, ?UserMemberProfile $profile = null): self
     {
         return new self(
             id: $membership->id()->value(),
@@ -58,6 +65,7 @@ final readonly class MembershipResponse
             decidedAt: $membership->decidedAt()?->toIsoStringWithMilliseconds(),
             removedAt: $membership->removedAt()?->toIsoStringWithMilliseconds(),
             removalReason: $membership->removalReason()?->value(),
+            user: null === $profile ? null : MembershipUserResponse::fromProfile($profile),
         );
     }
 }

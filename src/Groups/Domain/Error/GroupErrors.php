@@ -86,6 +86,14 @@ final class GroupErrors
         );
     }
 
+    public static function membersOnly(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupMembersOnly,
+            message: 'Apenas participantes aprovados do grupo podem ver os membros.',
+        );
+    }
+
     public static function ownerTransferRequiredToLeave(): DomainError
     {
         return self::error(
