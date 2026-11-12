@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Groups\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Groups\Domain\Group\Entity\Group;
+use App\Groups\Domain\Group\Entity\Membership;
 use App\Groups\Domain\Group\Exception\DuplicateGroupException;
 use App\Groups\Domain\Group\Exception\MembershipAlreadyExistsException;
 use App\Groups\Domain\Group\Policy\GroupPolicy;
@@ -130,6 +131,25 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
         return (int) $count;
     }
 
+    public function findMembershipsOfUser(MemberUserId $userId): array
+    {
+        /** @var list<Membership> $memberships */
+        $memberships = $this->getEntityManager()->createQueryBuilder()
+            ->select('m', 'g')
+            ->from(Membership::class, 'm')
+            ->innerJoin('m.group', 'g')
+            ->where('m.userId = :userId')
+            // O vínculo do criador não é uma solicitação de entrada.
+            ->andWhere('g.createdBy <> :userId')
+            ->andWhere('g.deletedAt IS NULL')
+            ->setParameter('userId', $userId, 'member_user_id')
+            ->orderBy('m.requestedAt', SortDirection::Descending)
+            ->getQuery()
+            ->getResult();
+
+        return $memberships;
+    }
+
     public function existsByCreatorAndName(
         MemberUserId $creator,
         GroupName $name,
@@ -236,6 +256,19 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
             $queryBuilder
                 ->andWhere('LOWER(g.name) LIKE :name')
                 ->setParameter('name', '%'.mb_strtolower(trim($criteria->name)).'%');
+        }
+
+        if (null !== $criteria->activityGroupIds) {
+            // Filtro pela data das atividades (Home: Todos/Hoje/Esta semana).
+            // Os ids vêm da porta compartilhada `GroupActivityReaderInterface`;
+            // aqui só restringimos a consulta, sem importar o módulo Activities.
+            if ([] === $criteria->activityGroupIds) {
+                $queryBuilder->andWhere('1 = 0');
+            } else {
+                $queryBuilder
+                    ->andWhere('g.id IN (:activityGroupIds)')
+                    ->setParameter('activityGroupIds', $criteria->activityGroupIds);
+            }
         }
 
         if (null === $criteria->status && !$criteria->availableOnly) {

@@ -23,6 +23,8 @@ use App\Groups\Presentation\Http\Request\GroupListQuery;
 use App\Groups\Presentation\Http\Request\UpdateGroupRequest;
 use App\Groups\Presentation\Http\Response\GroupResponse;
 use App\Groups\Presentation\Http\Response\GroupSummaryResponse;
+use App\Shared\Application\Activity\GroupActivityReaderInterface;
+use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Domain\ValueObject\Modality;
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
@@ -66,6 +68,7 @@ final class GroupController extends AbstractController
         private readonly UpdateGroupHandler $updateGroupHandler,
         private readonly GetGroupHandler $getGroupHandler,
         private readonly ListGroupsHandler $listGroupsHandler,
+        private readonly GroupActivityReaderInterface $groupActivityReader,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.group_create')]
@@ -205,6 +208,10 @@ final class GroupController extends AbstractController
     {
         $actor = $this->actorId();
 
+        $activityFrom = $this->instantOrNull($query->activityFrom, 'activityFrom');
+        $activityTo = $this->instantOrNull($query->activityTo, 'activityTo');
+        $this->assertActivityRange($activityFrom, $activityTo);
+
         $criteria = new GroupSearchCriteria(
             page: $query->page,
             perPage: $query->perPage,
@@ -212,6 +219,8 @@ final class GroupController extends AbstractController
             status: null === $query->status ? null : GroupStatus::from($query->status),
             name: $query->name,
             availableOnly: $query->availableOnly,
+            activityFrom: $activityFrom,
+            activityTo: $activityTo,
         );
 
         $result = ($this->listGroupsHandler)(new ListGroupsQuery($criteria));
@@ -223,8 +232,15 @@ final class GroupController extends AbstractController
         /** @var GroupPage $page */
         $page = $result->value();
 
+        $groupIds = array_map(static fn (Group $group): string => $group->id()->value(), $page->items);
+        $nextActivities = $this->groupActivityReader->nextForGroups($groupIds);
+
         $items = array_map(
-            static fn (Group $group): GroupSummaryResponse => GroupSummaryResponse::fromEntity($group, $actor),
+            static fn (Group $group): GroupSummaryResponse => GroupSummaryResponse::fromEntity(
+                $group,
+                $actor,
+                $nextActivities[$group->id()->value()] ?? null,
+            ),
             $page->items,
         );
 
@@ -393,5 +409,42 @@ final class GroupController extends AbstractController
         }
 
         return MemberUserId::fromString($user->getUserIdentifier());
+    }
+
+    private function instantOrNull(?string $value, string $field): ?Instant
+    {
+        if (null === $value || '' === trim($value)) {
+            return null;
+        }
+
+        $instant = Instant::fromString($value);
+
+        if ($instant->isInvalid()) {
+            throw RequestViolationFactory::unprocessable('INVALID_FORMAT', $field, 'Data/hora inválida.');
+        }
+
+        return $instant->value();
+    }
+
+    /**
+     * O filtro por atividade usa sempre o par completo e em ordem crescente.
+     */
+    private function assertActivityRange(?Instant $from, ?Instant $to): void
+    {
+        if ((null === $from) !== (null === $to)) {
+            throw RequestViolationFactory::unprocessable(
+                'FIELD_REQUIRED',
+                null === $from ? 'activityFrom' : 'activityTo',
+                'Informe o início e o fim do intervalo de atividades.',
+            );
+        }
+
+        if (null !== $from && null !== $to && !$from->isBefore($to)) {
+            throw RequestViolationFactory::unprocessable(
+                'NUMBER_OUT_OF_RANGE',
+                'activityFrom',
+                'O início do intervalo deve ser anterior ao fim.',
+            );
+        }
     }
 }

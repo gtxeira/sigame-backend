@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Groups\Domain\Group\Repository;
 
 use App\Groups\Domain\Group\Entity\Group;
+use App\Groups\Domain\Group\Entity\Membership;
 use App\Groups\Domain\Group\ValueObject\GroupId;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
@@ -57,6 +58,14 @@ interface GroupRepositoryInterface
      * Grupos em formação criados pelo usuário.
      */
     public function countFormingCreatedBy(MemberUserId $userId): int;
+
+    /**
+     * Participações do usuário (pendentes e decididas) em grupos não excluídos,
+     * das mais recentes para as mais antigas. Usada em "minhas solicitações".
+     *
+     * @return list<Membership>
+     */
+    public function findMembershipsOfUser(MemberUserId $userId): array;
 
     /**
      * Indica se o usuário já possui grupo visível com o mesmo nome e

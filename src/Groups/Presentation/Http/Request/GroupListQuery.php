@@ -54,6 +54,23 @@ final readonly class GroupListQuery
 
         #[OA\Property(description: 'Quando verdadeiro, retorna apenas grupos que ainda aceitam membros.', example: true)]
         public bool $availableOnly = false,
+
+        #[OA\Property(
+            description: 'Início do intervalo (ISO 8601) para filtrar grupos com atividade prevista ou em andamento. '
+                .'Deve ser enviado junto com `activityTo`.',
+            format: 'date-time',
+            example: '2026-11-12T03:00:00.000Z',
+            nullable: true,
+        )]
+        public ?string $activityFrom = null,
+
+        #[OA\Property(
+            description: 'Fim (exclusivo) do intervalo de atividades. Deve ser enviado junto com `activityFrom`.',
+            format: 'date-time',
+            example: '2026-11-13T03:00:00.000Z',
+            nullable: true,
+        )]
+        public ?string $activityTo = null,
     ) {
     }
 }

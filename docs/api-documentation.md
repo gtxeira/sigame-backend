@@ -134,6 +134,7 @@ Summaries atuais, usados como referência:
 | `POST /users/me/photo` | `Alterar a foto de perfil` |
 | `DELETE /users/me/photo` | `Remover a foto de perfil` |
 | `GET /users/me/groups` | `Listar meus grupos` |
+| `GET /users/me/membership-requests` | `Listar minhas solicitações de entrada` |
 | `POST /groups` | `Criar grupo` |
 | `GET /groups` | `Listar grupos` |
 | `GET /groups/{id}` | `Obter grupo` |
