@@ -59,7 +59,7 @@ it('promotes an approved member to admin', function () {
         ->and($group->approvedAdminCount())->toBe(2);
 });
 
-it('does not demote the last admin', function () {
+it('does not demote the group owner', function () {
     $admin = MemberUserId::generate();
     $group = Group::create(
         name: GroupName::fromString('Corrida no Parque')->value(),
@@ -89,5 +89,5 @@ it('does not demote the last admin', function () {
     ));
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('GROUP_LAST_ADMIN_REQUIRED');
+        ->and($result->errors()[0]->code)->toBe('GROUP_OWNER_TRANSFER_REQUIRED');
 });

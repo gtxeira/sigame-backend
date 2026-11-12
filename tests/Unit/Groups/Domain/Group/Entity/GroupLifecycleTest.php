@@ -98,14 +98,14 @@ it('removes an approved member when the user leaves', function () {
         ->and($membership->removalReason()?->value())->toBe('Saída voluntária.');
 });
 
-it('prevents the last admin from leaving the group', function () {
+it('prevents the owner from leaving the group', function () {
     $admin = MemberUserId::generate();
     $group = lifecycleGroup($admin);
 
     $leave = $group->leave($admin, RemovalReason::voluntaryExit());
 
     expect($leave->isFailure())->toBeTrue()
-        ->and($leave->errors()[0]->code)->toBe('GROUP_LAST_ADMIN_REQUIRED');
+        ->and($leave->errors()[0]->code)->toBe('GROUP_OWNER_TRANSFER_REQUIRED');
 });
 
 it('archives a group and blocks management operations', function () {
@@ -206,7 +206,7 @@ it('deletes a group logically, preserving memberships and blocking operations', 
 
 it('keeps the policy constants aligned with the lifecycle rules', function () {
     expect(GroupPolicy::MAX_PARTICIPATION_PER_USER)->toBe(5)
-        ->and(GroupPolicy::MAX_FORMING_PER_CREATOR)->toBe(1)
+        ->and(GroupPolicy::MAX_FORMING_PER_OWNER)->toBe(1)
         ->and(GroupPolicy::MIN_LEVEL_TO_JOIN)->toBe(2)
         ->and(GroupPolicy::FORMING_IDLE_DAYS)->toBe(30);
 });

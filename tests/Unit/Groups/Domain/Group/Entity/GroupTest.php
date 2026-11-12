@@ -32,6 +32,7 @@ it('creates a group with the creator as the first admin', function () {
     $adminMembership = $group->approvedMembershipOf($admin);
 
     expect($group->createdBy()->equals($admin))->toBeTrue()
+        ->and($group->ownerId()->equals($admin))->toBeTrue()
         ->and($group->status())->toBe(GroupStatus::FORMING)
         ->and($group->approvedCount())->toBe(1)
         ->and($group->approvedAdminCount())->toBe(1)
@@ -191,7 +192,7 @@ it('records the removal author, date and reason', function () {
         ->and($removedMembership->removalReason()?->value())->toBe('Descumprimento das regras.');
 });
 
-it('supports multiple admins but never removes the last one', function () {
+it('supports multiple admins but never demotes the owner', function () {
     $admin = MemberUserId::generate();
     $group = makeGroup($admin);
     $member = MemberUserId::generate();
@@ -214,10 +215,10 @@ it('supports multiple admins but never removes the last one', function () {
     $rejected = $group->demoteToMember($lastAdminMembership->id(), $admin);
 
     expect($rejected->isFailure())->toBeTrue()
-        ->and($rejected->errors()[0]->code)->toBe('GROUP_LAST_ADMIN_REQUIRED');
+        ->and($rejected->errors()[0]->code)->toBe('GROUP_OWNER_TRANSFER_REQUIRED');
 });
 
-it('does not remove the last admin', function () {
+it('does not remove the owner', function () {
     $admin = MemberUserId::generate();
     $group = makeGroup($admin);
     $membership = $group->approvedMembershipOf($admin);
@@ -230,7 +231,7 @@ it('does not remove the last admin', function () {
     );
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('GROUP_LAST_ADMIN_REQUIRED');
+        ->and($result->errors()[0]->code)->toBe('GROUP_OWNER_TRANSFER_REQUIRED');
 });
 
 it('keeps a single supervisor and clears the previous one', function () {
@@ -277,4 +278,92 @@ it('only designates an approved member as supervisor', function () {
 
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe('GROUP_SUPERVISOR_NOT_MEMBER');
+});
+
+it('transfers ownership to an approved member and promotes them to admin', function () {
+    $owner = MemberUserId::generate();
+    $group = makeGroup($owner);
+    $member = MemberUserId::generate();
+
+    $membership = $group->requestMembership($member)->value();
+    $group->approveMembership($membership->id(), $owner, 0);
+
+    $transfer = $group->transferOwnership($member, $owner);
+
+    expect($transfer->isSuccess())->toBeTrue()
+        ->and($transfer->value())->toBeTrue()
+        ->and($group->ownerId()->equals($member))->toBeTrue()
+        ->and($group->createdBy()->equals($owner))->toBeTrue()
+        ->and($group->approvedMembershipOf($member)?->role())->toBe(MembershipRole::ADMIN);
+});
+
+it('rejects ownership transfer by someone who is not the owner', function () {
+    $owner = MemberUserId::generate();
+    $group = makeGroup($owner);
+    $admin = MemberUserId::generate();
+
+    $membership = $group->requestMembership($admin)->value();
+    $group->approveMembership($membership->id(), $owner, 0);
+    $group->promoteToAdmin($membership->id(), $owner);
+
+    $transfer = $group->transferOwnership($admin, $admin);
+
+    expect($transfer->isFailure())->toBeTrue()
+        ->and($transfer->errors()[0]->code)->toBe('GROUP_OWNER_REQUIRED');
+});
+
+it('rejects ownership transfer to a non approved member', function () {
+    $owner = MemberUserId::generate();
+    $group = makeGroup($owner);
+    $pending = $group->requestMembership(MemberUserId::generate())->value();
+
+    $transfer = $group->transferOwnership($pending->userId(), $owner);
+
+    expect($transfer->isFailure())->toBeTrue()
+        ->and($transfer->errors()[0]->code)->toBe('GROUP_MEMBERSHIP_NOT_APPROVED');
+});
+
+it('treats ownership transfer to the current owner as a no-op', function () {
+    $owner = MemberUserId::generate();
+    $group = makeGroup($owner);
+
+    $transfer = $group->transferOwnership($owner, $owner);
+
+    expect($transfer->isSuccess())->toBeTrue()
+        ->and($transfer->value())->toBeFalse();
+});
+
+it('allows ownership transfer on an archived group', function () {
+    $owner = MemberUserId::generate();
+    $group = makeGroup($owner);
+    $member = MemberUserId::generate();
+
+    $membership = $group->requestMembership($member)->value();
+    $group->approveMembership($membership->id(), $owner, 0);
+    $group->archive($owner, 'Pausa.', false, \App\Shared\Domain\ValueObject\Instant::now());
+
+    $transfer = $group->transferOwnership($member, $owner);
+
+    expect($transfer->isSuccess())->toBeTrue()
+        ->and($group->ownerId()->equals($member))->toBeTrue();
+});
+
+it('only allows the owner to delete the group', function () {
+    $owner = MemberUserId::generate();
+    $group = makeGroup($owner);
+    $admin = MemberUserId::generate();
+
+    $membership = $group->requestMembership($admin)->value();
+    $group->approveMembership($membership->id(), $owner, 0);
+    $group->promoteToAdmin($membership->id(), $owner);
+
+    $rejected = $group->delete($admin, null, \App\Shared\Domain\ValueObject\Instant::now());
+
+    expect($rejected->isFailure())->toBeTrue()
+        ->and($rejected->errors()[0]->code)->toBe('GROUP_OWNER_REQUIRED');
+
+    $deleted = $group->delete($owner, null, \App\Shared\Domain\ValueObject\Instant::now());
+
+    expect($deleted->isSuccess())->toBeTrue()
+        ->and($group->isDeleted())->toBeTrue();
 });

@@ -20,6 +20,7 @@ use App\Groups\Infrastructure\Persistence\ORM\Type\GroupMemberLimitType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\GroupNameType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\MembershipIdType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\MemberUserIdType;
+use App\Groups\Infrastructure\Persistence\ORM\Type\OwnershipTransferIdType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\RemovalReasonType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\HashedPasswordType;
 use App\Identity\Infrastructure\Persistence\ORM\Type\HeightType;
@@ -75,6 +76,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'token_hash' => TokenHashType::class,
                 'group_id' => GroupIdType::class,
                 'membership_id' => MembershipIdType::class,
+                'ownership_transfer_id' => OwnershipTransferIdType::class,
                 'member_user_id' => MemberUserIdType::class,
                 'group_name' => GroupNameType::class,
                 'group_description' => GroupDescriptionType::class,

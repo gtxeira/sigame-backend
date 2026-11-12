@@ -14,7 +14,7 @@ final readonly class GroupDeleted extends AbstractDomainEvent
 {
     private function __construct(
         private string $groupId,
-        private string $createdBy,
+        private string $ownerId,
         private string $deletedBy,
         private ?string $reason,
         Instant $occurredAt,
@@ -24,11 +24,11 @@ final readonly class GroupDeleted extends AbstractDomainEvent
 
     public static function now(
         string $groupId,
-        string $createdBy,
+        string $ownerId,
         string $deletedBy,
         ?string $reason,
     ): self {
-        return new self($groupId, $createdBy, $deletedBy, $reason, Instant::now());
+        return new self($groupId, $ownerId, $deletedBy, $reason, Instant::now());
     }
 
     public function eventName(): string
@@ -46,9 +46,9 @@ final readonly class GroupDeleted extends AbstractDomainEvent
         return $this->groupId;
     }
 
-    public function createdBy(): string
+    public function ownerId(): string
     {
-        return $this->createdBy;
+        return $this->ownerId;
     }
 
     public function deletedBy(): string

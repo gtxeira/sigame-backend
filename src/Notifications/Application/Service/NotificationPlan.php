@@ -13,9 +13,10 @@ use App\Notifications\Domain\Notification\ValueObject\NotificationType;
 final readonly class NotificationPlan
 {
     /**
-     * @param list<string>              $recipientIds
-     * @param list<string>              $excludeUserIds
-     * @param list<NotificationChannel> $channels
+     * @param list<string>                             $recipientIds
+     * @param list<string>                             $excludeUserIds
+     * @param list<NotificationChannel>                $channels
+     * @param array<string, list<NotificationChannel>> $recipientChannels
      */
     public function __construct(
         public NotificationType $type,
@@ -25,6 +26,15 @@ final readonly class NotificationPlan
         public array $excludeUserIds,
         public bool $includeInactive,
         public array $channels,
+        public array $recipientChannels = [],
     ) {
+    }
+
+    /**
+     * @return list<NotificationChannel>
+     */
+    public function channelsFor(string $recipientId): array
+    {
+        return $this->recipientChannels[$recipientId] ?? $this->channels;
     }
 }

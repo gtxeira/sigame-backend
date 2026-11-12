@@ -41,7 +41,6 @@ final readonly class GetGroupHandler
 
     private function canViewArchived(Group $group, GetGroupQuery $query): bool
     {
-        return $group->createdBy()->equals($query->viewerId)
-            || $group->hasApprovedMembership($query->viewerId);
+        return $group->hasApprovedMembership($query->viewerId);
     }
 }

@@ -77,7 +77,7 @@ final readonly class ArchiveIdleFormingGroupsHandler
 
                 $this->eventDispatcher->dispatch(GroupArchived::now(
                     groupId: $group->id()->value(),
-                    createdBy: $group->createdBy()->value(),
+                    ownerId: $group->ownerId()->value(),
                     archivedBy: null,
                     reason: $group->archiveReason(),
                     automatic: true,

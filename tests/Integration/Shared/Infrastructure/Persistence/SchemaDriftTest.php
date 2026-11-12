@@ -11,7 +11,7 @@ use Doctrine\ORM\Tools\SchemaValidator;
  * Os índices parciais são um falso positivo do DBAL: o PostgreSQL
  * normaliza o predicado (`IN` vira `= ANY (ARRAY[...])`, `TRUE` vira `true`) e
  * o comparador de índices compara o texto do `WHERE` literalmente. Os índices
- * `idx_groups_forming_idle` e `uniq_groups_creator_name_modality` são
+ * `idx_groups_forming_idle` e `uniq_groups_owner_name_modality` são
  * hand-written (índice parcial e índice de expressão `lower(name)`), que o
  * mapeamento ORM não expressa. Qualquer outra divergência é regressão e deve
  * falhar aqui.
@@ -34,6 +34,6 @@ it('keeps the database schema in sync except for known partial index predicates'
         'DROP INDEX uniq_activity_attendances_active',
         'CREATE UNIQUE INDEX uniq_activity_attendances_active ON activity_attendances (activity_id, user_id) WHERE (status IN (\'enrolled\', \'checked_in\', \'validated\'))',
         'DROP INDEX idx_groups_forming_idle',
-        'DROP INDEX uniq_groups_creator_name_modality',
+        'DROP INDEX uniq_groups_owner_name_modality',
     ]);
 });

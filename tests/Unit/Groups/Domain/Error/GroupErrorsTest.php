@@ -14,6 +14,11 @@ it('builds the public group errors with messages and kinds', function () {
         GroupErrors::supervisorNotMember(),
         GroupErrors::levelInsufficient(2),
         GroupErrors::adminRequired(),
+        GroupErrors::ownerRequired(),
+        GroupErrors::ownerTransferRequiredToLeave(),
+        GroupErrors::ownerTransferRequiredToRemove(),
+        GroupErrors::ownerTransferRequiredToDemote(),
+        GroupErrors::ownerSuspended(),
         GroupErrors::limitReached(5),
         GroupErrors::formingLimitReached(1),
         GroupErrors::duplicateGroup(),
@@ -26,7 +31,7 @@ it('builds the public group errors with messages and kinds', function () {
         GroupErrors::lastAdminRequired(),
     ];
 
-    $codes = array_map(static fn ($error): string => $error->code, $errors);
+    $codes = array_values(array_unique(array_map(static fn ($error): string => $error->code, $errors)));
     $expected = array_map(static fn (GroupErrorCode $code): string => $code->value, GroupErrorCode::cases());
 
     expect($codes)->toEqualCanonicalizing($expected);

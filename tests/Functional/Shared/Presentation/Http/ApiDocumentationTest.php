@@ -132,6 +132,7 @@ it('follows the summary writing convention', function () {
         'Arquivar',
         'Excluir',
         'Sair',
+        'Transferir',
     ];
 
     $problems = [];
@@ -297,6 +298,7 @@ it('documents every public api operation', function () {
             '/api/v1/groups/{id}/memberships/{membershipId}/reject',
             '/api/v1/groups/{id}/memberships/{membershipId}/remove',
             '/api/v1/groups/{id}/memberships/{membershipId}/role',
+            '/api/v1/groups/{id}/owner',
             '/api/v1/groups/{id}/supervisor',
             '/api/v1/groups/{groupId}/activities',
             '/api/v1/activities/{id}',

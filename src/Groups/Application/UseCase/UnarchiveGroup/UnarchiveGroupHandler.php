@@ -35,8 +35,8 @@ final readonly class UnarchiveGroupHandler
                 return Result::failure([GroupErrors::groupNotFound()]);
             }
 
-            if ($group->isArchived() && $this->groupRepository->existsByCreatorAndName(
-                creator: $group->createdBy(),
+            if ($group->isArchived() && $this->groupRepository->existsByOwnerAndName(
+                owner: $group->ownerId(),
                 name: $group->name(),
                 modality: $group->modality(),
                 excludeGroupId: $group->id(),

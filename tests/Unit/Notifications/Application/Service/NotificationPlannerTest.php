@@ -187,7 +187,7 @@ it('plans group archiving for members except the creator', function () {
         adminIds: ['creator-1'],
         supervisorId: null,
         approvedMemberIds: ['creator-1', 'member-1', 'member-2'],
-        creatorId: 'creator-1',
+        ownerId: 'creator-1',
     ));
 
     $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
@@ -218,7 +218,7 @@ it('plans the group owner archive notification with email', function () {
         adminIds: ['creator-1'],
         supervisorId: null,
         approvedMemberIds: ['creator-1'],
-        creatorId: 'creator-1',
+        ownerId: 'creator-1',
     ));
 
     $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
@@ -249,7 +249,7 @@ it('plans group deletion for members and the creator, including the actor', func
         adminIds: ['admin-1'],
         supervisorId: null,
         approvedMemberIds: ['admin-1', 'member-1'],
-        creatorId: 'creator-1',
+        ownerId: 'creator-1',
     ));
 
     $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
@@ -262,6 +262,45 @@ it('plans group deletion for members and the creator, including the actor', func
         ->and($plan->recipientIds)->toBe(['admin-1', 'member-1', 'creator-1'])
         ->and($plan->excludeUserIds)->toBe([])
         ->and($plan->content->body)->toContain('excluído');
+});
+
+it('plans ownership changes with email only for the new owner', function () {
+    $groups = m::mock(GroupSummaryReaderInterface::class);
+    $activities = m::mock(ActivitySummaryReaderInterface::class);
+    $contacts = m::mock(UserContactReaderInterface::class);
+
+    $groups->shouldReceive('summary')->with('group-1')->andReturn(new GroupSummary(
+        id: 'group-1',
+        name: 'Corrida Centro',
+        adminIds: ['new-owner'],
+        supervisorId: null,
+        approvedMemberIds: ['old-owner', 'new-owner'],
+        ownerId: 'new-owner',
+    ));
+    $contacts->shouldReceive('contact')->with('new-owner')->andReturn(new UserContact(
+        id: 'new-owner',
+        name: 'Bia',
+        email: 'bia@example.com',
+        active: true,
+    ));
+
+    $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
+        type: NotificationType::GROUP_OWNER_CHANGED,
+        deduplicationKey: 'group-owner-changed:group-1',
+        context: [
+            'groupId' => 'group-1',
+            'ownerId' => 'new-owner',
+            'previousOwnerId' => 'old-owner',
+        ],
+        actorId: 'old-owner',
+    ));
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->recipientIds)->toBe(['old-owner', 'new-owner'])
+        ->and($plan->excludeUserIds)->toBe(['old-owner'])
+        ->and($plan->channelsFor('new-owner'))->toBe([NotificationChannel::EMAIL])
+        ->and($plan->channelsFor('old-owner'))->toBe([])
+        ->and($plan->content->body)->toContain('Bia');
 });
 
 it('returns no plan when the referenced group is missing', function () {

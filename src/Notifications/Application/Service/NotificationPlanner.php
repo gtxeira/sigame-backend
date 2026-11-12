@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications\Application\Service;
 
+use App\Notifications\Domain\Notification\ValueObject\NotificationChannel;
 use App\Notifications\Domain\Notification\ValueObject\NotificationType;
 
 /**
@@ -42,7 +43,28 @@ final readonly class NotificationPlanner
             excludeUserIds: $exclude,
             includeInactive: $intent->includeInactive,
             channels: $this->channelPolicy->channelsFor($intent->type),
+            recipientChannels: $this->recipientChannels($intent, $recipients),
         );
+    }
+
+    /**
+     * @param list<string> $recipients
+     *
+     * @return array<string, list<NotificationChannel>>
+     */
+    private function recipientChannels(NotificationIntent $intent, array $recipients): array
+    {
+        $channels = [];
+
+        foreach ($recipients as $recipientId) {
+            $channels[$recipientId] = $this->channelPolicy->channelsForRecipient(
+                $intent->type,
+                $intent->context,
+                $recipientId,
+            );
+        }
+
+        return $channels;
     }
 
     /**
@@ -62,9 +84,10 @@ final readonly class NotificationPlanner
             NotificationType::SUPERVISOR_DESIGNATED => $this->single($context, 'userId'),
             NotificationType::SUPERVISOR_REMOVED => $this->single($context, 'supervisorId'),
             NotificationType::GROUP_ACTIVATED => $this->groupMembers($context),
-            NotificationType::GROUP_ARCHIVED => $this->groupMembersExceptCreator($context),
+            NotificationType::GROUP_ARCHIVED => $this->groupMembersExceptOwner($context),
             NotificationType::GROUP_ARCHIVED_OWNER => $this->single($context, 'ownerId'),
-            NotificationType::GROUP_DELETED => $this->groupMembersAndCreator($context),
+            NotificationType::GROUP_OWNER_CHANGED => $this->ownershipChange($context),
+            NotificationType::GROUP_DELETED => $this->groupMembersAndOwner($context),
             NotificationType::ACTIVITY_CREATED => $this->groupMembers($context),
             NotificationType::ACTIVITY_UPDATED,
             NotificationType::ACTIVITY_RESCHEDULED,
@@ -109,7 +132,7 @@ final readonly class NotificationPlanner
      *
      * @return list<string>
      */
-    private function groupMembersExceptCreator(array $context): array
+    private function groupMembersExceptOwner(array $context): array
     {
         $group = $this->audience->group($this->string($context, 'groupId'));
 
@@ -119,7 +142,7 @@ final readonly class NotificationPlanner
 
         return array_values(array_diff(
             $this->audience->approvedGroupMembers($group),
-            array_filter([$group->creatorId]),
+            array_filter([$group->ownerId]),
         ));
     }
 
@@ -128,7 +151,7 @@ final readonly class NotificationPlanner
      *
      * @return list<string>
      */
-    private function groupMembersAndCreator(array $context): array
+    private function groupMembersAndOwner(array $context): array
     {
         $group = $this->audience->group($this->string($context, 'groupId'));
 
@@ -138,8 +161,21 @@ final readonly class NotificationPlanner
 
         return array_values(array_unique([
             ...$this->audience->approvedGroupMembers($group),
-            ...array_filter([$group->creatorId]),
+            ...array_filter([$group->ownerId]),
         ]));
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     *
+     * @return list<string>
+     */
+    private function ownershipChange(array $context): array
+    {
+        return array_values(array_unique(array_filter([
+            $this->string($context, 'previousOwnerId'),
+            $this->string($context, 'ownerId'),
+        ])));
     }
 
     /**

@@ -28,7 +28,10 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * O criador é registrado em `createdBy`, independente do papel de
  * administrador. O grupo pode ter vários administradores aprovados, mas nunca
- * fica sem ao menos um.
+ * fica sem ao menos um. A responsabilidade pelo grupo é registrada em
+ * `ownerId`, separada do criador: o owner é sempre um administrador aprovado,
+ * pode ser transferido e não pode ser rebaixado, removido nem sair sem antes
+ * transferir a responsabilidade.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'groups')]
@@ -51,6 +54,9 @@ final class Group
 
         #[ORM\Column(type: 'member_user_id')]
         private readonly MemberUserId $createdBy,
+
+        #[ORM\Column(type: 'member_user_id')]
+        private MemberUserId $ownerId,
 
         #[ORM\Column(type: 'group_name', length: 80)]
         private GroupName $name,
@@ -113,6 +119,7 @@ final class Group
         $group = new self(
             id: GroupId::generate(),
             createdBy: $createdBy,
+            ownerId: $createdBy,
             name: $name,
             description: $description,
             modality: $modality,
@@ -258,6 +265,10 @@ final class Group
             return Result::failure([GroupErrors::membershipNotApproved()]);
         }
 
+        if ($this->isOwnedBy($membership->userId())) {
+            return Result::failure([GroupErrors::ownerTransferRequiredToRemove()]);
+        }
+
         if ($this->isLastAdmin($membership)) {
             return Result::failure([GroupErrors::lastAdminRequired()]);
         }
@@ -273,8 +284,8 @@ final class Group
      * Encerra a participação do próprio usuário (pendente ou aprovada).
      *
      * Uma solicitação pendente é cancelada; uma participação aprovada é
-     * removida com motivo de saída voluntária. O último administrador não
-     * pode sair.
+     * removida com motivo de saída voluntária. O responsável precisa
+     * transferir antes de sair e o último administrador não pode sair.
      *
      * @return Result<Membership>
      */
@@ -295,6 +306,10 @@ final class Group
             $this->touch();
 
             return Result::success($membership);
+        }
+
+        if ($this->isOwnedBy($userId)) {
+            return Result::failure([GroupErrors::ownerTransferRequiredToLeave()]);
         }
 
         if ($this->isLastAdmin($membership)) {
@@ -378,7 +393,7 @@ final class Group
 
     /**
      * Exclui logicamente o grupo. A operação é terminal e preserva o
-     * histórico de participações.
+     * histórico de participações. Apenas o responsável pode excluir.
      *
      * @return Result<bool> `true` quando o grupo passou a excluído
      */
@@ -388,15 +403,52 @@ final class Group
             return Result::failure([GroupErrors::groupNotFound()]);
         }
 
-        $adminError = $this->assertAdmin($actor);
+        $ownerError = $this->assertOwner($actor);
 
-        if (null !== $adminError) {
-            return Result::failure([$adminError]);
+        if (null !== $ownerError) {
+            return Result::failure([$ownerError]);
         }
 
         $this->deletedAt = $at;
         $this->deletedBy = $actor;
         $this->deleteReason = $reason;
+        $this->touch();
+
+        return Result::success(true);
+    }
+
+    /**
+     * Transfere a responsabilidade do grupo para um membro aprovado.
+     *
+     * O alvo é promovido a administrador quando ainda é membro. A operação é
+     * permitida em grupo arquivado, para que o responsável não fique preso.
+     *
+     * @return Result<bool> `true` quando o responsável mudou
+     */
+    public function transferOwnership(MemberUserId $newOwner, MemberUserId $actor): Result
+    {
+        if ($this->isDeleted()) {
+            return Result::failure([GroupErrors::groupNotFound()]);
+        }
+
+        $ownerError = $this->assertOwner($actor);
+
+        if (null !== $ownerError) {
+            return Result::failure([$ownerError]);
+        }
+
+        if ($this->ownerId->equals($newOwner)) {
+            return Result::success(false);
+        }
+
+        $membership = $this->approvedMembershipOf($newOwner);
+
+        if (null === $membership) {
+            return Result::failure([GroupErrors::membershipNotApproved()]);
+        }
+
+        $membership->promote();
+        $this->ownerId = $newOwner;
         $this->touch();
 
         return Result::success(true);
@@ -464,6 +516,10 @@ final class Group
 
         if (!$membership->isApproved()) {
             return Result::failure([GroupErrors::membershipNotApproved()]);
+        }
+
+        if ($this->isOwnedBy($membership->userId())) {
+            return Result::failure([GroupErrors::ownerTransferRequiredToDemote()]);
         }
 
         if ($this->isLastAdmin($membership)) {
@@ -595,6 +651,16 @@ final class Group
     public function createdBy(): MemberUserId
     {
         return $this->createdBy;
+    }
+
+    public function ownerId(): MemberUserId
+    {
+        return $this->ownerId;
+    }
+
+    public function isOwnedBy(MemberUserId $userId): bool
+    {
+        return $this->ownerId->equals($userId);
     }
 
     public function name(): GroupName
@@ -843,6 +909,15 @@ final class Group
 
         if (null === $membership || !$membership->isAdmin()) {
             return GroupErrors::adminRequired();
+        }
+
+        return null;
+    }
+
+    private function assertOwner(MemberUserId $actor): ?DomainError
+    {
+        if (!$this->ownerId->equals($actor)) {
+            return GroupErrors::ownerRequired();
         }
 
         return null;

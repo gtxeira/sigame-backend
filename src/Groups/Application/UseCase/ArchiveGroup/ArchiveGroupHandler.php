@@ -54,7 +54,7 @@ final readonly class ArchiveGroupHandler
 
             $this->eventDispatcher->dispatch(GroupArchived::now(
                 groupId: $group->id()->value(),
-                createdBy: $group->createdBy()->value(),
+                ownerId: $group->ownerId()->value(),
                 archivedBy: $group->archivedBy()?->value(),
                 reason: $group->archiveReason(),
                 automatic: false,

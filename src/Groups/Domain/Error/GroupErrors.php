@@ -78,6 +78,47 @@ final class GroupErrors
         );
     }
 
+    public static function ownerRequired(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupOwnerRequired,
+            message: 'Apenas o responsável pelo grupo pode executar esta operação.',
+        );
+    }
+
+    public static function ownerTransferRequiredToLeave(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupOwnerTransferRequired,
+            message: 'Transfira a responsabilidade pelo grupo antes de sair.',
+        );
+    }
+
+    public static function ownerTransferRequiredToRemove(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupOwnerTransferRequired,
+            message: 'Transfira a responsabilidade pelo grupo antes de remover o responsável.',
+        );
+    }
+
+    public static function ownerTransferRequiredToDemote(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupOwnerTransferRequired,
+            message: 'Transfira a responsabilidade pelo grupo antes de rebaixar o responsável.',
+        );
+    }
+
+    public static function ownerSuspended(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupMembershipSuspended,
+            message: 'A conta do novo responsável está suspensa.',
+            field: 'membershipId',
+        );
+    }
+
     public static function limitReached(int $maximum): DomainError
     {
         return self::error(

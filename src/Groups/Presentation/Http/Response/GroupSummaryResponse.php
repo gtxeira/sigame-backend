@@ -19,8 +19,11 @@ final readonly class GroupSummaryResponse
         #[OA\Property(format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
         public string $id,
 
-        #[OA\Property(description: 'Criador do grupo, independente do papel de administrador.', format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
+        #[OA\Property(description: 'Criador do grupo, independente do papel de administrador. Campo de auditoria.', format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
         public string $createdBy,
+
+        #[OA\Property(description: 'Responsável atual pelo grupo. Sempre um administrador aprovado; pode ser transferido.', format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
+        public string $ownerId,
 
         #[OA\Property(example: 'Corrida no Parque')]
         public string $name,
@@ -87,6 +90,9 @@ final readonly class GroupSummaryResponse
         #[OA\Property(description: 'Verdadeiro quando o usuário é o supervisor designado do grupo.', example: false)]
         public bool $viewerIsSupervisor,
 
+        #[OA\Property(description: 'Verdadeiro quando o usuário é o responsável pelo grupo.', example: false)]
+        public bool $viewerIsOwner,
+
         #[OA\Property(format: 'date-time', example: '2026-11-09T10:00:00.000+00:00')]
         public string $createdAt,
     ) {
@@ -103,6 +109,7 @@ final readonly class GroupSummaryResponse
         return new self(
             id: $group->id()->value(),
             createdBy: $group->createdBy()->value(),
+            ownerId: $group->ownerId()->value(),
             name: $group->name()->value(),
             description: $group->description()?->value(),
             modality: $group->modality()->value,
@@ -122,6 +129,7 @@ final readonly class GroupSummaryResponse
             viewerMembershipStatus: $membership?->status()->value,
             viewerMembershipRole: $membership?->role()->value,
             viewerIsSupervisor: true === $membership?->isSupervisor(),
+            viewerIsOwner: $group->isOwnedBy($viewer),
             createdAt: $group->createdAt()->toIsoStringWithMilliseconds(),
         );
     }

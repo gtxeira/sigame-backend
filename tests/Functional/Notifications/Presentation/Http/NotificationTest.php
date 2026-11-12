@@ -172,3 +172,46 @@ it('notifies approved group members when an activity is created, except the crea
 
     expect(authTestBody($adminList)['data'])->toBe([]);
 });
+
+it('notifies the new owner by bell and email after an ownership transfer', function () {
+    $context = groupOwnershipContext($this);
+
+    notificationTestClear($this, $context['ownerToken']);
+    notificationTestClear($this, $context['memberToken']);
+
+    $this->api->put(
+        'app_group_ownership_transfer',
+        ['membershipId' => $context['memberMembershipId']],
+        ['id' => $context['groupId']],
+        groupTestServer($context['ownerToken']),
+    );
+
+    $ownerList = $this->api->get(
+        'app_notifications_list',
+        ['category' => 'GROUP', 'status' => 'unread'],
+        server: groupTestServer($context['ownerToken']),
+    );
+    expect(authTestBody($ownerList)['data'])->toBe([]);
+
+    $memberList = $this->api->get(
+        'app_notifications_list',
+        ['category' => 'GROUP', 'status' => 'unread'],
+        server: groupTestServer($context['memberToken']),
+    );
+
+    $items = authTestBody($memberList)['data'];
+    expect($items)->toHaveCount(1)
+        ->and($items[0]['type'])->toBe('GROUP_OWNER_CHANGED');
+
+    /** @var \App\Notifications\Domain\Notification\Repository\NotificationDeliveryRepositoryInterface $deliveries */
+    /* @phpstan-ignore-next-line */
+    $deliveries = $this->api->getKernelBrowser()->getContainer()
+        ->get(\App\Notifications\Domain\Notification\Repository\NotificationDeliveryRepositoryInterface::class);
+
+    $delivery = $deliveries->findForNotificationAndChannel(
+        \App\Notifications\Domain\Notification\ValueObject\NotificationId::fromString($items[0]['id']),
+        \App\Notifications\Domain\Notification\ValueObject\NotificationChannel::EMAIL,
+    );
+
+    expect($delivery)->not->toBeNull();
+});

@@ -299,13 +299,15 @@ Usuários habilitados devem poder criar grupos esportivos.
 - `RN04.7` O grupo registra o criador em campo próprio (`createdBy`), independente do papel de administrador.
 - `RN04.8` O criador inicia como administrador, mas o grupo pode ter mais de um administrador aprovado.
 - `RN04.9` O papel de administrador é atributo da participação (`Membership.role`), não do criador.
-- `RN04.10` Cada usuário pode ter no máximo 1 grupo em formação por vez; a criação é liberada quando o grupo anterior
-  atinge 3 aprovados.
-- `RN04.11` O mesmo criador não pode ter dois grupos visíveis com o mesmo nome e modalidade (comparação sem distinção
-  de maiúsculas).
+- `RN04.10` Cada usuário pode ter no máximo 1 grupo em formação por vez como responsável; a criação é liberada
+  quando o grupo anterior atinge 3 aprovados.
+- `RN04.11` O mesmo responsável não pode ter dois grupos visíveis com o mesmo nome e modalidade (comparação sem
+  distinção de maiúsculas).
 - `RN04.12` A data de ativação é persistida em `activatedAt` e limpa quando o grupo volta a ter menos de 3 aprovados.
 - `RN04.13` Grupo em formação sem atividade por 30 dias é arquivado automaticamente; a operação é idempotente e gera
   notificação para membros e criador.
+- `RN04.14` Todo grupo tem um responsável (`ownerId`), que inicia como o criador e é sempre um administrador aprovado.
+  A responsabilidade é transferível e não se confunde com `createdBy` (auditoria).
 
 #### Critérios de aceitação
 
@@ -363,8 +365,12 @@ papéis de administrador.
 - `RN06.9` O último administrador não pode ser rebaixado nem removido.
 - `RN06.10` Qualquer administrador pode arquivar o grupo; o grupo arquivado fica em somente leitura, sai da busca e não
   consome vaga de participação. A operação é reversível por `unarchive`.
-- `RN06.11` Qualquer administrador pode excluir logicamente o grupo; a exclusão é terminal, preserva o histórico e
-  notifica todos os participantes.
+- `RN06.11` O responsável pode excluir logicamente o grupo; a exclusão é terminal, preserva o histórico e notifica
+  todos os participantes. Arquivar e desarquivar continuam disponíveis a qualquer administrador.
+- `RN06.12` Apenas o responsável pode transferir a responsabilidade para outro membro aprovado e ativo; o novo
+  responsável é promovido a administrador.
+- `RN06.13` O responsável não pode ser rebaixado nem removido por administradores, nem sair do grupo sem antes
+  transferir a responsabilidade (`GROUP_OWNER_TRANSFER_REQUIRED`).
 
 #### Critérios de aceitação
 
@@ -381,7 +387,11 @@ papéis de administrador.
 - `CA06.11` Arquivar some da listagem pública, mantém o grupo em `/users/me/groups` com `archived=true` e cancela
   atividades agendadas.
 - `CA06.12` Excluir retorna 404 nas consultas seguintes, mantém as memberships para auditoria e notifica membros e
-  criador.
+  responsável.
+- `CA06.13` Administrador que não é o responsável recebe `GROUP_OWNER_REQUIRED` ao tentar excluir o grupo.
+- `CA06.14` O responsável transfere a responsabilidade para um membro aprovado e ativo; o alvo vira administrador.
+- `CA06.15` Rebaixar, remover ou fazer o responsável sair sem transferir retorna `GROUP_OWNER_TRANSFER_REQUIRED`.
+- `CA06.16` A transferência registra histórico append-only e notifica antigo e novo responsável.
 
 #### Matriz de exemplos — estado do grupo
 
@@ -1080,9 +1090,10 @@ por canais externos, sem acoplar a notificação a um único frontend.
 | Papel alterado                 | `MEMBERSHIP_PROMOTED` / `MEMBERSHIP_DEMOTED`   | membro afetado                    | —             |
 | Supervisor designado/removido  | `SUPERVISOR_DESIGNATED` / `SUPERVISOR_REMOVED` | membro afetado                    | —             |
 | Grupo ativado                  | `GROUP_ACTIVATED`                              | membros aprovados                 | —             |
-| Grupo arquivado                | `GROUP_ARCHIVED`                               | membros aprovados, exceto criador | —             |
-| Grupo arquivado — criador      | `GROUP_ARCHIVED_OWNER`                         | criador do grupo                  | e-mail        |
-| Grupo excluído                 | `GROUP_DELETED`                                | membros aprovados e criador       | —             |
+| Grupo arquivado                | `GROUP_ARCHIVED`                               | membros aprovados, exceto responsável | —             |
+| Grupo arquivado — responsável  | `GROUP_ARCHIVED_OWNER`                         | responsável do grupo              | e-mail        |
+| Responsável alterado           | `GROUP_OWNER_CHANGED`                          | antigo e novo responsável         | e-mail só para o novo |
+| Grupo excluído                 | `GROUP_DELETED`                                | membros aprovados e responsável   | —             |
 | Atividade criada               | `ACTIVITY_CREATED`                             | membros aprovados, exceto criador | —             |
 | Atividade atualizada/remarcada | `ACTIVITY_UPDATED` / `ACTIVITY_RESCHEDULED`    | inscritos, exceto ator            | —             |
 | Atividade cancelada/invalidada | `ACTIVITY_CANCELLED` / `ACTIVITY_INVALIDATED`  | inscritos, exceto ator            | —             |
@@ -1167,8 +1178,8 @@ A administração SIGAME deve poder suspender e reativar globalmente uma conta, 
 - `RN18.12` Solicitação pendente de usuário suspenso não pode ser aprovada.
 - `RN18.13` O histórico de status é somente auditoria; não é editável nem excluível.
 - `RN18.14` A provisão de `ADMIN_SIGAME` é feita por CLI/seed, não por endpoint público.
-- `RN18.15` A suspensão do único administrador de um grupo não transfere o grupo automaticamente; a limitação fica
-  registrada no `DEC15`.
+- `RN18.15` A suspensão do único administrador de um grupo não transfere o grupo automaticamente. Se ele for o
+  responsável, excluir e transferir ficam bloqueados até a reativação; a limitação fica registrada no `DEC15`.
 
 #### Matriz de estados
 

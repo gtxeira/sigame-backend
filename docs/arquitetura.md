@@ -666,10 +666,11 @@ Domain Event -> listener -> CreateNotificationsMessage -> worker
 - O token concede apenas `subscribe` no tópico `.../notifications/{userId}`; publicação é exclusiva do servidor.
 - O frontend usa `Authorization: Bearer` no SSE (fetch-event-source ou equivalente), sem token na URL.
 - A publicação é best-effort: falha do hub não desfaz a notificação e a API continua sendo a fonte de verdade.
-- E-mail é usado para suspensão/reativação de conta e para o arquivamento de grupo notificado ao criador
-  (`GROUP_ARCHIVED_OWNER`); WhatsApp e push ficam como extensões.
-- Eventos de ciclo de vida do grupo: `GROUP_ARCHIVED` (membros aprovados, exceto criador), `GROUP_ARCHIVED_OWNER`
-  (criador, com e-mail) e `GROUP_DELETED` (membros e criador, incluindo o ator).
+- E-mail é usado para suspensão/reativação de conta, para o arquivamento de grupo notificado ao responsável
+  (`GROUP_ARCHIVED_OWNER`) e para o novo responsável em `GROUP_OWNER_CHANGED`; WhatsApp e push ficam como extensões.
+- Eventos de ciclo de vida do grupo: `GROUP_ARCHIVED` (membros aprovados, exceto responsável), `GROUP_ARCHIVED_OWNER`
+  (responsável, com e-mail), `GROUP_OWNER_CHANGED` (antigo e novo responsável no sino, e-mail só para o novo) e
+  `GROUP_DELETED` (membros e responsável, incluindo o ator).
 
 O hub do Caddy usa protocolo legado 0.x (`protocol_version_compatibility 8`). O bundle está configurado com
 `ProtocolVersion::Legacy`; a migração para 1.0 deve ser feita junto com a atualização do hub.

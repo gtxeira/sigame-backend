@@ -123,7 +123,7 @@ it('withdraws a pending request when the requester leaves', function () {
         ->and(authTestBody($again)['data']['removed'])->toBeFalse();
 });
 
-it('lets an approved member leave but never the last admin', function () {
+it('lets an approved member leave but not the owner', function () {
     groupTestCreateUser($this, 'groups-leave-admin@example.com');
     $adminToken = groupTestAccessToken($this, 'groups-leave-admin@example.com');
     $group = groupTestCreate($this, $adminToken);
@@ -160,7 +160,7 @@ it('lets an approved member leave but never the last admin', function () {
     );
 
     expect($lastAdmin->getStatusCode())->toBe(Response::HTTP_CONFLICT)
-        ->and($this->api->errorCodes())->toBe(['GROUP_LAST_ADMIN_REQUIRED']);
+        ->and($this->api->errorCodes())->toBe(['GROUP_OWNER_TRANSFER_REQUIRED']);
 });
 
 it('archives a group, hides it from the search and notifies members and the owner', function () {

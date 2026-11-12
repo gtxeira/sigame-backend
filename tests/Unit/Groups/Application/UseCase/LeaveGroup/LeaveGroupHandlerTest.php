@@ -101,7 +101,7 @@ it('is idempotent when the user has no active membership', function () {
         ->and($result->value())->toBeFalse();
 });
 
-it('rejects leaving when the user is the last admin', function () {
+it('rejects leaving when the user is the group owner', function () {
     $admin = MemberUserId::generate();
     $group = leaveGroupFixture($admin);
 
@@ -121,5 +121,5 @@ it('rejects leaving when the user is the last admin', function () {
     ));
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('GROUP_LAST_ADMIN_REQUIRED');
+        ->and($result->errors()[0]->code)->toBe('GROUP_OWNER_TRANSFER_REQUIRED');
 });

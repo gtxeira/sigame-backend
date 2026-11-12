@@ -7,6 +7,7 @@ namespace App\Notifications\Infrastructure\Event;
 use App\Groups\Domain\Group\Event\GroupActivated;
 use App\Groups\Domain\Group\Event\GroupArchived;
 use App\Groups\Domain\Group\Event\GroupDeleted;
+use App\Groups\Domain\Group\Event\GroupOwnershipTransferred;
 use App\Groups\Domain\Group\Event\MemberRemoved;
 use App\Groups\Domain\Group\Event\MembershipApproved;
 use App\Groups\Domain\Group\Event\MembershipDemoted;
@@ -184,7 +185,7 @@ final readonly class GroupNotificationListener
         ));
 
         // RN15.14: o ator não recebe notificação da própria ação.
-        if (!$event->automatic() && $event->archivedBy() === $event->createdBy()) {
+        if (!$event->automatic() && $event->archivedBy() === $event->ownerId()) {
             return;
         }
 
@@ -193,11 +194,26 @@ final readonly class GroupNotificationListener
             deduplicationKey: 'group-archived-owner:'.$event->groupId().':'.$occurredAt,
             context: [
                 'groupId' => $event->groupId(),
-                'ownerId' => $event->createdBy(),
+                'ownerId' => $event->ownerId(),
                 'reason' => $event->reason(),
                 'automatic' => $event->automatic(),
             ],
             actorId: $event->automatic() ? null : $event->archivedBy(),
+        ));
+    }
+
+    #[AsEventListener(event: 'group.ownership.transferred')]
+    public function onGroupOwnershipTransferred(GroupOwnershipTransferred $event): void
+    {
+        $this->publisher->publish(new NotificationIntent(
+            type: NotificationType::GROUP_OWNER_CHANGED,
+            deduplicationKey: 'group-owner-changed:'.$event->groupId().':'.$event->occurredAt()->toIsoStringWithMicroseconds(),
+            context: [
+                'groupId' => $event->groupId(),
+                'ownerId' => $event->newOwnerId(),
+                'previousOwnerId' => $event->previousOwnerId(),
+            ],
+            actorId: $event->actorId(),
         ));
     }
 

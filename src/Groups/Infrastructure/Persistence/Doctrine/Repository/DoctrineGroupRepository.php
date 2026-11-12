@@ -50,7 +50,7 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
                 throw MembershipAlreadyExistsException::create($exception);
             }
 
-            if (str_contains($exception->getMessage(), 'uniq_groups_creator_name_modality')) {
+            if (str_contains($exception->getMessage(), 'uniq_groups_owner_name_modality')) {
                 throw DuplicateGroupException::create($exception);
             }
 
@@ -116,11 +116,11 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
         return (int) $count;
     }
 
-    public function countFormingCreatedBy(MemberUserId $userId): int
+    public function countFormingOwnedBy(MemberUserId $userId): int
     {
         $count = $this->createQueryBuilder('g')
             ->select('COUNT(g.id)')
-            ->where('g.createdBy = :userId')
+            ->where('g.ownerId = :userId')
             ->andWhere('g.activatedAt IS NULL')
             ->andWhere('g.archivedAt IS NULL')
             ->andWhere('g.deletedAt IS NULL')
@@ -150,20 +150,20 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
         return $memberships;
     }
 
-    public function existsByCreatorAndName(
-        MemberUserId $creator,
+    public function existsByOwnerAndName(
+        MemberUserId $owner,
         GroupName $name,
         Modality $modality,
         ?GroupId $excludeGroupId = null,
     ): bool {
         $queryBuilder = $this->createQueryBuilder('g')
             ->select('COUNT(g.id)')
-            ->where('g.createdBy = :creator')
+            ->where('g.ownerId = :owner')
             ->andWhere('LOWER(g.name) = :name')
             ->andWhere('g.modality = :modality')
             ->andWhere('g.archivedAt IS NULL')
             ->andWhere('g.deletedAt IS NULL')
-            ->setParameter('creator', $creator, 'member_user_id')
+            ->setParameter('owner', $owner, 'member_user_id')
             ->setParameter('name', mb_strtolower($name->value()))
             ->setParameter('modality', $modality->value);
 

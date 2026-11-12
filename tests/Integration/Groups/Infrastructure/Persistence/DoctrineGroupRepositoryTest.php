@@ -71,6 +71,7 @@ it('persists and reloads a group with its memberships', function () {
     assert($found instanceof Group);
 
     expect($found->createdBy()->equals($admin))->toBeTrue()
+        ->and($found->ownerId()->equals($admin))->toBeTrue()
         ->and($found->name()->value())->toBe('Corrida no Parque')
         ->and($found->modality())->toBe(Modality::RUNNING)
         ->and($found->maxMembers())->toBeNull()
@@ -232,7 +233,7 @@ it('counts only approved memberships in visible groups', function () {
     }
 
     $archived->archive($archived->createdBy(), null, false, Instant::now());
-    $deleted->delete($deleted->createdBy(), null, Instant::now());
+    $deleted->delete($deleted->ownerId(), null, Instant::now());
 
     foreach ([$archived, $deleted, $visible] as $group) {
         $repository->save($group);
@@ -241,14 +242,14 @@ it('counts only approved memberships in visible groups', function () {
     expect($repository->countApprovedMemberships($member))->toBe(1);
 });
 
-it('counts forming groups created by the user', function () {
+it('counts forming groups owned by the user', function () {
     $repository = $this->service(GroupRepositoryInterface::class);
     $creator = MemberUserId::generate();
 
     $forming = makePersistedGroup($repository, $creator, 'Formação');
     makePersistedGroupWithMembers($repository, MemberUserId::generate(), 3, 'Ativo');
 
-    expect($repository->countFormingCreatedBy($creator))->toBe(1);
+    expect($repository->countFormingOwnedBy($creator))->toBe(1);
 
     $first = $forming->requestMembership(MemberUserId::generate())->value();
     $forming->approveMembership($first->id(), $creator, 0);
@@ -256,26 +257,26 @@ it('counts forming groups created by the user', function () {
     $forming->approveMembership($second->id(), $creator, 0);
     $repository->save($forming);
 
-    expect($repository->countFormingCreatedBy($creator))->toBe(0);
+    expect($repository->countFormingOwnedBy($creator))->toBe(0);
 });
 
-it('finds the same creator, name and modality ignoring case and archived groups', function () {
+it('finds the same owner, name and modality ignoring case and archived groups', function () {
     $repository = $this->service(GroupRepositoryInterface::class);
     $creator = MemberUserId::generate();
 
     $group = makePersistedGroup($repository, $creator, 'Corrida no Parque');
 
-    expect($repository->existsByCreatorAndName(
+    expect($repository->existsByOwnerAndName(
         $creator,
         GroupName::fromString('corrida no parque')->value(),
         Modality::RUNNING,
     ))->toBeTrue()
-        ->and($repository->existsByCreatorAndName(
+        ->and($repository->existsByOwnerAndName(
             $creator,
             GroupName::fromString('Corrida no Parque')->value(),
             Modality::CYCLING,
         ))->toBeFalse()
-        ->and($repository->existsByCreatorAndName(
+        ->and($repository->existsByOwnerAndName(
             MemberUserId::generate(),
             GroupName::fromString('Corrida no Parque')->value(),
             Modality::RUNNING,
@@ -284,7 +285,7 @@ it('finds the same creator, name and modality ignoring case and archived groups'
     $group->archive($creator, null, false, Instant::now());
     $repository->save($group);
 
-    expect($repository->existsByCreatorAndName(
+    expect($repository->existsByOwnerAndName(
         $creator,
         GroupName::fromString('Corrida no Parque')->value(),
         Modality::RUNNING,
@@ -331,7 +332,7 @@ it('excludes archived and deleted groups from search', function () {
     $deleted = makePersistedGroup($repository, MemberUserId::generate(), 'Excluído');
 
     $archived->archive($archived->createdBy(), null, false, Instant::now());
-    $deleted->delete($deleted->createdBy(), null, Instant::now());
+    $deleted->delete($deleted->ownerId(), null, Instant::now());
 
     $repository->save($archived);
     $repository->save($deleted);
@@ -340,4 +341,27 @@ it('excludes archived and deleted groups from search', function () {
 
     expect($page->total)->toBe(1)
         ->and($page->items[0]->id()->equals($visible->id()))->toBeTrue();
+});
+
+it('moves the name reservation to the new owner after a transfer', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+    $owner = MemberUserId::generate();
+    $newOwner = MemberUserId::generate();
+
+    $group = makePersistedGroup($repository, $owner, 'Corrida no Parque');
+    $membership = $group->requestMembership($newOwner)->value();
+    $group->approveMembership($membership->id(), $owner, 0);
+    $group->transferOwnership($newOwner, $owner);
+    $repository->save($group);
+
+    expect($repository->existsByOwnerAndName(
+        $owner,
+        GroupName::fromString('Corrida no Parque')->value(),
+        Modality::RUNNING,
+    ))->toBeFalse()
+        ->and($repository->existsByOwnerAndName(
+            $newOwner,
+            GroupName::fromString('Corrida no Parque')->value(),
+            Modality::RUNNING,
+        ))->toBeTrue();
 });

@@ -40,6 +40,7 @@ final readonly class NotificationContentFactory
             NotificationType::GROUP_ACTIVATED => $this->groupActivated($context),
             NotificationType::GROUP_ARCHIVED => $this->groupArchived($context),
             NotificationType::GROUP_ARCHIVED_OWNER => $this->groupArchivedOwner($context),
+            NotificationType::GROUP_OWNER_CHANGED => $this->groupOwnerChanged($context),
             NotificationType::GROUP_DELETED => $this->groupDeleted($context),
             NotificationType::ACTIVITY_CREATED => $this->activityCreated($context),
             NotificationType::ACTIVITY_UPDATED => $this->activityUpdated($context),
@@ -322,6 +323,30 @@ final readonly class NotificationContentFactory
                 'groupId' => $group->id,
                 'reason' => $reason,
                 'automatic' => $this->bool($context, 'automatic'),
+            ],
+        );
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     */
+    private function groupOwnerChanged(array $context): ?NotificationContent
+    {
+        $group = $this->audience->group($this->string($context, 'groupId'));
+
+        if (null === $group) {
+            return null;
+        }
+
+        $ownerName = $this->audience->userName($this->string($context, 'ownerId')) ?? 'Novo responsável';
+
+        return new NotificationContent(
+            title: 'Responsável pelo grupo alterado',
+            body: sprintf('A responsabilidade pelo grupo %s passou para %s.', $group->name, $ownerName),
+            payload: [
+                'groupId' => $group->id,
+                'ownerId' => $this->string($context, 'ownerId'),
+                'previousOwnerId' => $this->string($context, 'previousOwnerId'),
             ],
         );
     }

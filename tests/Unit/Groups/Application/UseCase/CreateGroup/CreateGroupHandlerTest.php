@@ -27,8 +27,8 @@ it('creates a group for a user at level 2', function () {
         static fn (MemberUserId $id): bool => $id->equals($actor),
     ));
     $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(0);
-    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
-    $repository->shouldReceive('countFormingCreatedBy')->once()->andReturn(0);
+    $repository->shouldReceive('existsByOwnerAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('countFormingOwnedBy')->once()->andReturn(0);
     $repository->shouldReceive('save')->once()->with(m::type(Group::class));
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(GroupCreated::class));
 
@@ -56,8 +56,8 @@ it('creates a group with a custom member limit', function () {
     );
     $repository->shouldReceive('lockUser')->once();
     $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(0);
-    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
-    $repository->shouldReceive('countFormingCreatedBy')->once()->andReturn(0);
+    $repository->shouldReceive('existsByOwnerAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('countFormingOwnedBy')->once()->andReturn(0);
     $repository->shouldReceive('save')->once()->with(m::on(
         static fn (Group $group): bool => 3 === $group->maxMembers()?->value(),
     ));
@@ -136,7 +136,7 @@ it('rejects group creation when the user already belongs to five groups', functi
         static fn (callable $operation): mixed => $operation(),
     );
     $repository->shouldReceive('lockUser')->once();
-    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('existsByOwnerAndName')->once()->andReturnFalse();
     $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(5);
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
@@ -164,9 +164,9 @@ it('rejects group creation when the user already has a forming group', function 
         static fn (callable $operation): mixed => $operation(),
     );
     $repository->shouldReceive('lockUser')->once();
-    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('existsByOwnerAndName')->once()->andReturnFalse();
     $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(1);
-    $repository->shouldReceive('countFormingCreatedBy')->once()->andReturn(1);
+    $repository->shouldReceive('countFormingOwnedBy')->once()->andReturn(1);
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
 
@@ -193,7 +193,7 @@ it('rejects group creation when the user already created the same name and modal
         static fn (callable $operation): mixed => $operation(),
     );
     $repository->shouldReceive('lockUser')->once();
-    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnTrue();
+    $repository->shouldReceive('existsByOwnerAndName')->once()->andReturnTrue();
     $repository->shouldNotReceive('countApprovedMemberships');
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');

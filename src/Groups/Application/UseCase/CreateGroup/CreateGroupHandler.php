@@ -79,7 +79,7 @@ final readonly class CreateGroupHandler
 
             $this->groupRepository->lockUser($command->actorId);
 
-            if ($this->groupRepository->existsByCreatorAndName($command->actorId, $name, $command->modality)) {
+            if ($this->groupRepository->existsByOwnerAndName($command->actorId, $name, $command->modality)) {
                 return Result::failure([GroupErrors::duplicateGroup()]);
             }
 
@@ -89,9 +89,9 @@ final readonly class CreateGroupHandler
                 ]);
             }
 
-            if ($this->groupRepository->countFormingCreatedBy($command->actorId) >= GroupPolicy::MAX_FORMING_PER_CREATOR) {
+            if ($this->groupRepository->countFormingOwnedBy($command->actorId) >= GroupPolicy::MAX_FORMING_PER_OWNER) {
                 return Result::failure([
-                    GroupErrors::formingLimitReached(GroupPolicy::MAX_FORMING_PER_CREATOR),
+                    GroupErrors::formingLimitReached(GroupPolicy::MAX_FORMING_PER_OWNER),
                 ]);
             }
 

@@ -180,7 +180,7 @@ it('removes a member with a reason', function () {
         ->and($data['removedAt'])->not->toBeNull();
 });
 
-it('promotes and demotes members but never removes the last admin', function () {
+it('promotes and demotes members but never demotes the owner', function () {
     $context = groupTestAdminContext($this);
 
     groupTestCreateUser($this, 'groups-role-member@example.com');
@@ -207,21 +207,21 @@ it('promotes and demotes members but never removes the last admin', function () 
     $demotion = $this->api->patch(
         'app_group_membership_role',
         ['role' => 'member'],
-        ['id' => $context['groupId'], 'membershipId' => $context['adminMembershipId']],
+        ['id' => $context['groupId'], 'membershipId' => $membershipId],
         groupTestServer($context['adminToken']),
     );
 
     expect($demotion->getStatusCode())->toBe(Response::HTTP_OK);
 
-    $lastAdmin = $this->api->patch(
+    $ownerDemotion = $this->api->patch(
         'app_group_membership_role',
         ['role' => 'member'],
-        ['id' => $context['groupId'], 'membershipId' => $membershipId],
-        groupTestServer($memberToken),
+        ['id' => $context['groupId'], 'membershipId' => $context['adminMembershipId']],
+        groupTestServer($context['adminToken']),
     );
 
-    expect($lastAdmin->getStatusCode())->toBe(Response::HTTP_CONFLICT)
-        ->and($this->api->errorCodes())->toBe(['GROUP_LAST_ADMIN_REQUIRED']);
+    expect($ownerDemotion->getStatusCode())->toBe(Response::HTTP_CONFLICT)
+        ->and($this->api->errorCodes())->toBe(['GROUP_OWNER_TRANSFER_REQUIRED']);
 });
 
 it('designates and clears a supervisor', function () {

@@ -20,6 +20,8 @@ enum GroupErrorCode: string
     case GroupSupervisorNotMember = 'GROUP_SUPERVISOR_NOT_MEMBER';
     case GroupLevelInsufficient = 'GROUP_LEVEL_INSUFFICIENT';
     case GroupAdminRequired = 'GROUP_ADMIN_REQUIRED';
+    case GroupOwnerRequired = 'GROUP_OWNER_REQUIRED';
+    case GroupOwnerTransferRequired = 'GROUP_OWNER_TRANSFER_REQUIRED';
     case GroupLimitReached = 'GROUP_LIMIT_REACHED';
     case GroupFormingLimitReached = 'GROUP_FORMING_LIMIT_REACHED';
     case GroupDuplicate = 'GROUP_DUPLICATE';
@@ -40,13 +42,15 @@ enum GroupErrorCode: string
             self::GroupSupervisorNotMember => ErrorKind::Validation,
 
             self::GroupLevelInsufficient,
-            self::GroupAdminRequired => ErrorKind::Forbidden,
+            self::GroupAdminRequired,
+            self::GroupOwnerRequired => ErrorKind::Forbidden,
 
             self::GroupLimitReached,
             self::GroupFormingLimitReached,
             self::GroupDuplicate,
             self::GroupArchived,
             self::GroupFull,
+            self::GroupOwnerTransferRequired,
             self::GroupMemberLimitBelowApproved,
             self::GroupMembershipAlreadyExists,
             self::GroupMembershipNotPending,

@@ -22,6 +22,7 @@ enum NotificationType: string
     case GROUP_ACTIVATED = 'GROUP_ACTIVATED';
     case GROUP_ARCHIVED = 'GROUP_ARCHIVED';
     case GROUP_ARCHIVED_OWNER = 'GROUP_ARCHIVED_OWNER';
+    case GROUP_OWNER_CHANGED = 'GROUP_OWNER_CHANGED';
     case GROUP_DELETED = 'GROUP_DELETED';
     case ACTIVITY_CREATED = 'ACTIVITY_CREATED';
     case ACTIVITY_UPDATED = 'ACTIVITY_UPDATED';
@@ -50,6 +51,7 @@ enum NotificationType: string
             self::GROUP_ACTIVATED,
             self::GROUP_ARCHIVED,
             self::GROUP_ARCHIVED_OWNER,
+            self::GROUP_OWNER_CHANGED,
             self::GROUP_DELETED => NotificationCategory::GROUP,
 
             self::ACTIVITY_CREATED,

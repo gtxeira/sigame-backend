@@ -180,6 +180,11 @@ final class GroupMembershipController extends AbstractController
                 summary: 'Último administrador',
                 description: 'Promova outro membro antes de sair do grupo.',
             ),
+            'GROUP_OWNER_TRANSFER_REQUIRED' => new ApiErrorExample(
+                message: 'Transfira a responsabilidade pelo grupo antes de sair.',
+                summary: 'Responsável deve transferir',
+                description: 'O responsável pelo grupo não pode sair sem antes transferir a responsabilidade.',
+            ),
         ],
     )]
     #[TooManyRequestsResponse]
@@ -406,6 +411,11 @@ final class GroupMembershipController extends AbstractController
                 summary: 'Último administrador',
                 description: 'O administrador informado é o único admin do grupo.',
             ),
+            'GROUP_OWNER_TRANSFER_REQUIRED' => new ApiErrorExample(
+                message: 'Transfira a responsabilidade pelo grupo antes de remover o responsável.',
+                summary: 'Responsável deve transferir',
+                description: 'O responsável pelo grupo não pode ser removido sem antes transferir a responsabilidade.',
+            ),
         ],
     )]
     #[ValidationErrorResponse(
@@ -483,6 +493,11 @@ final class GroupMembershipController extends AbstractController
                 message: 'O grupo está arquivado e não aceita esta operação.',
                 summary: 'Grupo arquivado',
                 description: 'Grupos arquivados não aceitam alteração de papéis.',
+            ),
+            'GROUP_OWNER_TRANSFER_REQUIRED' => new ApiErrorExample(
+                message: 'Transfira a responsabilidade pelo grupo antes de rebaixar o responsável.',
+                summary: 'Responsável deve transferir',
+                description: 'O responsável pelo grupo não pode ser rebaixado sem antes transferir a responsabilidade.',
             ),
         ],
     )]

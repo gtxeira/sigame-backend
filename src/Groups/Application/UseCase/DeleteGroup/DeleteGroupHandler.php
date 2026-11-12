@@ -51,7 +51,7 @@ final readonly class DeleteGroupHandler
 
             $this->eventDispatcher->dispatch(GroupDeleted::now(
                 groupId: $group->id()->value(),
-                createdBy: $group->createdBy()->value(),
+                ownerId: $group->ownerId()->value(),
                 deletedBy: $group->deletedBy()?->value() ?? $command->actorId->value(),
                 reason: $group->deleteReason(),
             ));

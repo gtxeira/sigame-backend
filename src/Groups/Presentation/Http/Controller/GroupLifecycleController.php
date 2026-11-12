@@ -184,7 +184,7 @@ final class GroupLifecycleController extends AbstractController
      * Excluir grupo
      *
      * Exclui logicamente o grupo. A operação é terminal, preserva o histórico
-     * e notifica todos os participantes. Apenas administradores podem excluir.
+     * e notifica todos os participantes. Apenas o responsável pode excluir.
      */
     #[Route(
         '/groups/{id}',
@@ -204,10 +204,10 @@ final class GroupLifecycleController extends AbstractController
     #[UnauthorizedResponse]
     #[ForbiddenResponse(
         examples: [
-            'GROUP_ADMIN_REQUIRED' => new ApiErrorExample(
-                message: 'Apenas administradores do grupo podem executar esta operação.',
-                summary: 'Administrador obrigatório',
-                description: 'O usuário autenticado não é administrador aprovado do grupo.',
+            'GROUP_OWNER_REQUIRED' => new ApiErrorExample(
+                message: 'Apenas o responsável pelo grupo pode executar esta operação.',
+                summary: 'Responsável obrigatório',
+                description: 'O usuário autenticado não é o responsável pelo grupo.',
             ),
         ],
     )]

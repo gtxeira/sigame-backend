@@ -18,8 +18,11 @@ final readonly class GroupResponse
         #[OA\Property(format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
         public string $id,
 
-        #[OA\Property(description: 'Criador do grupo, independente do papel de administrador.', format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
+        #[OA\Property(description: 'Criador do grupo, independente do papel de administrador. Campo de auditoria.', format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
         public string $createdBy,
+
+        #[OA\Property(description: 'Responsável atual pelo grupo. Sempre um administrador aprovado; pode ser transferido.', format: 'uuid', example: '01a0d4ac-5d8d-7712-a6e3-f44a6cabc55f')]
+        public string $ownerId,
 
         #[OA\Property(example: 'Corrida no Parque')]
         public string $name,
@@ -92,6 +95,7 @@ final readonly class GroupResponse
         return new self(
             id: $group->id()->value(),
             createdBy: $group->createdBy()->value(),
+            ownerId: $group->ownerId()->value(),
             name: $group->name()->value(),
             description: $group->description()?->value(),
             modality: $group->modality()->value,
@@ -102,7 +106,7 @@ final readonly class GroupResponse
             archivedAt: $group->archivedAt()?->toIsoStringWithMilliseconds(),
             maxMembers: $group->maxMembers()?->value(),
             communicationLink: $canSeeLink ? $group->communicationLink()?->value() : null,
-            viewerMembership: null === $membership ? null : ViewerMembershipResponse::fromEntity($membership),
+            viewerMembership: null === $membership ? null : ViewerMembershipResponse::fromEntity($membership, $group),
             createdAt: $group->createdAt()->toIsoStringWithMilliseconds(),
             updatedAt: $group->updatedAt()->toIsoStringWithMilliseconds(),
         );

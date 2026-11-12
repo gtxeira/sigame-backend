@@ -14,7 +14,7 @@ final readonly class GroupArchived extends AbstractDomainEvent
 {
     private function __construct(
         private string $groupId,
-        private string $createdBy,
+        private string $ownerId,
         private ?string $archivedBy,
         private ?string $reason,
         private bool $automatic,
@@ -25,12 +25,12 @@ final readonly class GroupArchived extends AbstractDomainEvent
 
     public static function now(
         string $groupId,
-        string $createdBy,
+        string $ownerId,
         ?string $archivedBy,
         ?string $reason,
         bool $automatic,
     ): self {
-        return new self($groupId, $createdBy, $archivedBy, $reason, $automatic, Instant::now());
+        return new self($groupId, $ownerId, $archivedBy, $reason, $automatic, Instant::now());
     }
 
     public function eventName(): string
@@ -48,9 +48,9 @@ final readonly class GroupArchived extends AbstractDomainEvent
         return $this->groupId;
     }
 
-    public function createdBy(): string
+    public function ownerId(): string
     {
-        return $this->createdBy;
+        return $this->ownerId;
     }
 
     public function archivedBy(): ?string

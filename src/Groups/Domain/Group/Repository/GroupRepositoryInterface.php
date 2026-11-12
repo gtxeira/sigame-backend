@@ -57,7 +57,7 @@ interface GroupRepositoryInterface
     /**
      * Grupos em formação criados pelo usuário.
      */
-    public function countFormingCreatedBy(MemberUserId $userId): int;
+    public function countFormingOwnedBy(MemberUserId $userId): int;
 
     /**
      * Participações do usuário (pendentes e decididas) em grupos não excluídos,
@@ -68,11 +68,11 @@ interface GroupRepositoryInterface
     public function findMembershipsOfUser(MemberUserId $userId): array;
 
     /**
-     * Indica se o usuário já possui grupo visível com o mesmo nome e
+     * Indica se o responsável já possui grupo visível com o mesmo nome e
      * modalidade (comparação sem distinção de maiúsculas).
      */
-    public function existsByCreatorAndName(
-        MemberUserId $creator,
+    public function existsByOwnerAndName(
+        MemberUserId $owner,
         GroupName $name,
         Modality $modality,
         ?GroupId $excludeGroupId = null,

@@ -83,3 +83,40 @@ function groupTestRequestMembership(FunctionalTestCase $test, string $accessToke
 
     return (string) authTestBody($response)['data']['id'];
 }
+
+/**
+ * @return array{
+ *     ownerToken: string,
+ *     memberToken: string,
+ *     member: User,
+ *     groupId: string,
+ *     ownerMembershipId: string,
+ *     memberMembershipId: string
+ * }
+ */
+function groupOwnershipContext(FunctionalTestCase $test): array
+{
+    groupTestCreateUser($test, 'ownership-owner@example.com');
+    $ownerToken = groupTestAccessToken($test, 'ownership-owner@example.com');
+    $group = groupTestCreate($test, $ownerToken);
+
+    $member = groupTestCreateUser($test, 'ownership-member@example.com');
+    $memberToken = groupTestAccessToken($test, 'ownership-member@example.com');
+    $membershipId = groupTestRequestMembership($test, $memberToken, (string) $group['id']);
+
+    $test->api->post(
+        'app_group_membership_approve',
+        [],
+        ['id' => (string) $group['id'], 'membershipId' => $membershipId],
+        groupTestServer($ownerToken),
+    );
+
+    return [
+        'ownerToken' => $ownerToken,
+        'memberToken' => $memberToken,
+        'member' => $member,
+        'groupId' => (string) $group['id'],
+        'ownerMembershipId' => (string) $group['viewerMembership']['id'],
+        'memberMembershipId' => $membershipId,
+    ];
+}

@@ -80,8 +80,8 @@ final readonly class UpdateGroupHandler
                 : Modality::from($command->modality);
 
             if (!$name->equals($group->name()) || $modality !== $group->modality()) {
-                $duplicate = $this->groupRepository->existsByCreatorAndName(
-                    creator: $group->createdBy(),
+                $duplicate = $this->groupRepository->existsByOwnerAndName(
+                    owner: $group->ownerId(),
                     name: $name,
                     modality: $modality,
                     excludeGroupId: $group->id(),

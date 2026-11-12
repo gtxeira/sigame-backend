@@ -117,7 +117,7 @@ final readonly class CreateNotificationsHandler
 
             $deliveries = [];
 
-            foreach ($plan->channels as $channel) {
+            foreach ($plan->channelsFor($recipientId) as $channel) {
                 $existing = $this->deliveryRepository->findForNotificationAndChannel(
                     $notification->id(),
                     $channel,

@@ -56,7 +56,10 @@ A tag `Usuários` agora aparece no documento gerado com a administração global
 - `{id}` continua com requirement de UUID, para que identificadores inválidos não sejam confundidos com rotas literais.
 - A listagem não expõe o `communicationLink`; o detalhe só o inclui para membro aprovado.
 - O papel de administrador é documentado em `viewerMembership.role`; a alteração usa `PATCH .../memberships/{membershipId}/role`.
-- O criador aparece em `createdBy` e não é a fonte de autorização.
+- O criador aparece em `createdBy` e não é a fonte de autorização; `ownerId` identifica o **responsável** atual.
+- O responsável é sempre um administrador aprovado (`viewerMembership.isOwner = true`) e só ele exclui o grupo ou
+  transfere a responsabilidade (`PUT /groups/{id}/owner`). Arquivar/desarquivar continua com qualquer admin.
+- O responsável não pode ser rebaixado, removido nem sair sem transferir (`409 GROUP_OWNER_TRANSFER_REQUIRED`).
 
 ## 4. Grupos do Scalar (`x-tagGroups`)
 
@@ -149,6 +152,7 @@ Summaries atuais, usados como referência:
 | `POST /groups/{id}/memberships/{membershipId}/reject` | `Rejeitar solicitação` |
 | `POST /groups/{id}/memberships/{membershipId}/remove` | `Remover membro do grupo` |
 | `PATCH /groups/{id}/memberships/{membershipId}/role` | `Alterar papel do membro` |
+| `PUT /groups/{id}/owner` | `Transferir responsabilidade` |
 | `PUT /groups/{id}/supervisor` | `Designar supervisor` |
 | `DELETE /groups/{id}/supervisor` | `Remover supervisor` |
 | `POST /groups/{groupId}/activities` | `Criar atividade` |

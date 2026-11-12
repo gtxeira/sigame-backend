@@ -1353,6 +1353,10 @@ O criador do grupo precisa continuar registrado mesmo que deixe de ser administr
 - A migration não cria índice único de administrador; a invariante é garantida pelo domínio e pelo lock.
 - Testes: `GroupTest`, `ChangeMembershipRoleHandlerTest` e `GroupMembershipTest`.
 
+> **Emenda (ADR-046):** a transferência de responsabilidade passou a existir em campo próprio (`ownerId`), separada
+> de `createdBy`. O criador continua imutável e sem autorização implícita; o responsável é quem pode transferir e
+> excluir o grupo.
+
 ---
 
 ## ADR-042 — Limite de membros configurável por grupo
@@ -1507,6 +1511,9 @@ O ADR-019 derivava o estado do grupo apenas da contagem de aprovados e fixava 3 
 - **Excluir** (`deletedAt`, `deletedBy`, `deleteReason`) é terminal e lógico: preserva o grupo, as memberships e o histórico de atividades, e notifica todos os aprovados e o criador com `GROUP_DELETED` (incluindo o ator).
 - `DELETE /groups/{id}/membership` permite ao usuário cancelar a solicitação pendente ou encerrar a participação aprovada, respeitando a regra do último administrador.
 - `createdBy` continua sendo auditoria, não propriedade: apenas administradores aprovados arquivam ou excluem.
+
+> **Emenda (ADR-046):** excluir o grupo passou a exigir o **responsável** (`ownerId`), não qualquer administrador;
+> arquivar/desarquivar continua com qualquer admin.
 - Grupos arquivados ou excluídos não reagem a novas solicitações, aprovações, alterações de dados ou designação de supervisor; rejeição e remoção continuam permitidas para limpar a fila.
 - O módulo Activities reage a `group.archived` e `group.deleted` cancelando atividades agendadas, sem import cruzado.
 
@@ -1527,3 +1534,66 @@ O ADR-019 derivava o estado do grupo apenas da contagem de aprovados e fixava 3 
 - `GET /groups` exclui arquivados e excluídos; `GET /users/me/groups` inclui arquivados com `archived=true`.
 - E-mail deixa de ser exclusivo de eventos de conta (`RN15.9`).
 - Testes: `GroupLifecycleTest`, `LeaveGroupHandlerTest`, `ArchiveIdleFormingGroupsHandlerTest`, `GroupLifecycleTest` (HTTP), `NotificationPlannerTest`, `DoctrineGroupRepositoryTest`.
+
+---
+
+## ADR-046 — Responsável do grupo transferível e protegido
+
+### Contexto
+
+O ADR-023 separou criador e administradores, mas não definiu quem responde pelo grupo. Na prática, três coisas
+diferentes apareciam misturadas: quem criou (auditoria), quem administra (permissão) e quem responde pela decisão
+terminal de encerrar o grupo. O protótipo do frontend chegou a implementar um "criador" com poderes exclusivos e um
+fluxo de transferência, enquanto o backend permitia que qualquer admin excluísse o grupo. Era preciso escolher um
+modelo único e explícito.
+
+### Decisão
+
+- `groups.owner_id` registra o **responsável**; `created_by` permanece imutável e estritamente de auditoria.
+- O responsável é sempre uma **membership aprovada com papel `admin`**.
+- O criador inicia como responsável; a responsabilidade só muda por **transferência explícita**.
+- A transferência (`PUT /groups/{id}/owner`, corpo `{ membershipId }`) exige que o ator seja o responsável atual e
+  que o alvo seja um membro **aprovado e ativo**. O alvo é promovido a admin na mesma transação.
+- O responsável **não pode ser rebaixado nem removido por admins**, e **não pode sair** sem antes transferir. Os três
+  casos retornam `409 GROUP_OWNER_TRANSFER_REQUIRED`.
+- Apenas o responsável **exclui** o grupo (`DELETE /groups/{id}`). Arquivar/desarquivar continua com qualquer admin.
+- **Não há sucessão automática na V1.** A responsabilidade só muda por transferência explícita. Banimento permanente
+  (quando existir) é o único caso previsto de reatribuição automática; fica como gancho documentado.
+- **Suspensão não transfere** a responsabilidade. O responsável suspenso continua responsável; excluir e transferir
+  ficam bloqueados até a reativação, e a SIGAME resolve manualmente se precisar.
+- Dedupe de nome+modalidade e o limite de 1 grupo em formação passam a ser por **responsável**. A transferência não
+  valida o limite no destino; a criação continua bloqueada até regularizar.
+- Transferência é permitida em grupo **arquivado** (responsabilidade não é conteúdo); apenas excluído bloqueia.
+- Toda transferência grava uma linha append-only em `group_ownership_transfers` (grupo, responsável anterior, novo,
+  ator e data) e dispara `group.ownership.transferred`.
+- Notificações de "dono" passam a usar o responsável: `GROUP_ARCHIVED_OWNER` vai para ele, `GROUP_ARCHIVED` o exclui
+  e `GROUP_DELETED` o inclui. O novo `GROUP_OWNER_CHANGED` vai no sino para antigo e novo responsável e **por e-mail
+  somente para o novo responsável**.
+- Consultas de grupo arquivado deixam de usar `createdBy`: só membros aprovados veem o grupo. O criador que saiu
+  perde a visibilidade (a auditoria permanece no banco e no payload quando o grupo é visível).
+
+### Alternativas consideradas
+
+- **Manter `createdBy` como dono e apenas permitir transferi-lo:** tornaria "quem criou" mentira, quebraria
+  `CA04.7`, o índice de dedupe e o rastro de auditoria.
+- **Responsável com poderes totais (aprovar, remover, editar, arquivar e supervisor):** cria uma matriz de quatro
+  papéis para grupos de 3–5 pessoas e concentra a gestão em uma única conta.
+- **Sucessão automática por saída/remoção/rebaixamento:** reduz o bloqueio, mas retira a responsabilidade sem uma
+  decisão explícita do responsável; foi descartada na V1.
+- **Não ter responsável:** mantém a administração plana, mas deixa a exclusão terminal nas mãos de qualquer admin e
+  não há destinatário claro para avisos de ciclo de vida.
+- **Transferir na suspensão:** resolveria o bloqueio operacional, mas conflita com `RN18.15` e com a expectativa de
+  que a suspensão seja reversível.
+
+### Consequências
+
+- Migração `Version20261112191934` adiciona `owner_id` (backfill = `created_by`), troca o índice único parcial para
+  `uniq_groups_owner_name_modality` e cria `group_ownership_transfers`.
+- Novos códigos públicos: `GROUP_OWNER_REQUIRED` (403) e `GROUP_OWNER_TRANSFER_REQUIRED` (409).
+- `GroupResponse`/`GroupSummaryResponse` expõem `ownerId`; `viewerMembership` expõe `isOwner`; a listagem expõe
+  `viewerIsOwner`.
+- `GROUP_LAST_ADMIN_REQUIRED` permanece como defesa, mas as proteções do responsável cobrem os casos reais.
+- Responsável inativo ou suspenso é ponto único de saída do grupo: admins não excluem nem transferem. A operação
+  manual da SIGAME é o contorno até existir banimento permanente.
+- Testes: `GroupTest`, `GroupLifecycleTest`, `TransferOwnershipHandlerTest`, `GroupOwnershipTest`,
+  `NotificationPlannerTest`, `DoctrineGroupRepositoryTest` e `DoctrineOwnershipTransferRepositoryTest`.

@@ -10,11 +10,29 @@ use App\Notifications\Domain\Notification\ValueObject\NotificationType;
 /**
  * Política fixa de canais externos por tipo de notificação.
  *
- * O canal interno (sino) é sempre o registro persistido. Preferências por
- * usuário ficam para uma versão futura.
+ * O canal interno (sino) é sempre o registro persistido; os canais externos
+ * são adicionais. `GROUP_OWNER_CHANGED` é a exceção por destinatário: só o
+ * novo responsável recebe e-mail.
+ *
+ * Preferências por usuário ficam para uma versão futura.
  */
 final readonly class NotificationChannelPolicy
 {
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     *
+     * @return list<NotificationChannel>
+     */
+    public function channelsForRecipient(NotificationType $type, array $context, string $recipientId): array
+    {
+        if (NotificationType::GROUP_OWNER_CHANGED === $type
+            && ($context['ownerId'] ?? null) === $recipientId) {
+            return [NotificationChannel::EMAIL];
+        }
+
+        return $this->channelsFor($type);
+    }
+
     /**
      * @return list<NotificationChannel>
      */

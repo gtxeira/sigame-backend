@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Groups\Presentation\Http\Response;
 
+use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Entity\Membership;
 use App\Groups\Domain\Group\ValueObject\MembershipRole;
 use App\Groups\Domain\Group\ValueObject\MembershipStatus;
@@ -24,16 +25,20 @@ final readonly class ViewerMembershipResponse
 
         #[OA\Property(example: false)]
         public bool $isSupervisor,
+
+        #[OA\Property(description: 'Verdadeiro quando o usuário é o responsável pelo grupo.', example: false)]
+        public bool $isOwner,
     ) {
     }
 
-    public static function fromEntity(Membership $membership): self
+    public static function fromEntity(Membership $membership, Group $group): self
     {
         return new self(
             id: $membership->id()->value(),
             status: $membership->status()->value,
             role: $membership->role()->value,
             isSupervisor: $membership->isSupervisor(),
+            isOwner: $group->isOwnedBy($membership->userId()),
         );
     }
 }
