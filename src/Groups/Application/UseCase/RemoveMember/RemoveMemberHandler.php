@@ -39,7 +39,7 @@ final readonly class RemoveMemberHandler
         return $this->groupRepository->transactional(function () use ($command, $reason): Result {
             $group = $this->groupRepository->findByIdForUpdate($command->groupId);
 
-            if (null === $group) {
+            if (null === $group || $group->isDeleted()) {
                 return Result::failure([GroupErrors::groupNotFound()]);
             }
 

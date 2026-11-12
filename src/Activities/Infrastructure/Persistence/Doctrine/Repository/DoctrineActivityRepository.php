@@ -241,6 +241,23 @@ final class DoctrineActivityRepository extends AbstractRepository implements Act
         ));
     }
 
+    public function findScheduledIdsByGroup(ActivityGroupId $groupId): array
+    {
+        $rows = $this->createQueryBuilder('a')
+            ->select('a.id')
+            ->where('a.groupId = :groupId')
+            ->andWhere('a.status = :status')
+            ->setParameter('groupId', $groupId, 'activity_group_id')
+            ->setParameter('status', ActivityStatus::SCHEDULED->value)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map(
+            static fn (mixed $value): ActivityId => ActivityId::fromString((string) $value),
+            $rows,
+        ));
+    }
+
     public function findStartedToAutoFinish(Instant $now): array
     {
         $rows = $this->createQueryBuilder('a')

@@ -22,7 +22,8 @@ final readonly class NotificationChannelPolicy
     {
         return match ($type) {
             NotificationType::ACCOUNT_SUSPENDED,
-            NotificationType::ACCOUNT_REACTIVATED => [NotificationChannel::EMAIL],
+            NotificationType::ACCOUNT_REACTIVATED,
+            NotificationType::GROUP_ARCHIVED_OWNER => [NotificationChannel::EMAIL],
             default => [],
         };
     }

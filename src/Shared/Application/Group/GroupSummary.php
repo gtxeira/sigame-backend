@@ -19,6 +19,7 @@ final readonly class GroupSummary
         public array $adminIds,
         public ?string $supervisorId,
         public array $approvedMemberIds,
+        public ?string $creatorId = null,
     ) {
     }
 }

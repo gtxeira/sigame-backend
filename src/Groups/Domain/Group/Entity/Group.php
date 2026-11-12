@@ -72,6 +72,27 @@ final class Group
 
         #[ORM\Column(type: 'instant')]
         private Instant $updatedAt,
+
+        #[ORM\Column(type: 'instant', nullable: true)]
+        private ?Instant $activatedAt = null,
+
+        #[ORM\Column(type: 'instant', nullable: true)]
+        private ?Instant $archivedAt = null,
+
+        #[ORM\Column(type: 'member_user_id', nullable: true)]
+        private ?MemberUserId $archivedBy = null,
+
+        #[ORM\Column(type: 'string', length: 500, nullable: true)]
+        private ?string $archiveReason = null,
+
+        #[ORM\Column(type: 'instant', nullable: true)]
+        private ?Instant $deletedAt = null,
+
+        #[ORM\Column(type: 'member_user_id', nullable: true)]
+        private ?MemberUserId $deletedBy = null,
+
+        #[ORM\Column(type: 'string', length: 500, nullable: true)]
+        private ?string $deleteReason = null,
     ) {
         $this->memberships = new ArrayCollection();
     }
@@ -113,6 +134,12 @@ final class Group
      */
     public function requestMembership(MemberUserId $userId): Result
     {
+        $operableError = $this->assertOperable();
+
+        if (null !== $operableError) {
+            return Result::failure([$operableError]);
+        }
+
         if (null !== $this->membershipFor($userId)) {
             return Result::failure([GroupErrors::membershipAlreadyExists()]);
         }
@@ -128,7 +155,7 @@ final class Group
      * Aprova uma solicitação pendente (RF06).
      *
      * RN06.5: respeita o limite de membros configurado no grupo, quando houver.
-     * RN06.6: respeita o limite de 3 grupos do usuário.
+     * RN06.6: respeita o limite de participações do usuário.
      *
      * @return Result<Membership>
      */
@@ -141,6 +168,12 @@ final class Group
 
         if (null !== $adminError) {
             return Result::failure([$adminError]);
+        }
+
+        $operableError = $this->assertOperable();
+
+        if (null !== $operableError) {
+            return Result::failure([$operableError]);
         }
 
         $membership = $this->membershipById($membershipId);
@@ -159,11 +192,12 @@ final class Group
             return Result::failure([GroupErrors::groupFull($limit)]);
         }
 
-        if ($activeGroupCount >= GroupPolicy::MAX_GROUPS_PER_USER) {
-            return Result::failure([GroupErrors::limitReached(GroupPolicy::MAX_GROUPS_PER_USER)]);
+        if ($activeGroupCount >= GroupPolicy::MAX_PARTICIPATION_PER_USER) {
+            return Result::failure([GroupErrors::limitReached(GroupPolicy::MAX_PARTICIPATION_PER_USER)]);
         }
 
         $membership->approve($actor);
+        $this->syncActivation();
         $this->touch();
 
         return Result::success($membership);
@@ -229,9 +263,143 @@ final class Group
         }
 
         $membership->remove($actor, $reason);
+        $this->syncActivation();
         $this->touch();
 
         return Result::success($membership);
+    }
+
+    /**
+     * Encerra a participação do próprio usuário (pendente ou aprovada).
+     *
+     * Uma solicitação pendente é cancelada; uma participação aprovada é
+     * removida com motivo de saída voluntária. O último administrador não
+     * pode sair.
+     *
+     * @return Result<Membership>
+     */
+    public function leave(MemberUserId $userId, RemovalReason $reason): Result
+    {
+        if ($this->isDeleted()) {
+            return Result::failure([GroupErrors::groupNotFound()]);
+        }
+
+        $membership = $this->membershipFor($userId);
+
+        if (null === $membership) {
+            return Result::failure([GroupErrors::membershipNotFound()]);
+        }
+
+        if ($membership->isPending()) {
+            $membership->withdraw($userId);
+            $this->touch();
+
+            return Result::success($membership);
+        }
+
+        if ($this->isLastAdmin($membership)) {
+            return Result::failure([GroupErrors::lastAdminRequired()]);
+        }
+
+        $membership->remove($userId, $reason);
+        $this->syncActivation();
+        $this->touch();
+
+        return Result::success($membership);
+    }
+
+    /**
+     * Arquiva o grupo, deixando-o em somente leitura e fora da busca.
+     *
+     * @return Result<bool> `true` quando o grupo passou a arquivado
+     */
+    public function archive(
+        ?MemberUserId $actor,
+        ?string $reason,
+        bool $automatic,
+        Instant $at,
+    ): Result {
+        if ($this->isDeleted()) {
+            return Result::failure([GroupErrors::groupNotFound()]);
+        }
+
+        if (!$automatic) {
+            if (null === $actor) {
+                return Result::failure([GroupErrors::adminRequired()]);
+            }
+
+            $adminError = $this->assertAdmin($actor);
+
+            if (null !== $adminError) {
+                return Result::failure([$adminError]);
+            }
+        }
+
+        if (null !== $this->archivedAt) {
+            return Result::success(false);
+        }
+
+        $this->archivedAt = $at;
+        $this->archivedBy = $actor;
+        $this->archiveReason = $reason;
+        $this->touch();
+
+        return Result::success(true);
+    }
+
+    /**
+     * Reativa um grupo arquivado.
+     *
+     * @return Result<bool> `true` quando o grupo estava arquivado
+     */
+    public function unarchive(MemberUserId $actor): Result
+    {
+        if ($this->isDeleted()) {
+            return Result::failure([GroupErrors::groupNotFound()]);
+        }
+
+        $adminError = $this->assertAdmin($actor);
+
+        if (null !== $adminError) {
+            return Result::failure([$adminError]);
+        }
+
+        if (null === $this->archivedAt) {
+            return Result::success(false);
+        }
+
+        $this->archivedAt = null;
+        $this->archivedBy = null;
+        $this->archiveReason = null;
+        $this->touch();
+
+        return Result::success(true);
+    }
+
+    /**
+     * Exclui logicamente o grupo. A operação é terminal e preserva o
+     * histórico de participações.
+     *
+     * @return Result<bool> `true` quando o grupo passou a excluído
+     */
+    public function delete(MemberUserId $actor, ?string $reason, Instant $at): Result
+    {
+        if ($this->isDeleted()) {
+            return Result::failure([GroupErrors::groupNotFound()]);
+        }
+
+        $adminError = $this->assertAdmin($actor);
+
+        if (null !== $adminError) {
+            return Result::failure([$adminError]);
+        }
+
+        $this->deletedAt = $at;
+        $this->deletedBy = $actor;
+        $this->deleteReason = $reason;
+        $this->touch();
+
+        return Result::success(true);
     }
 
     /**
@@ -245,6 +413,12 @@ final class Group
 
         if (null !== $adminError) {
             return Result::failure([$adminError]);
+        }
+
+        $operableError = $this->assertOperable();
+
+        if (null !== $operableError) {
+            return Result::failure([$operableError]);
         }
 
         $membership = $this->membershipById($membershipId);
@@ -274,6 +448,12 @@ final class Group
 
         if (null !== $adminError) {
             return Result::failure([$adminError]);
+        }
+
+        $operableError = $this->assertOperable();
+
+        if (null !== $operableError) {
+            return Result::failure([$operableError]);
         }
 
         $membership = $this->membershipById($membershipId);
@@ -307,6 +487,12 @@ final class Group
 
         if (null !== $adminError) {
             return Result::failure([$adminError]);
+        }
+
+        $operableError = $this->assertOperable();
+
+        if (null !== $operableError) {
+            return Result::failure([$operableError]);
         }
 
         $membership = $this->membershipById($membershipId);
@@ -377,6 +563,12 @@ final class Group
 
         if (null !== $adminError) {
             return Result::failure([$adminError]);
+        }
+
+        $operableError = $this->assertOperable();
+
+        if (null !== $operableError) {
+            return Result::failure([$operableError]);
         }
 
         if (null !== $maxMembers && $maxMembers->value() < $this->approvedCount()) {
@@ -565,6 +757,84 @@ final class Group
         $membership = $this->approvedMembershipOf($actor);
 
         return null !== $membership && $membership->isAdmin();
+    }
+
+    public function activatedAt(): ?Instant
+    {
+        return $this->activatedAt;
+    }
+
+    public function archivedAt(): ?Instant
+    {
+        return $this->archivedAt;
+    }
+
+    public function archivedBy(): ?MemberUserId
+    {
+        return $this->archivedBy;
+    }
+
+    public function archiveReason(): ?string
+    {
+        return $this->archiveReason;
+    }
+
+    public function deletedAt(): ?Instant
+    {
+        return $this->deletedAt;
+    }
+
+    public function deletedBy(): ?MemberUserId
+    {
+        return $this->deletedBy;
+    }
+
+    public function deleteReason(): ?string
+    {
+        return $this->deleteReason;
+    }
+
+    public function isArchived(): bool
+    {
+        return null !== $this->archivedAt;
+    }
+
+    public function isDeleted(): bool
+    {
+        return null !== $this->deletedAt;
+    }
+
+    private function assertOperable(): ?DomainError
+    {
+        if ($this->isDeleted()) {
+            return GroupErrors::groupNotFound();
+        }
+
+        if (null !== $this->archivedAt) {
+            return GroupErrors::groupArchived();
+        }
+
+        return null;
+    }
+
+    /**
+     * Mantém o espelho persistido da ativação coerente com a contagem de
+     * aprovados. `activatedAt` é usado pelas consultas de limite e pelo job de
+     * arquivamento por inatividade.
+     */
+    private function syncActivation(): void
+    {
+        $approved = $this->approvedCount();
+
+        if (null !== $this->activatedAt && $approved < GroupPolicy::MIN_APPROVED_FOR_ACTIVE) {
+            $this->activatedAt = null;
+
+            return;
+        }
+
+        if (null === $this->activatedAt && $approved >= GroupPolicy::MIN_APPROVED_FOR_ACTIVE) {
+            $this->activatedAt = Instant::now();
+        }
     }
 
     private function assertAdmin(MemberUserId $actor): ?DomainError

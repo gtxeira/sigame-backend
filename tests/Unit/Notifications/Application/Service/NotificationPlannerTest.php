@@ -176,6 +176,94 @@ it('plans activity completion for admins and the supervisor', function () {
         ->and($plan->content->body)->toContain('automática');
 });
 
+it('plans group archiving for members except the creator', function () {
+    $groups = m::mock(GroupSummaryReaderInterface::class);
+    $activities = m::mock(ActivitySummaryReaderInterface::class);
+    $contacts = m::mock(UserContactReaderInterface::class);
+
+    $groups->shouldReceive('summary')->with('group-1')->andReturn(new GroupSummary(
+        id: 'group-1',
+        name: 'Corrida Centro',
+        adminIds: ['creator-1'],
+        supervisorId: null,
+        approvedMemberIds: ['creator-1', 'member-1', 'member-2'],
+        creatorId: 'creator-1',
+    ));
+
+    $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
+        type: NotificationType::GROUP_ARCHIVED,
+        deduplicationKey: 'group-archived:group-1',
+        context: [
+            'groupId' => 'group-1',
+            'reason' => 'Pausa nas atividades.',
+            'automatic' => false,
+        ],
+        actorId: 'admin-1',
+    ));
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->recipientIds)->toBe(['member-1', 'member-2'])
+        ->and($plan->channels)->toBe([])
+        ->and($plan->content->body)->toContain('Pausa nas atividades.');
+});
+
+it('plans the group owner archive notification with email', function () {
+    $groups = m::mock(GroupSummaryReaderInterface::class);
+    $activities = m::mock(ActivitySummaryReaderInterface::class);
+    $contacts = m::mock(UserContactReaderInterface::class);
+
+    $groups->shouldReceive('summary')->with('group-1')->andReturn(new GroupSummary(
+        id: 'group-1',
+        name: 'Corrida Centro',
+        adminIds: ['creator-1'],
+        supervisorId: null,
+        approvedMemberIds: ['creator-1'],
+        creatorId: 'creator-1',
+    ));
+
+    $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
+        type: NotificationType::GROUP_ARCHIVED_OWNER,
+        deduplicationKey: 'group-archived-owner:group-1',
+        context: [
+            'groupId' => 'group-1',
+            'ownerId' => 'creator-1',
+            'reason' => null,
+            'automatic' => true,
+        ],
+    ));
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->recipientIds)->toBe(['creator-1'])
+        ->and($plan->channels)->toBe([NotificationChannel::EMAIL])
+        ->and($plan->content->title)->toBe('Seu grupo foi arquivado');
+});
+
+it('plans group deletion for members and the creator, including the actor', function () {
+    $groups = m::mock(GroupSummaryReaderInterface::class);
+    $activities = m::mock(ActivitySummaryReaderInterface::class);
+    $contacts = m::mock(UserContactReaderInterface::class);
+
+    $groups->shouldReceive('summary')->with('group-1')->andReturn(new GroupSummary(
+        id: 'group-1',
+        name: 'Corrida Centro',
+        adminIds: ['admin-1'],
+        supervisorId: null,
+        approvedMemberIds: ['admin-1', 'member-1'],
+        creatorId: 'creator-1',
+    ));
+
+    $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
+        type: NotificationType::GROUP_DELETED,
+        deduplicationKey: 'group-deleted:group-1',
+        context: ['groupId' => 'group-1', 'reason' => 'Grupo encerrado.'],
+    ));
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->recipientIds)->toBe(['admin-1', 'member-1', 'creator-1'])
+        ->and($plan->excludeUserIds)->toBe([])
+        ->and($plan->content->body)->toContain('excluído');
+});
+
 it('returns no plan when the referenced group is missing', function () {
     $groups = m::mock(GroupSummaryReaderInterface::class);
     $activities = m::mock(ActivitySummaryReaderInterface::class);

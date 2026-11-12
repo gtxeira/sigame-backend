@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Notifications\Infrastructure\Event;
 
 use App\Groups\Domain\Group\Event\GroupActivated;
+use App\Groups\Domain\Group\Event\GroupArchived;
+use App\Groups\Domain\Group\Event\GroupDeleted;
 use App\Groups\Domain\Group\Event\MemberRemoved;
 use App\Groups\Domain\Group\Event\MembershipApproved;
 use App\Groups\Domain\Group\Event\MembershipDemoted;
@@ -162,6 +164,53 @@ final readonly class GroupNotificationListener
             type: NotificationType::GROUP_ACTIVATED,
             deduplicationKey: 'group-activated:'.$event->groupId(),
             context: ['groupId' => $event->groupId()],
+        ));
+    }
+
+    #[AsEventListener(event: 'group.archived')]
+    public function onGroupArchived(GroupArchived $event): void
+    {
+        $occurredAt = $event->occurredAt()->toIsoStringWithMicroseconds();
+
+        $this->publisher->publish(new NotificationIntent(
+            type: NotificationType::GROUP_ARCHIVED,
+            deduplicationKey: 'group-archived:'.$event->groupId().':'.$occurredAt,
+            context: [
+                'groupId' => $event->groupId(),
+                'reason' => $event->reason(),
+                'automatic' => $event->automatic(),
+            ],
+            actorId: $event->archivedBy(),
+        ));
+
+        // RN15.14: o ator não recebe notificação da própria ação.
+        if (!$event->automatic() && $event->archivedBy() === $event->createdBy()) {
+            return;
+        }
+
+        $this->publisher->publish(new NotificationIntent(
+            type: NotificationType::GROUP_ARCHIVED_OWNER,
+            deduplicationKey: 'group-archived-owner:'.$event->groupId().':'.$occurredAt,
+            context: [
+                'groupId' => $event->groupId(),
+                'ownerId' => $event->createdBy(),
+                'reason' => $event->reason(),
+                'automatic' => $event->automatic(),
+            ],
+            actorId: $event->automatic() ? null : $event->archivedBy(),
+        ));
+    }
+
+    #[AsEventListener(event: 'group.deleted')]
+    public function onGroupDeleted(GroupDeleted $event): void
+    {
+        $this->publisher->publish(new NotificationIntent(
+            type: NotificationType::GROUP_DELETED,
+            deduplicationKey: 'group-deleted:'.$event->groupId(),
+            context: [
+                'groupId' => $event->groupId(),
+                'reason' => $event->reason(),
+            ],
         ));
     }
 }

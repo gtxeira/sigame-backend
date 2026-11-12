@@ -135,7 +135,7 @@ it('rejects approval when the group is full', function () {
         ->and($result->errors()[0]->code)->toBe('GROUP_FULL');
 });
 
-it('rejects approval when the user reached the group limit', function () {
+it('rejects approval when the user reached the five group limit', function () {
     [$group, $admin, , $pending] = groupWithPendingMembers(approved: 0, pending: 1);
     $target = $pending[0];
 
@@ -149,7 +149,7 @@ it('rejects approval when the user reached the group limit', function () {
     );
     $repository->shouldReceive('findByIdForUpdate')->once()->andReturn($group);
     $repository->shouldReceive('lockUser')->once();
-    $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(3);
+    $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(5);
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
 

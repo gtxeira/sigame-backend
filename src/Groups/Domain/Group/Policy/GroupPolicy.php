@@ -14,8 +14,11 @@ final class GroupPolicy
 {
     public const int MIN_APPROVED_FOR_ACTIVE = 3;
     public const int MIN_CONFIGURABLE_MEMBERS = self::MIN_APPROVED_FOR_ACTIVE;
-    public const int MAX_GROUPS_PER_USER = 3;
+    public const int MAX_PARTICIPATION_PER_USER = 5;
+    public const int MAX_FORMING_PER_CREATOR = 1;
     public const int MIN_LEVEL_TO_CREATE = 2;
+    public const int MIN_LEVEL_TO_JOIN = 2;
+    public const int FORMING_IDLE_DAYS = 30;
 
     public static function isActive(int $approvedMembers): bool
     {

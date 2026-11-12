@@ -7,6 +7,7 @@ namespace App\Groups\Application\UseCase\CreateGroup;
 use App\Groups\Domain\Error\GroupErrors;
 use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Event\GroupCreated;
+use App\Groups\Domain\Group\Exception\DuplicateGroupException;
 use App\Groups\Domain\Group\Exception\MembershipAlreadyExistsException;
 use App\Groups\Domain\Group\Policy\GroupPolicy;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
@@ -24,7 +25,9 @@ use App\Shared\Domain\Functional\ValidationResult;
  *
  * RN04.1: exige nível mínimo 2.
  * RN04.2: o criador inicia como administrador.
- * RN04.3: o usuário não pode ultrapassar o limite de grupos.
+ * RN04.3: o usuário não pode ultrapassar o limite de participação.
+ * RN04.10: o usuário pode ter apenas um grupo em formação por vez.
+ * RN04.11: nome e modalidade não podem repetir entre os grupos do criador.
  */
 final readonly class CreateGroupHandler
 {
@@ -76,9 +79,19 @@ final readonly class CreateGroupHandler
 
             $this->groupRepository->lockUser($command->actorId);
 
-            if ($this->groupRepository->countApprovedMemberships($command->actorId) >= GroupPolicy::MAX_GROUPS_PER_USER) {
+            if ($this->groupRepository->existsByCreatorAndName($command->actorId, $name, $command->modality)) {
+                return Result::failure([GroupErrors::duplicateGroup()]);
+            }
+
+            if ($this->groupRepository->countApprovedMemberships($command->actorId) >= GroupPolicy::MAX_PARTICIPATION_PER_USER) {
                 return Result::failure([
-                    GroupErrors::limitReached(GroupPolicy::MAX_GROUPS_PER_USER),
+                    GroupErrors::limitReached(GroupPolicy::MAX_PARTICIPATION_PER_USER),
+                ]);
+            }
+
+            if ($this->groupRepository->countFormingCreatedBy($command->actorId) >= GroupPolicy::MAX_FORMING_PER_CREATOR) {
+                return Result::failure([
+                    GroupErrors::formingLimitReached(GroupPolicy::MAX_FORMING_PER_CREATOR),
                 ]);
             }
 
@@ -95,6 +108,8 @@ final readonly class CreateGroupHandler
                 $this->groupRepository->save($group);
             } catch (MembershipAlreadyExistsException) {
                 return Result::failure([GroupErrors::membershipAlreadyExists()]);
+            } catch (DuplicateGroupException) {
+                return Result::failure([GroupErrors::duplicateGroup()]);
             }
 
             $this->eventDispatcher->dispatch(GroupCreated::now(

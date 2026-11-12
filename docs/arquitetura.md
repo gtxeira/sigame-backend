@@ -372,27 +372,34 @@ A raiz do agregado mantém os dados do grupo, o criador e as participações. O 
 
 | Componente | Responsabilidade | Colunas / tabela |
 |---|---|---|
-| `Group` | Raiz do agregado | `id`, `created_by`, `name`, `description`, `modality`, `communication_link`, `max_members`, `created_at`, `updated_at` |
+| `Group` | Raiz do agregado | `id`, `created_by`, `name`, `description`, `modality`, `communication_link`, `max_members`, `activated_at`, `archived_at`, `archived_by`, `archive_reason`, `deleted_at`, `deleted_by`, `delete_reason`, `created_at`, `updated_at` |
 | `Membership` | Episódio de participação | tabela `group_memberships` |
 
 Comportamentos principais de `Group`:
 
 - `create()` — cria o grupo e registra o criador como primeiro administrador.
-- `requestMembership()` — cria um episódio `PENDING`, recusando duplicidade ativa.
-- `approveMembership()` — exige admin, respeita o limite de membros do grupo (quando houver) e 3 grupos por usuário.
+- `requestMembership()` — cria um episódio `PENDING`, recusando duplicidade ativa e grupos arquivados/excluídos.
+- `approveMembership()` — exige admin, respeita o limite de membros do grupo (quando houver) e 5 participações por usuário.
 - `rejectMembership()` — encerra um episódio `PENDING` como `REJECTED`.
 - `removeMembership()` — registra autor, data e motivo; impede remover o último admin.
+- `leave()` — cancela a própria solicitação pendente ou encerra a participação aprovada; impede a saída do último admin.
 - `promoteToAdmin()` / `demoteToMember()` — gerenciam múltiplos admins; o último admin é protegido.
 - `designateSupervisor()` / `clearSupervisor()` — supervisor opcional, sempre membro aprovado.
 - `changeDetails()` — atualiza nome, descrição, modalidade, link e limite de membros; rejeita limite abaixo da
   quantidade atual de aprovados.
+- `archive()` / `unarchive()` — arquivamento reversível, com autor e motivo; idempotente.
+- `delete()` — exclusão lógica terminal, sem remover memberships nem histórico.
 - `status()` — deriva `FORMING`, `ACTIVE` ou `FULL` da contagem de aprovados.
 
 Regras:
 
-- `GroupPolicy` fixa 3 aprovados para ativar, 5 para lotar e 3 grupos por usuário.
+- `GroupPolicy` fixa 3 aprovados para ativar, limite de membros configurável por grupo, 5 participações por usuário,
+  1 grupo em formação por criador e nível 2 para criar e para entrar.
+- `activatedAt` é um espelho persistido da ativação: preenchido no terceiro aprovado e limpo ao cair abaixo de três.
+- Grupos arquivados ficam em somente leitura, fora da busca e não consomem vaga; grupos excluídos são invisíveis na API.
 - `Membership` é append-only: rejeição e remoção preservam o episódio; reentrada cria outro.
-- Índices parciais garantem uma única participação ativa por par grupo/usuário e um único supervisor aprovado.
+- Índices parciais garantem uma única participação ativa por par grupo/usuário, um único supervisor aprovado e o
+  dedupe de criação por criador, nome e modalidade.
 - O `communicationLink` só é retornado para membro aprovado.
 - A leitura de nível do usuário usa a porta `UserLevelReaderInterface` do `Shared` (ADR-020).
 
@@ -437,10 +444,15 @@ Regras:
 | Logout | `LogoutCommand` | `LogoutHandler` | Revoga a família do cookie ou todas as famílias |
 | Definir CPF | `AssignCpfCommand` | `AssignCpfHandler` | Valida CPF → verifica unicidade → define (write-once) |
 | Concluir onboarding | `CompleteOnboardingCommand` | `CompleteOnboardingHandler` | Carrega o usuário → conclui no agregado → persiste → publica `OnboardingCompleted` |
-| Criar grupo | `CreateGroupCommand` | `CreateGroupHandler` | Valida nível 2, limite de 3 grupos e limite opcional de membros → cria o grupo com o criador admin → publica `GroupCreated` |
-| Atualizar grupo | `UpdateGroupCommand` | `UpdateGroupHandler` | Exige admin → aplica JSON Merge Patch (inclusive limite de membros) → publica `GroupUpdated` |
-| Solicitar entrada | `RequestMembershipCommand` | `RequestMembershipHandler` | Cria episódio `PENDING`, recusando duplicidade → publica `MembershipRequested` |
-| Aprovar solicitação | `ApproveMembershipCommand` | `ApproveMembershipHandler` | Exige admin → valida limite de membros do grupo e 3 grupos → publica `MembershipApproved` e, se ativou, `GroupActivated` |
+| Criar grupo | `CreateGroupCommand` | `CreateGroupHandler` | Valida nível 2, dedupe, limite de 5 participações, 1 em formação e limite opcional de membros → cria o grupo com o criador admin → publica `GroupCreated` |
+| Atualizar grupo | `UpdateGroupCommand` | `UpdateGroupHandler` | Exige admin e grupo não arquivado → aplica JSON Merge Patch (inclusive limite de membros) → publica `GroupUpdated` |
+| Arquivar grupo | `ArchiveGroupCommand` | `ArchiveGroupHandler` | Exige admin → arquiva com autor/motivo, idempotente → publica `GroupArchived` |
+| Reativar grupo | `UnarchiveGroupCommand` | `UnarchiveGroupHandler` | Exige admin → limpa o arquivamento, idempotente → publica `GroupUnarchived` |
+| Excluir grupo | `DeleteGroupCommand` | `DeleteGroupHandler` | Exige admin → exclusão lógica terminal → publica `GroupDeleted` |
+| Arquivar inativos | `ArchiveIdleFormingGroupsMessage` | `ArchiveIdleFormingGroupsHandler` | Job diário → arquiva grupos em formação sem atividade há 30 dias → publica `GroupArchived` |
+| Solicitar entrada | `RequestMembershipCommand` | `RequestMembershipHandler` | Exige nível 2 → cria episódio `PENDING`, recusando duplicidade e grupo arquivado → publica `MembershipRequested` |
+| Sair do grupo | `LeaveGroupCommand` | `LeaveGroupHandler` | Cancela pendente ou encerra aprovada, protegendo o último admin → publica `MembershipRequestWithdrawn`/`MembershipLeft` |
+| Aprovar solicitação | `ApproveMembershipCommand` | `ApproveMembershipHandler` | Exige admin → valida limite de membros do grupo e 5 participações → publica `MembershipApproved` e, se ativou, `GroupActivated` |
 | Rejeitar solicitação | `RejectMembershipCommand` | `RejectMembershipHandler` | Exige admin → encerra `PENDING` como `REJECTED` → publica `MembershipRejected` |
 | Remover membro | `RemoveMemberCommand` | `RemoveMemberHandler` | Exige admin, motivo e não remove o último admin → publica `MemberRemoved` |
 | Alterar papel | `ChangeMembershipRoleCommand` | `ChangeMembershipRoleHandler` | Promove/rebaixa membro aprovado, protegendo o último admin → publica `MembershipPromoted`/`MembershipDemoted` |
@@ -484,6 +496,11 @@ A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado 
 | `SupervisorDesignated` | Após designar supervisor | Notifications (listener do catálogo) |
 | `SupervisorRemoved` | Após remover designação | Notifications (listener do catálogo) |
 | `GroupActivated` | Ao atingir 3 membros aprovados | Notifications (grupo ativo) |
+| `GroupArchived` | Ao arquivar manualmente ou por inatividade | Notifications e Activities (cancela atividades agendadas) |
+| `GroupUnarchived` | Ao reativar um grupo arquivado | Nenhum |
+| `GroupDeleted` | Ao excluir logicamente o grupo | Notifications e Activities (cancela atividades agendadas) |
+| `MembershipLeft` | Ao encerrar a própria participação | Nenhum (não notificado na V1) |
+| `MembershipRequestWithdrawn` | Ao cancelar a própria solicitação | Nenhum (não notificado na V1) |
 | `ActivityCreated` | Após criar atividade | Notifications (listener do catálogo) |
 | `ActivityUpdated` | Após alterar dados da atividade | Notifications (listener do catálogo) |
 | `ActivityRescheduled` | Após remarcar atividade | Notifications (listener do catálogo) |
@@ -594,7 +611,7 @@ Request -> token + hash no banco
 
 ---
 
-### 6.2 Schedulers de atividades e gamificação
+### 6.2 Schedulers de atividades, gamificação e grupos
 
 O módulo Activities usa `symfony/scheduler` para executar `CloseExpiredActivitiesMessage` a cada 5 minutos:
 
@@ -616,9 +633,20 @@ scheduler_gamification
   -> InactivityDecay events + XpDecayed + LevelLost
 ```
 
-Os transportes `scheduler_activities` e `scheduler_gamification` são consumidos pelo serviço `scheduler` do Compose.
-Em produção, esse serviço precisa estar sempre ativo; se ele parar, o fechamento automático e o deleveling atrasam
-até a próxima execução.
+O módulo Groups usa o mesmo componente para executar `ArchiveIdleFormingGroupsMessage` uma vez por dia:
+
+```text
+scheduler_groups
+  -> ArchiveIdleFormingGroupsHandler
+  -> findIdleFormingGroupIds (activated_at IS NULL e updated_at < corte)
+  -> revalida sob lock -> archive(automatic: true)
+  -> GroupArchived (automatic=true)
+```
+
+Os transportes `scheduler_activities`, `scheduler_gamification` e `scheduler_groups` são consumidos pelo serviço
+`scheduler` do Compose.
+Em produção, esse serviço precisa estar sempre ativo; se ele parar, o fechamento automático, o deleveling e o
+arquivamento de grupos inativos atrasam até a próxima execução.
 
 ---
 
@@ -638,7 +666,10 @@ Domain Event -> listener -> CreateNotificationsMessage -> worker
 - O token concede apenas `subscribe` no tópico `.../notifications/{userId}`; publicação é exclusiva do servidor.
 - O frontend usa `Authorization: Bearer` no SSE (fetch-event-source ou equivalente), sem token na URL.
 - A publicação é best-effort: falha do hub não desfaz a notificação e a API continua sendo a fonte de verdade.
-- E-mail é usado apenas para suspensão/reativação de conta; WhatsApp e push ficam como extensões.
+- E-mail é usado para suspensão/reativação de conta e para o arquivamento de grupo notificado ao criador
+  (`GROUP_ARCHIVED_OWNER`); WhatsApp e push ficam como extensões.
+- Eventos de ciclo de vida do grupo: `GROUP_ARCHIVED` (membros aprovados, exceto criador), `GROUP_ARCHIVED_OWNER`
+  (criador, com e-mail) e `GROUP_DELETED` (membros e criador, incluindo o ator).
 
 O hub do Caddy usa protocolo legado 0.x (`protocol_version_compatibility 8`). O bundle está configurado com
 `ProtocolVersion::Legacy`; a migração para 1.0 deve ser feita junto com a atualização do hub.
@@ -697,6 +728,10 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `GET` | `/api/v1/users/me/groups` | `MyGroupsController::list` | Bearer JWT |
 | `GET` | `/api/v1/groups/{id}` | `GroupController::show` | Bearer JWT |
 | `PATCH` | `/api/v1/groups/{id}` | `GroupController::update` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/archive` | `GroupLifecycleController::archive` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/unarchive` | `GroupLifecycleController::unarchive` | Bearer JWT + admin |
+| `DELETE` | `/api/v1/groups/{id}` | `GroupLifecycleController::delete` | Bearer JWT + admin |
+| `DELETE` | `/api/v1/groups/{id}/membership` | `GroupMembershipController::leave` | Bearer JWT |
 | `POST` | `/api/v1/groups/{id}/membership-requests` | `GroupMembershipController::request` | Bearer JWT |
 | `GET` | `/api/v1/groups/{id}/memberships` | `GroupMembershipController::list` | Bearer JWT + admin |
 | `POST` | `/api/v1/groups/{id}/memberships/{membershipId}/approve` | `GroupMembershipController::approve` | Bearer JWT + admin |
@@ -771,12 +806,14 @@ tests/
 │   │   ├── Domain/
 │   │   │   ├── Error/GroupErrorsTest.php
 │   │   │   └── Group/
-│   │   │       ├── Entity/GroupTest.php
+│   │   │       ├── Entity/{GroupTest,GroupLifecycleTest}.php
 │   │   │       └── ValueObject/GroupValueObjectsTest.php
 │   │   └── Application/UseCase/
 │   │       ├── CreateGroup/CreateGroupHandlerTest.php
 │   │       ├── ApproveMembership/ApproveMembershipHandlerTest.php
-│   │       └── ChangeMembershipRole/ChangeMembershipRoleHandlerTest.php
+│   │       ├── ChangeMembershipRole/ChangeMembershipRoleHandlerTest.php
+│   │       ├── LeaveGroup/LeaveGroupHandlerTest.php
+│   │       └── ArchiveIdleFormingGroups/ArchiveIdleFormingGroupsHandlerTest.php
 │   ├── Activities/
 │   │   ├── Domain/Activity/
 │   │   │   ├── Entity/ActivityTest.php
@@ -799,7 +836,8 @@ tests/
 │   ├── Monitoring/Presentation/Http/HealthTest.php
 │   ├── Groups/Presentation/Http/
 │   │   ├── GroupTest.php
-│   │   └── GroupMembershipTest.php
+│   │   ├── GroupMembershipTest.php
+│   │   └── GroupLifecycleTest.php
 │   ├── Activities/Presentation/Http/ActivityTest.php
 │   ├── Notifications/Presentation/Http/NotificationTest.php
 │   ├── Identity/Presentation/Http/AdminUserTest.php

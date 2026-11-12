@@ -79,8 +79,8 @@ final class GroupController extends AbstractController
      * Criar grupo
      *
      * Cria um grupo esportivo e registra o usuário autenticado como primeiro
-     * administrador. Exige nível 2 ou superior e respeita o limite de três
-     * grupos por usuário.
+     * administrador. Exige nível 2 ou superior, respeita o limite de cinco
+     * participações e permite apenas um grupo em formação por vez.
      */
     #[Route('/groups', name: 'app_group_create', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
@@ -103,11 +103,23 @@ final class GroupController extends AbstractController
     #[ResourceConflictResponse(
         examples: [
             'GROUP_LIMIT_REACHED' => new ApiErrorExample(
-                message: 'O usuário já participa do número máximo de 3 grupos.',
+                message: 'O usuário já participa do número máximo de 5 grupos.',
                 summary: 'Limite de grupos atingido',
                 description: 'O usuário precisa sair de um grupo antes de criar outro.',
             ),
+            'GROUP_FORMING_LIMIT_REACHED' => new ApiErrorExample(
+                message: 'O usuário já possui o número máximo de 1 grupo em formação.',
+                summary: 'Grupo em formação',
+                description: 'Ative ou arquive o grupo em formação antes de criar outro.',
+            ),
+            'GROUP_DUPLICATE' => new ApiErrorExample(
+                message: 'O usuário já criou um grupo com este nome e modalidade.',
+                field: 'name',
+                summary: 'Grupo duplicado',
+                description: 'Já existe um grupo visível do mesmo criador com o mesmo nome e modalidade.',
+            ),
         ],
+        fields: ['name' => 'Nome do grupo.'],
     )]
     #[ValidationErrorResponse(
         examples: [
@@ -281,7 +293,19 @@ final class GroupController extends AbstractController
                 summary: 'Limite abaixo dos membros aprovados',
                 description: 'O limite não pode ser menor que a quantidade atual de membros aprovados.',
             ),
+            'GROUP_DUPLICATE' => new ApiErrorExample(
+                message: 'O usuário já criou um grupo com este nome e modalidade.',
+                field: 'name',
+                summary: 'Grupo duplicado',
+                description: 'Já existe um grupo visível do mesmo criador com o mesmo nome e modalidade.',
+            ),
+            'GROUP_ARCHIVED' => new ApiErrorExample(
+                message: 'O grupo está arquivado e não aceita esta operação.',
+                summary: 'Grupo arquivado',
+                description: 'Grupos arquivados não aceitam alteração de dados.',
+            ),
         ],
+        fields: ['name' => 'Nome do grupo.'],
     )]
     #[ValidationErrorResponse(
         examples: [

@@ -89,7 +89,7 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
     entrypoint: ["docker-php-entrypoint"]
-    command: ["php", "bin/console", "messenger:consume", "scheduler_activities", "scheduler_gamification", "--time-limit=3600", "--memory-limit=128M", "-vv"]
+    command: ["php", "bin/console", "messenger:consume", "scheduler_activities", "scheduler_gamification", "scheduler_groups", "--time-limit=3600", "--memory-limit=128M", "-vv"]
     depends_on:
       php:
         condition: service_healthy

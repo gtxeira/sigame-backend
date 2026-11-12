@@ -290,8 +290,8 @@ Usuários habilitados devem poder criar grupos esportivos.
 
 - `RN04.1` Apenas usuário a partir do nível 2 pode criar grupo.
 - `RN04.2` O criador do grupo assume o papel de administrador no momento da criação.
-- `RN04.3` Cada usuário pode participar de no máximo 3 grupos na V1, conforme a interpretação adotada para o limite de
-  grupos.
+- `RN04.3` Cada usuário pode participar de no máximo 5 grupos na V1, contando grupos criados e entradas aprovadas em
+  grupos não arquivados e não excluídos.
 - `RN04.4` O grupo pode definir um limite de membros aprovados; ausente ou `null` representa grupo ilimitado e, quando
   informado, o mínimo é 3.
 - `RN04.5` Um grupo torna-se ativo ao atingir no mínimo 3 membros aprovados.
@@ -299,6 +299,13 @@ Usuários habilitados devem poder criar grupos esportivos.
 - `RN04.7` O grupo registra o criador em campo próprio (`createdBy`), independente do papel de administrador.
 - `RN04.8` O criador inicia como administrador, mas o grupo pode ter mais de um administrador aprovado.
 - `RN04.9` O papel de administrador é atributo da participação (`Membership.role`), não do criador.
+- `RN04.10` Cada usuário pode ter no máximo 1 grupo em formação por vez; a criação é liberada quando o grupo anterior
+  atinge 3 aprovados.
+- `RN04.11` O mesmo criador não pode ter dois grupos visíveis com o mesmo nome e modalidade (comparação sem distinção
+  de maiúsculas).
+- `RN04.12` A data de ativação é persistida em `activatedAt` e limpa quando o grupo volta a ter menos de 3 aprovados.
+- `RN04.13` Grupo em formação sem atividade por 30 dias é arquivado automaticamente; a operação é idempotente e gera
+  notificação para membros e criador.
 
 #### Critérios de aceitação
 
@@ -310,6 +317,10 @@ Usuários habilitados devem poder criar grupos esportivos.
 - `CA04.6` Grupo com limite definido não aceita mais membros aprovados que o limite; grupo ilimitado não possui teto.
 - `CA04.7` O `createdBy` permanece registrado mesmo se o criador for rebaixado ou removido.
 - `CA04.8` Um grupo pode ter dois ou mais administradores aprovados.
+- `CA04.9` Criar um segundo grupo em formação é recusado com `GROUP_FORMING_LIMIT_REACHED`.
+- `CA04.10` Criar grupo com nome e modalidade repetidos do mesmo criador é recusado com `GROUP_DUPLICATE`.
+- `CA04.11` `activatedAt` é preenchido no terceiro aprovado e limpo ao cair para dois aprovados.
+- `CA04.12` Grupo em formação sem atividade há 30 dias é arquivado pelo job diário.
 
 ### RF05 — Solicitar entrada em grupo
 
@@ -321,6 +332,9 @@ O sistema deve permitir que usuários habilitados solicitem entrada em grupos.
 - `RN05.2` Usuário não pode criar solicitações duplicadas pendentes para o mesmo grupo.
 - `RN05.3` Usuário suspenso não pode solicitar entrada.
 - `RN05.4` O limite de participação em grupos deve ser verificado no momento da aprovação.
+- `RN05.5` Apenas usuário a partir do nível 2 pode solicitar entrada em grupo.
+- `RN05.6` O solicitante pode cancelar a própria solicitação pendente; a participação aprovada pode ser encerrada pelo
+  próprio membro, exceto quando ele é o último administrador.
 
 #### Critérios de aceitação
 
@@ -328,6 +342,8 @@ O sistema deve permitir que usuários habilitados solicitem entrada em grupos.
 - `CA05.2` Solicitação duplicada pendente é recusada ou tratada de forma idempotente.
 - `CA05.3` Solicitação não concede participação antes da aprovação.
 - `CA05.4` Solicitação de usuário suspenso é recusada.
+- `CA05.5` Solicitação de usuário nível 1 é recusada com `GROUP_LEVEL_INSUFFICIENT`.
+- `CA05.6` Cancelar a solicitação remove a pendência; sair do grupo aprovado encerra a participação e libera a vaga.
 
 ### RF06 — Administrar membros do grupo
 
@@ -345,6 +361,10 @@ papéis de administrador.
 - `RN06.7` O grupo deve manter ao menos um administrador aprovado.
 - `RN06.8` Qualquer administrador pode promover ou rebaixar um membro aprovado.
 - `RN06.9` O último administrador não pode ser rebaixado nem removido.
+- `RN06.10` Qualquer administrador pode arquivar o grupo; o grupo arquivado fica em somente leitura, sai da busca e não
+  consome vaga de participação. A operação é reversível por `unarchive`.
+- `RN06.11` Qualquer administrador pode excluir logicamente o grupo; a exclusão é terminal, preserva o histórico e
+  notifica todos os participantes.
 
 #### Critérios de aceitação
 
@@ -358,6 +378,10 @@ papéis de administrador.
 - `CA06.8` Rebaixar o último administrador é recusado.
 - `CA06.9` Remover o último administrador é recusado.
 - `CA06.10` Administrador rebaixado perde imediatamente as operações de gestão.
+- `CA06.11` Arquivar some da listagem pública, mantém o grupo em `/users/me/groups` com `archived=true` e cancela
+  atividades agendadas.
+- `CA06.12` Excluir retorna 404 nas consultas seguintes, mantém as memberships para auditoria e notifica membros e
+  criador.
 
 #### Matriz de exemplos — estado do grupo
 
@@ -1023,7 +1047,8 @@ por canais externos, sem acoplar a notificação a um único frontend.
 - `RN15.6` Marcar como lida é idempotente e registra `readAt`; “marcar todas” afeta somente o próprio usuário.
 - `RN15.7` Não há exclusão nem arquivamento pelo usuário na V1; o frontend pode ocultar as lidas usando o filtro.
 - `RN15.8` O canal interno é sempre persistido; canais externos são opcionais por tipo.
-- `RN15.9` Na V1, somente suspensão e reativação de conta usam e-mail; WhatsApp e push ficam para versões futuras.
+- `RN15.9` Na V1, somente suspensão e reativação de conta e o arquivamento de grupo para o criador usam e-mail; WhatsApp
+  e push ficam para versões futuras.
 - `RN15.10` Notificações são geradas a partir de Domain Events, de forma assíncrona; falha de notificação não reverte a
   operação de negócio.
 - `RN15.11` A criação é idempotente por `(destinatário, deduplicationKey)`; o reenvio da mesma mensagem não duplica o
@@ -1055,6 +1080,9 @@ por canais externos, sem acoplar a notificação a um único frontend.
 | Papel alterado                 | `MEMBERSHIP_PROMOTED` / `MEMBERSHIP_DEMOTED`   | membro afetado                    | —             |
 | Supervisor designado/removido  | `SUPERVISOR_DESIGNATED` / `SUPERVISOR_REMOVED` | membro afetado                    | —             |
 | Grupo ativado                  | `GROUP_ACTIVATED`                              | membros aprovados                 | —             |
+| Grupo arquivado                | `GROUP_ARCHIVED`                               | membros aprovados, exceto criador | —             |
+| Grupo arquivado — criador      | `GROUP_ARCHIVED_OWNER`                         | criador do grupo                  | e-mail        |
+| Grupo excluído                 | `GROUP_DELETED`                                | membros aprovados e criador       | —             |
 | Atividade criada               | `ACTIVITY_CREATED`                             | membros aprovados, exceto criador | —             |
 | Atividade atualizada/remarcada | `ACTIVITY_UPDATED` / `ACTIVITY_RESCHEDULED`    | inscritos, exceto ator            | —             |
 | Atividade cancelada/invalidada | `ACTIVITY_CANCELLED` / `ACTIVITY_INVALIDATED`  | inscritos, exceto ator            | —             |
@@ -1090,6 +1118,9 @@ atualização de dados do grupo e ofensiva em risco.
 - `CA15.18` O endpoint de tempo real devolve URL de assinatura e token restrito ao tópico do usuário.
 - `CA15.19` Criar ou marcar notificação como lida publica a atualização no tópico privado do usuário.
 - `CA15.20` Se o Mercure falhar, a notificação continua disponível na API.
+- `CA15.21` Arquivar um grupo notifica os membros aprovados, exceto o criador, e o criador por sino e e-mail.
+- `CA15.22` Quando o próprio criador arquiva e ainda é membro, ele não recebe a notificação do dono (RN15.14).
+- `CA15.23` Excluir um grupo notifica todos os membros aprovados e o criador, incluindo o ator da exclusão.
 
 > `DEC04` encerrada: leitura e “marcar todas” na V1; sem arquivamento ou exclusão pelo usuário.
 
@@ -1436,6 +1467,7 @@ Cada requisito funcional deve possuir pelo menos um critério de aceitação. Ca
 | 0.6    | 2026-11-09 | Fase 6: curva de níveis, XP por atividade, bônus de grupo e fim de semana, ofensiva semanal e deleveling                                   | Gustavo Teixeira de Sousa      |
 | 0.7    | 2026-11-10 | Fase 7: notificações multicanal com sino e Mercure, leitura, administração de contas e suspensão/reativação; denúncias e bloqueios adiados | Gustavo Teixeira de Sousa      |
 | 0.8    | 2026-11-11 | Data de nascimento write-once via endpoint, plataforma restrita a maiores de 18 anos e conta incompleta; planejamento de controle parental arquivado em `docs/controle-parental.md` | Gustavo Teixeira de Sousa      |
+| 0.9    | 2026-11-12 | Limite de 5 participações, gate de formação, dedupe de criação, arquivamento/expiração e exclusão lógica de grupos, saída do membro e nível 2 para entrar | Gustavo Teixeira de Sousa      |
 
 ---
 

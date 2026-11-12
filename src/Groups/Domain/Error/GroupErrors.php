@@ -61,6 +61,15 @@ final class GroupErrors
         );
     }
 
+    public static function levelInsufficientToJoin(int $minimum): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupLevelInsufficient,
+            message: sprintf('É necessário estar no nível %d ou superior para entrar em um grupo.', $minimum),
+            field: 'level',
+        );
+    }
+
     public static function adminRequired(): DomainError
     {
         return self::error(
@@ -74,6 +83,31 @@ final class GroupErrors
         return self::error(
             code: GroupErrorCode::GroupLimitReached,
             message: sprintf('O usuário já participa do número máximo de %d grupos.', $maximum),
+        );
+    }
+
+    public static function formingLimitReached(int $maximum): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupFormingLimitReached,
+            message: sprintf('O usuário já possui o número máximo de %d grupo em formação.', $maximum),
+        );
+    }
+
+    public static function duplicateGroup(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupDuplicate,
+            message: 'O usuário já criou um grupo com este nome e modalidade.',
+            field: 'name',
+        );
+    }
+
+    public static function groupArchived(): DomainError
+    {
+        return self::error(
+            code: GroupErrorCode::GroupArchived,
+            message: 'O grupo está arquivado e não aceita esta operação.',
         );
     }
 

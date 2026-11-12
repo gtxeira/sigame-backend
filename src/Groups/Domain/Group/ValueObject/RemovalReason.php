@@ -44,6 +44,16 @@ final readonly class RemovalReason
         return ValidationResult::valid(new self($normalized));
     }
 
+    public static function voluntaryExit(): self
+    {
+        return new self('Saída voluntária.');
+    }
+
+    public static function requestWithdrawn(): self
+    {
+        return new self('Solicitação cancelada pelo usuário.');
+    }
+
     public function value(): string
     {
         return $this->value;

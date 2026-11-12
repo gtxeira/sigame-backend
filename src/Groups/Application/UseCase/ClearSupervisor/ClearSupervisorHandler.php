@@ -29,7 +29,7 @@ final readonly class ClearSupervisorHandler
         return $this->groupRepository->transactional(function () use ($command): Result {
             $group = $this->groupRepository->findByIdForUpdate($command->groupId);
 
-            if (null === $group) {
+            if (null === $group || $group->isDeleted()) {
                 return Result::failure([GroupErrors::groupNotFound()]);
             }
 

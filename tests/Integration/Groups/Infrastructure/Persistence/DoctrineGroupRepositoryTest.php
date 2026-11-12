@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use App\Groups\Domain\Group\Entity\Group;
+use App\Groups\Domain\Group\Exception\DuplicateGroupException;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\Repository\GroupSearchCriteria;
 use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
+use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Domain\ValueObject\Modality;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -214,4 +216,128 @@ it('paginates filtered groups keeping the filtered total', function () {
 
     expect($page->total)->toBe(2)
         ->and($page->items)->toHaveCount(1);
+});
+
+it('counts only approved memberships in visible groups', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+    $member = MemberUserId::generate();
+
+    $archived = makePersistedGroup($repository, MemberUserId::generate(), 'Arquivado');
+    $deleted = makePersistedGroup($repository, MemberUserId::generate(), 'Excluído');
+    $visible = makePersistedGroup($repository, MemberUserId::generate(), 'Visível');
+
+    foreach ([$archived, $deleted, $visible] as $group) {
+        $membership = $group->requestMembership($member)->value();
+        $group->approveMembership($membership->id(), $group->createdBy(), 0);
+    }
+
+    $archived->archive($archived->createdBy(), null, false, Instant::now());
+    $deleted->delete($deleted->createdBy(), null, Instant::now());
+
+    foreach ([$archived, $deleted, $visible] as $group) {
+        $repository->save($group);
+    }
+
+    expect($repository->countApprovedMemberships($member))->toBe(1);
+});
+
+it('counts forming groups created by the user', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+    $creator = MemberUserId::generate();
+
+    $forming = makePersistedGroup($repository, $creator, 'Formação');
+    makePersistedGroupWithMembers($repository, MemberUserId::generate(), 3, 'Ativo');
+
+    expect($repository->countFormingCreatedBy($creator))->toBe(1);
+
+    $first = $forming->requestMembership(MemberUserId::generate())->value();
+    $forming->approveMembership($first->id(), $creator, 0);
+    $second = $forming->requestMembership(MemberUserId::generate())->value();
+    $forming->approveMembership($second->id(), $creator, 0);
+    $repository->save($forming);
+
+    expect($repository->countFormingCreatedBy($creator))->toBe(0);
+});
+
+it('finds the same creator, name and modality ignoring case and archived groups', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+    $creator = MemberUserId::generate();
+
+    $group = makePersistedGroup($repository, $creator, 'Corrida no Parque');
+
+    expect($repository->existsByCreatorAndName(
+        $creator,
+        GroupName::fromString('corrida no parque')->value(),
+        Modality::RUNNING,
+    ))->toBeTrue()
+        ->and($repository->existsByCreatorAndName(
+            $creator,
+            GroupName::fromString('Corrida no Parque')->value(),
+            Modality::CYCLING,
+        ))->toBeFalse()
+        ->and($repository->existsByCreatorAndName(
+            MemberUserId::generate(),
+            GroupName::fromString('Corrida no Parque')->value(),
+            Modality::RUNNING,
+        ))->toBeFalse();
+
+    $group->archive($creator, null, false, Instant::now());
+    $repository->save($group);
+
+    expect($repository->existsByCreatorAndName(
+        $creator,
+        GroupName::fromString('Corrida no Parque')->value(),
+        Modality::RUNNING,
+    ))->toBeFalse();
+});
+
+it('rejects a duplicate group at the database level', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+    $creator = MemberUserId::generate();
+
+    makePersistedGroup($repository, $creator, 'Corrida no Parque');
+
+    expect(fn () => makePersistedGroup($repository, $creator, 'corrida no parque'))
+        ->toThrow(DuplicateGroupException::class);
+});
+
+it('finds idle forming groups by cutoff and excludes active groups', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+
+    $forming = makePersistedGroup($repository, MemberUserId::generate(), 'Formação');
+    $active = makePersistedGroupWithMembers($repository, MemberUserId::generate(), 3, 'Ativo');
+    $archived = makePersistedGroup($repository, MemberUserId::generate(), 'Arquivado');
+    $archived->archive($archived->createdBy(), null, false, Instant::now());
+    $repository->save($archived);
+
+    $futureCutoff = Instant::fromDateTime(new DateTimeImmutable('+1 day'));
+    $pastCutoff = Instant::fromDateTime(new DateTimeImmutable('-1 day'));
+
+    $idle = $repository->findIdleFormingGroupIds($futureCutoff);
+    $recent = $repository->findIdleFormingGroupIds($pastCutoff);
+
+    expect(array_map(static fn ($id): string => $id->value(), $idle))
+        ->toContain($forming->id()->value())
+        ->not->toContain($active->id()->value())
+        ->not->toContain($archived->id()->value())
+        ->and($recent)->toBe([]);
+});
+
+it('excludes archived and deleted groups from search', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+
+    $visible = makePersistedGroup($repository, MemberUserId::generate(), 'Visível');
+    $archived = makePersistedGroup($repository, MemberUserId::generate(), 'Arquivado');
+    $deleted = makePersistedGroup($repository, MemberUserId::generate(), 'Excluído');
+
+    $archived->archive($archived->createdBy(), null, false, Instant::now());
+    $deleted->delete($deleted->createdBy(), null, Instant::now());
+
+    $repository->save($archived);
+    $repository->save($deleted);
+
+    $page = $repository->search(new GroupSearchCriteria());
+
+    expect($page->total)->toBe(1)
+        ->and($page->items[0]->id()->equals($visible->id()))->toBeTrue();
 });

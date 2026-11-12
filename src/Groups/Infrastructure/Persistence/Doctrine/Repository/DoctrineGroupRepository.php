@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace App\Groups\Infrastructure\Persistence\Doctrine\Repository;
 
 use App\Groups\Domain\Group\Entity\Group;
+use App\Groups\Domain\Group\Exception\DuplicateGroupException;
 use App\Groups\Domain\Group\Exception\MembershipAlreadyExistsException;
 use App\Groups\Domain\Group\Policy\GroupPolicy;
 use App\Groups\Domain\Group\Repository\GroupPage;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\Repository\GroupSearchCriteria;
 use App\Groups\Domain\Group\ValueObject\GroupId;
+use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
 use App\Groups\Domain\Group\ValueObject\MembershipStatus;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
+use App\Shared\Domain\ValueObject\Instant;
+use App\Shared\Domain\ValueObject\Modality;
 use App\Shared\Infrastructure\Persistence\AbstractRepository;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
@@ -45,6 +49,10 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
                 throw MembershipAlreadyExistsException::create($exception);
             }
 
+            if (str_contains($exception->getMessage(), 'uniq_groups_creator_name_modality')) {
+                throw DuplicateGroupException::create($exception);
+            }
+
             throw $exception;
         }
     }
@@ -52,6 +60,13 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
     public function findById(GroupId $id): ?Group
     {
         return $this->find($id->value());
+    }
+
+    public function findByIdExcludingDeleted(GroupId $id): ?Group
+    {
+        $group = $this->findById($id);
+
+        return null !== $group && $group->isDeleted() ? null : $group;
     }
 
     public function findByIdForUpdate(GroupId $id): ?Group
@@ -90,12 +105,75 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
             ->innerJoin('g.memberships', 'm')
             ->where('m.userId = :userId')
             ->andWhere('m.status = :status')
+            ->andWhere('g.archivedAt IS NULL')
+            ->andWhere('g.deletedAt IS NULL')
             ->setParameter('userId', $userId, 'member_user_id')
             ->setParameter('status', MembershipStatus::APPROVED->value)
             ->getQuery()
             ->getSingleScalarResult();
 
         return (int) $count;
+    }
+
+    public function countFormingCreatedBy(MemberUserId $userId): int
+    {
+        $count = $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->where('g.createdBy = :userId')
+            ->andWhere('g.activatedAt IS NULL')
+            ->andWhere('g.archivedAt IS NULL')
+            ->andWhere('g.deletedAt IS NULL')
+            ->setParameter('userId', $userId, 'member_user_id')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
+    public function existsByCreatorAndName(
+        MemberUserId $creator,
+        GroupName $name,
+        Modality $modality,
+        ?GroupId $excludeGroupId = null,
+    ): bool {
+        $queryBuilder = $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->where('g.createdBy = :creator')
+            ->andWhere('LOWER(g.name) = :name')
+            ->andWhere('g.modality = :modality')
+            ->andWhere('g.archivedAt IS NULL')
+            ->andWhere('g.deletedAt IS NULL')
+            ->setParameter('creator', $creator, 'member_user_id')
+            ->setParameter('name', mb_strtolower($name->value()))
+            ->setParameter('modality', $modality->value);
+
+        if (null !== $excludeGroupId) {
+            $queryBuilder
+                ->andWhere('g.id <> :excludeGroupId')
+                ->setParameter('excludeGroupId', $excludeGroupId, 'group_id');
+        }
+
+        $count = $queryBuilder
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return ((int) $count) > 0;
+    }
+
+    public function findIdleFormingGroupIds(Instant $idleSince): array
+    {
+        /** @var list<Group> $groups */
+        $groups = $this->createQueryBuilder('g')
+            ->where('g.activatedAt IS NULL')
+            ->andWhere('g.archivedAt IS NULL')
+            ->andWhere('g.deletedAt IS NULL')
+            ->andWhere('g.updatedAt < :idleSince')
+            ->setParameter('idleSince', $idleSince, 'instant')
+            ->orderBy('g.updatedAt', SortDirection::Ascending)
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (Group $group): GroupId => $group->id(), $groups);
     }
 
     public function search(GroupSearchCriteria $criteria): GroupPage
@@ -132,6 +210,7 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
             ->innerJoin('g.memberships', 'm')
             ->where('m.userId = :userId')
             ->andWhere('m.status = :status')
+            ->andWhere('g.deletedAt IS NULL')
             ->setParameter('userId', $userId, 'member_user_id')
             ->setParameter('status', MembershipStatus::APPROVED->value)
             ->orderBy('g.createdAt', SortDirection::Descending)
@@ -143,7 +222,9 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
 
     private function filteredQueryBuilder(GroupSearchCriteria $criteria): QueryBuilder
     {
-        $queryBuilder = $this->createQueryBuilder('g');
+        $queryBuilder = $this->createQueryBuilder('g')
+            ->andWhere('g.archivedAt IS NULL')
+            ->andWhere('g.deletedAt IS NULL');
 
         if (null !== $criteria->modality) {
             $queryBuilder

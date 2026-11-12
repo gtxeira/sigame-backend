@@ -56,6 +56,7 @@ final readonly class DoctrineGroupSummaryReader implements GroupSummaryReaderInt
             adminIds: array_values(array_unique($adminIds)),
             supervisorId: $group->supervisor()?->userId()->value(),
             approvedMemberIds: array_values(array_unique($approvedMemberIds)),
+            creatorId: $group->createdBy()->value(),
         );
     }
 }

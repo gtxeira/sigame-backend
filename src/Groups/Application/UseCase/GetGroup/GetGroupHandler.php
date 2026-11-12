@@ -11,6 +11,8 @@ use App\Shared\Domain\Functional\Result;
 
 /**
  * Obtém um grupo para um usuário autenticado.
+ *
+ * Grupos arquivados só são visíveis para membros aprovados e para o criador.
  */
 final readonly class GetGroupHandler
 {
@@ -24,12 +26,22 @@ final readonly class GetGroupHandler
      */
     public function __invoke(GetGroupQuery $query): Result
     {
-        $group = $this->groupRepository->findById($query->groupId);
+        $group = $this->groupRepository->findByIdExcludingDeleted($query->groupId);
 
         if (null === $group) {
             return Result::failure([GroupErrors::groupNotFound()]);
         }
 
+        if ($group->isArchived() && !$this->canViewArchived($group, $query)) {
+            return Result::failure([GroupErrors::groupNotFound()]);
+        }
+
         return Result::success($group);
+    }
+
+    private function canViewArchived(Group $group, GetGroupQuery $query): bool
+    {
+        return $group->createdBy()->equals($query->viewerId)
+            || $group->hasApprovedMembership($query->viewerId);
     }
 }

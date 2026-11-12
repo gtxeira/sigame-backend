@@ -70,5 +70,10 @@ interface ActivityRepositoryInterface
     /**
      * @return list<ActivityId>
      */
+    public function findScheduledIdsByGroup(ActivityGroupId $groupId): array;
+
+    /**
+     * @return list<ActivityId>
+     */
     public function findStartedToAutoFinish(Instant $now): array;
 }

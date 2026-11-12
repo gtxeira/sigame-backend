@@ -62,6 +62,9 @@ final readonly class NotificationPlanner
             NotificationType::SUPERVISOR_DESIGNATED => $this->single($context, 'userId'),
             NotificationType::SUPERVISOR_REMOVED => $this->single($context, 'supervisorId'),
             NotificationType::GROUP_ACTIVATED => $this->groupMembers($context),
+            NotificationType::GROUP_ARCHIVED => $this->groupMembersExceptCreator($context),
+            NotificationType::GROUP_ARCHIVED_OWNER => $this->single($context, 'ownerId'),
+            NotificationType::GROUP_DELETED => $this->groupMembersAndCreator($context),
             NotificationType::ACTIVITY_CREATED => $this->groupMembers($context),
             NotificationType::ACTIVITY_UPDATED,
             NotificationType::ACTIVITY_RESCHEDULED,
@@ -99,6 +102,44 @@ final readonly class NotificationPlanner
         $group = $this->audience->group($this->string($context, 'groupId'));
 
         return null === $group ? [] : $this->audience->approvedGroupMembers($group);
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     *
+     * @return list<string>
+     */
+    private function groupMembersExceptCreator(array $context): array
+    {
+        $group = $this->audience->group($this->string($context, 'groupId'));
+
+        if (null === $group) {
+            return [];
+        }
+
+        return array_values(array_diff(
+            $this->audience->approvedGroupMembers($group),
+            array_filter([$group->creatorId]),
+        ));
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     *
+     * @return list<string>
+     */
+    private function groupMembersAndCreator(array $context): array
+    {
+        $group = $this->audience->group($this->string($context, 'groupId'));
+
+        if (null === $group) {
+            return [];
+        }
+
+        return array_values(array_unique([
+            ...$this->audience->approvedGroupMembers($group),
+            ...array_filter([$group->creatorId]),
+        ]));
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Groups\Application\UseCase\UpdateGroup;
 use App\Groups\Domain\Error\GroupErrors;
 use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Event\GroupUpdated;
+use App\Groups\Domain\Group\Exception\DuplicateGroupException;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
 use App\Groups\Domain\Group\ValueObject\CommunicationLink;
 use App\Groups\Domain\Group\ValueObject\GroupDescription;
@@ -36,7 +37,7 @@ final readonly class UpdateGroupHandler
         return $this->groupRepository->transactional(function () use ($command): Result {
             $group = $this->groupRepository->findByIdForUpdate($command->groupId);
 
-            if (null === $group) {
+            if (null === $group || $group->isDeleted()) {
                 return Result::failure([GroupErrors::groupNotFound()]);
             }
 
@@ -78,6 +79,19 @@ final readonly class UpdateGroupHandler
                 ? $group->modality()
                 : Modality::from($command->modality);
 
+            if (!$name->equals($group->name()) || $modality !== $group->modality()) {
+                $duplicate = $this->groupRepository->existsByCreatorAndName(
+                    creator: $group->createdBy(),
+                    name: $name,
+                    modality: $modality,
+                    excludeGroupId: $group->id(),
+                );
+
+                if ($duplicate) {
+                    return Result::failure([GroupErrors::duplicateGroup()]);
+                }
+            }
+
             $update = $group->changeDetails(
                 name: $name,
                 description: $description,
@@ -91,7 +105,11 @@ final readonly class UpdateGroupHandler
                 return Result::failure($update->errors());
             }
 
-            $this->groupRepository->save($group);
+            try {
+                $this->groupRepository->save($group);
+            } catch (DuplicateGroupException) {
+                return Result::failure([GroupErrors::duplicateGroup()]);
+            }
 
             $this->eventDispatcher->dispatch(GroupUpdated::now(
                 groupId: $group->id()->value(),

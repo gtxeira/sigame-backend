@@ -61,6 +61,7 @@ atualizado no levantamento.
 | Solicitação e decisão de entrada                                                                                                       | Implementado  | `RequestMembershipHandler`, `ApproveMembershipHandler`, `RejectMembershipHandler` e rotas de memberships      |
 | Administração de membros e papéis                                                                                                      | Implementado  | `RemoveMemberHandler`, `ChangeMembershipRoleHandler` e `PATCH .../role`                                       |
 | Criador independente e múltiplos admins                                                                                                | Implementado  | `groups.created_by`, `Membership.role` e invariante do último admin                                           |
+| Ciclo de vida do grupo                                                                                                                 | Implementado  | Arquivamento, reativação, exclusão lógica, saída do membro e arquivamento automático (`scheduler_groups`)       |
 | Supervisor do grupo                                                                                                                    | Implementado  | `DesignateSupervisorHandler`, `ClearSupervisorHandler` e `PUT`/`DELETE .../supervisor`                        |
 | Comunicação externa do grupo                                                                                                           | Implementado  | `communicationLink` visível apenas para membros aprovados                                                     |
 | CRUD administrativo completo de usuários                                                                                               | Parcial       | Listagem, busca, detalhe, suspensão e reativação implementados; edição/exclusão fora da V1                    |
@@ -112,6 +113,10 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET`    | `/api/v1/users/me/groups`                                     | Bearer JWT                                 |
 | `GET`    | `/api/v1/groups/{id}`                                         | Bearer JWT                                 |
 | `PATCH`  | `/api/v1/groups/{id}`                                         | Bearer JWT + admin do grupo                |
+| `POST`   | `/api/v1/groups/{id}/archive`                                 | Bearer JWT + admin do grupo                |
+| `POST`   | `/api/v1/groups/{id}/unarchive`                               | Bearer JWT + admin do grupo                |
+| `DELETE` | `/api/v1/groups/{id}`                                         | Bearer JWT + admin do grupo                |
+| `DELETE` | `/api/v1/groups/{id}/membership`                              | Bearer JWT                                 |
 | `POST`   | `/api/v1/groups/{id}/membership-requests`                     | Bearer JWT                                 |
 | `GET`    | `/api/v1/groups/{id}/memberships`                             | Bearer JWT + admin do grupo                |
 | `POST`   | `/api/v1/groups/{id}/memberships/{membershipId}/approve`      | Bearer JWT + admin do grupo                |
@@ -225,13 +230,18 @@ comportamento pelo caminho do chamador estiverem verdes.
 - [x] Múltiplos administradores, com proteção do último admin.
 - [x] Casos de uso `CreateGroup`, `UpdateGroup`, `RequestMembership`, `ApproveMembership`, `RejectMembership`,
   `RemoveMember`, `ChangeMembershipRole`, `DesignateSupervisor`, `ClearSupervisor`, `ListGroups`, `ListMyGroups`,
-  `GetGroup` e `ListMemberships`.
-- [x] Limite de 3 grupos por usuário, ativação com 3 aprovados e limite de membros configurável por grupo (ilimitado
-  quando ausente).
+  `GetGroup`, `ListMemberships`, `LeaveGroup`, `ArchiveGroup`, `UnarchiveGroup` e `DeleteGroup`.
+- [x] Limite de 5 participações por usuário, 1 grupo em formação por criador, dedupe por nome/modalidade, ativação
+  persistida em `activated_at` e limite de membros configurável por grupo (ilimitado quando ausente).
+- [x] Arquivamento reversível, exclusão lógica terminal, saída do membro e arquivamento automático de grupos em
+  formação inativos há 30 dias (`scheduler_groups`).
 - [x] Autorização por administrador do grupo e supervisor sem poderes de gestão de membros.
 - [x] Endpoints HTTP, rate limiting e documentação OpenAPI na tag `Grupos`.
 - [x] Migration `Version20261109120000` com índices parciais de duplicidade e supervisor.
 - [x] Migration `Version20261110183601` com `groups.max_members` (null = ilimitado).
+- [x] Migration `Version20261112160821` com `activated_at`, campos de arquivamento/exclusão e índices de inatividade e
+  dedupe.
+- [x] Notificações de arquivamento e exclusão, incluindo e-mail para o criador no arquivamento.
 - [x] Testes de domínio, handlers, repositório e HTTP.
 
 ### Fase 5 — Activities
@@ -498,7 +508,7 @@ tomada, mova o registro para [decisoes.md](decisoes.md) e atualize o requisito r
 | `DEC06` | Matriz final de visibilidade de dados       | Privacidade | Alta       | Pendente |
 | `DEC07` | Público, distribuição e limites de vouchers | Vouchers    | Alta       | Pendente |
 | `DEC08` | Fórmula e periodicidade do indicador mensal | Indicadores | Média      | Pendente |
-| `DEC15` | Exclusão ou transferência de grupo          | Grupos      | Baixa      | Pendente |
+| `DEC15` | Transferência de grupo                      | Grupos      | Baixa      | Pendente (exclusão lógica implementada no ADR-045) |
 | `DEC16` | Validação própria e elegibilidade de XP     | Gamificação | Média      | Pendente |
 
 Adiado para a V1.1: o simulador de XP (`POST /api/v1/gamification/xp-simulator`) descrito na subseção 6.13 do roadmap.
@@ -578,6 +588,7 @@ entrypoint do container.
 | `Version20261110150000` | 2026-11-10 | Amplia `users.role` para 20 caracteres para suportar `ADMIN_SIGAME`.                                                           |
 | `Version20261110183601` | 2026-11-10 | Adiciona `groups.max_members` (nulo = grupo ilimitado).                                                                        |
 | `Version20261111120000` | 2026-11-11 | Adiciona `users.birth_date DATE NULL`, preenchida pelo endpoint write-once e exigida no onboarding.                            |
+| `Version20261112160821` | 2026-11-12 | Adiciona `activated_at`, campos de arquivamento e exclusão em `groups`; backfill e índices de inatividade e dedupe.           |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou
 de URL para chave de objeto em `Version20261108120000`.
@@ -619,7 +630,7 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | Schedulers dependem do serviço                    | Se o serviço `scheduler` estiver parado, o fechamento automático de atividades e o deleveling atrasam até a próxima execução                                                                                                                                                                           | Monitorar o serviço e documentar a operação em produção.                                                                                                                                                                                                                    |
 | Sem fechamento automático de validação            | A janela de validação é validada na requisição; não há job para encerrar pendências de validação                                                                                                                                                                                                       | Avaliar rotina de fechamento após 48 h.                                                                                                                                                                                                                                     |
 | Busca de grupos com `LIKE`                        | `DoctrineGroupRepository::search()` usa `LOWER(name) LIKE`                                                                                                                                                                                                                                             | Avaliar índice textual ou busca por trigramas se o volume crescer.                                                                                                                                                                                                          |
-| Sem exclusão ou transferência de grupo            | O grupo não é excluído e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro                                                                                                                                                                                             | Abrir `DEC15` se o produto exigir esses fluxos.                                                                                                                                                                                                                             |
+| Sem exclusão ou transferência física de grupo      | A exclusão é lógica (`deleted_at`) e o criador não transfere a propriedade; o admin pode ser rebaixado se houver outro                                                                                                                                                                                | Manter a exclusão lógica; abrir `DEC15` para transferência se o produto exigir.                                                                                                                                                                                              |
 | **Nível com dupla fonte (mitigada)**              | `users.level` continua sendo a projeção usada por Groups e segurança; a fonte de verdade é `user_progress.level`. A consistência agora é coberta por testes e pelos comandos `app:gamification:check-level-projection --repair` e `app:gamification:audit-ledger --repair`                             | A dupla fonte permanece por decisão do [ADR-036](decisoes.md#adr-036--nível-como-projeção-de-identity); reavaliar apenas se houver necessidade de XP em Identity ou regras dinâmicas.                                                                                       |
 | **Comando de recálculo pendente**                 | `rule_version` já é gravado, mas não existe `app:gamification:recalculate` nem `LEGACY_BONUS`                                                                                                                                                                                                          | Implementar o replay do XP de atividade e o bônus de fidelidade antes de mudar a versão das regras.                                                                                                                                                                         |
 | **Bônus de grupo por check-in**                   | O bônus usa check-ins para que todos os participantes recebam o mesmo valor, mas um check-in não validado ainda pode influenciar o bônus                                                                                                                                                               | Avaliar cálculo em lote na finalização ou reajuste após a validação de todos.                                                                                                                                                                                               |

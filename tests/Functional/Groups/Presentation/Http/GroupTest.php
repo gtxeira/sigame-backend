@@ -80,10 +80,12 @@ it('validates group creation payload', function () {
 
 it('lists and filters groups', function () {
     groupTestCreateUser($this, 'groups-list@example.com');
+    groupTestCreateUser($this, 'groups-list-cycling@example.com');
     $token = groupTestAccessToken($this, 'groups-list@example.com');
+    $cyclingToken = groupTestAccessToken($this, 'groups-list-cycling@example.com');
 
     groupTestCreate($this, $token, ['name' => 'Corrida no Parque', 'modality' => Modality::RUNNING->value]);
-    groupTestCreate($this, $token, ['name' => 'Pedal da Serra', 'modality' => Modality::CYCLING->value]);
+    groupTestCreate($this, $cyclingToken, ['name' => 'Pedal da Serra', 'modality' => Modality::CYCLING->value]);
 
     $response = $this->api->get(
         'app_group_list',

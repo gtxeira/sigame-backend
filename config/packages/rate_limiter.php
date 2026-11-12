@@ -97,6 +97,11 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:GROUP_MEMBERSHIP_REQUEST_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
+            'group_membership_leave' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:GROUP_MEMBERSHIP_LEAVE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
             'group_manage' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:GROUP_MANAGE_RATE_LIMIT)%',

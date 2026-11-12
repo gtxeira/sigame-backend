@@ -27,6 +27,8 @@ it('creates a group for a user at level 2', function () {
         static fn (MemberUserId $id): bool => $id->equals($actor),
     ));
     $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(0);
+    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('countFormingCreatedBy')->once()->andReturn(0);
     $repository->shouldReceive('save')->once()->with(m::type(Group::class));
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(GroupCreated::class));
 
@@ -54,6 +56,8 @@ it('creates a group with a custom member limit', function () {
     );
     $repository->shouldReceive('lockUser')->once();
     $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(0);
+    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('countFormingCreatedBy')->once()->andReturn(0);
     $repository->shouldReceive('save')->once()->with(m::on(
         static fn (Group $group): bool => 3 === $group->maxMembers()?->value(),
     ));
@@ -121,7 +125,7 @@ it('rejects group creation below level 2', function () {
         ->and($result->errors()[0]->code)->toBe('GROUP_LEVEL_INSUFFICIENT');
 });
 
-it('rejects group creation when the user already belongs to three groups', function () {
+it('rejects group creation when the user already belongs to five groups', function () {
     $actor = MemberUserId::generate();
     $repository = m::mock(GroupRepositoryInterface::class);
     $levelReader = m::mock(UserLevelReaderInterface::class);
@@ -132,7 +136,8 @@ it('rejects group creation when the user already belongs to three groups', funct
         static fn (callable $operation): mixed => $operation(),
     );
     $repository->shouldReceive('lockUser')->once();
-    $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(3);
+    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(5);
     $repository->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
 
@@ -146,6 +151,63 @@ it('rejects group creation when the user already belongs to three groups', funct
 
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe('GROUP_LIMIT_REACHED');
+});
+
+it('rejects group creation when the user already has a forming group', function () {
+    $actor = MemberUserId::generate();
+    $repository = m::mock(GroupRepositoryInterface::class);
+    $levelReader = m::mock(UserLevelReaderInterface::class);
+    $dispatcher = m::mock(EventDispatcherInterface::class);
+
+    $levelReader->shouldReceive('levelOf')->once()->andReturn(2);
+    $repository->shouldReceive('transactional')->once()->andReturnUsing(
+        static fn (callable $operation): mixed => $operation(),
+    );
+    $repository->shouldReceive('lockUser')->once();
+    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnFalse();
+    $repository->shouldReceive('countApprovedMemberships')->once()->andReturn(1);
+    $repository->shouldReceive('countFormingCreatedBy')->once()->andReturn(1);
+    $repository->shouldNotReceive('save');
+    $dispatcher->shouldNotReceive('dispatch');
+
+    $result = (new CreateGroupHandler($repository, $levelReader, $dispatcher))(new CreateGroupCommand(
+        actorId: $actor,
+        name: 'Corrida no Parque',
+        description: null,
+        modality: Modality::RUNNING,
+        communicationLink: null,
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('GROUP_FORMING_LIMIT_REACHED');
+});
+
+it('rejects group creation when the user already created the same name and modality', function () {
+    $actor = MemberUserId::generate();
+    $repository = m::mock(GroupRepositoryInterface::class);
+    $levelReader = m::mock(UserLevelReaderInterface::class);
+    $dispatcher = m::mock(EventDispatcherInterface::class);
+
+    $levelReader->shouldReceive('levelOf')->once()->andReturn(2);
+    $repository->shouldReceive('transactional')->once()->andReturnUsing(
+        static fn (callable $operation): mixed => $operation(),
+    );
+    $repository->shouldReceive('lockUser')->once();
+    $repository->shouldReceive('existsByCreatorAndName')->once()->andReturnTrue();
+    $repository->shouldNotReceive('countApprovedMemberships');
+    $repository->shouldNotReceive('save');
+    $dispatcher->shouldNotReceive('dispatch');
+
+    $result = (new CreateGroupHandler($repository, $levelReader, $dispatcher))(new CreateGroupCommand(
+        actorId: $actor,
+        name: 'Corrida no Parque',
+        description: null,
+        modality: Modality::RUNNING,
+        communicationLink: null,
+    ));
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('GROUP_DUPLICATE');
 });
 
 it('validates group fields before touching persistence', function () {

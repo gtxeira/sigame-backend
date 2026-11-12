@@ -24,7 +24,7 @@ final readonly class ListMembershipsHandler
      */
     public function __invoke(ListMembershipsQuery $query): Result
     {
-        $group = $this->groupRepository->findById($query->groupId);
+        $group = $this->groupRepository->findByIdExcludingDeleted($query->groupId);
 
         if (null === $group) {
             return Result::failure([GroupErrors::groupNotFound()]);

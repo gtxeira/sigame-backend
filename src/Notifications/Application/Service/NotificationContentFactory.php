@@ -38,6 +38,9 @@ final readonly class NotificationContentFactory
             NotificationType::SUPERVISOR_DESIGNATED => $this->supervisorDesignated($context),
             NotificationType::SUPERVISOR_REMOVED => $this->supervisorRemoved($context),
             NotificationType::GROUP_ACTIVATED => $this->groupActivated($context),
+            NotificationType::GROUP_ARCHIVED => $this->groupArchived($context),
+            NotificationType::GROUP_ARCHIVED_OWNER => $this->groupArchivedOwner($context),
+            NotificationType::GROUP_DELETED => $this->groupDeleted($context),
             NotificationType::ACTIVITY_CREATED => $this->activityCreated($context),
             NotificationType::ACTIVITY_UPDATED => $this->activityUpdated($context),
             NotificationType::ACTIVITY_RESCHEDULED => $this->activityRescheduled($context),
@@ -255,6 +258,99 @@ final readonly class NotificationContentFactory
             title: 'Grupo ativo',
             body: sprintf('O grupo %s agora está ativo e pode receber atividades.', $group->name),
             payload: ['groupId' => $group->id],
+        );
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     */
+    private function groupArchived(array $context): ?NotificationContent
+    {
+        $group = $this->audience->group($this->string($context, 'groupId'));
+
+        if (null === $group) {
+            return null;
+        }
+
+        $reason = $this->nullableString($context, 'reason');
+        $automatic = $this->bool($context, 'automatic');
+        $body = sprintf('O grupo %s foi arquivado e não aceita novas atividades.', $group->name);
+
+        if (null !== $reason && '' !== $reason) {
+            $body .= sprintf(' Motivo: %s', $reason);
+        }
+
+        if ($automatic) {
+            $body .= ' O arquivamento foi automático.';
+        }
+
+        return new NotificationContent(
+            title: 'Grupo arquivado',
+            body: $body,
+            payload: [
+                'groupId' => $group->id,
+                'reason' => $reason,
+                'automatic' => $automatic,
+            ],
+        );
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     */
+    private function groupArchivedOwner(array $context): ?NotificationContent
+    {
+        $group = $this->audience->group($this->string($context, 'groupId'));
+
+        if (null === $group) {
+            return null;
+        }
+
+        $reason = $this->nullableString($context, 'reason');
+        $body = sprintf('O grupo %s foi arquivado.', $group->name);
+
+        if (null !== $reason && '' !== $reason) {
+            $body .= sprintf(' Motivo: %s', $reason);
+        }
+
+        $body .= ' Você pode reativá-lo em Meus grupos.';
+
+        return new NotificationContent(
+            title: 'Seu grupo foi arquivado',
+            body: $body,
+            payload: [
+                'groupId' => $group->id,
+                'reason' => $reason,
+                'automatic' => $this->bool($context, 'automatic'),
+            ],
+        );
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     */
+    private function groupDeleted(array $context): ?NotificationContent
+    {
+        $group = $this->audience->group($this->string($context, 'groupId'));
+
+        if (null === $group) {
+            return null;
+        }
+
+        $reason = $this->nullableString($context, 'reason');
+        $body = sprintf('O grupo %s foi excluído por um administrador.', $group->name);
+
+        if (null !== $reason && '' !== $reason) {
+            $body .= sprintf(' Motivo: %s', $reason);
+        }
+
+        return new NotificationContent(
+            title: 'Grupo excluído',
+            body: $body,
+            payload: [
+                'groupId' => $group->id,
+                'reason' => $reason,
+            ],
         );
     }
 

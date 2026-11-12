@@ -138,6 +138,10 @@ Summaries atuais, usados como referência:
 | `GET /groups` | `Listar grupos` |
 | `GET /groups/{id}` | `Obter grupo` |
 | `PATCH /groups/{id}` | `Atualizar grupo` |
+| `POST /groups/{id}/archive` | `Arquivar grupo` |
+| `POST /groups/{id}/unarchive` | `Reativar grupo` |
+| `DELETE /groups/{id}` | `Excluir grupo` |
+| `DELETE /groups/{id}/membership` | `Sair do grupo` |
 | `POST /groups/{id}/membership-requests` | `Solicitar entrada no grupo` |
 | `GET /groups/{id}/memberships` | `Listar membros do grupo` |
 | `POST /groups/{id}/memberships/{membershipId}/approve` | `Aprovar solicitação` |
@@ -186,6 +190,10 @@ Cada resposta de erro é uma lista plana `errors: [{ code, field?, message }]`, 
 `details[]` nem o código genérico `VALIDATION_ERROR`: erros de forma usam `ValidationErrorCode` e erros de negócio,
 conflito, autenticação, estado ou recurso inexistente usam o catálogo do módulo. Exemplos com múltiplos erros declaram
 `additional` no `ApiErrorExample`, de modo que o `value` do exemplo mostra os itens como o cliente os recebe.
+
+Novos códigos do módulo Groups: `GROUP_DUPLICATE` e `GROUP_FORMING_LIMIT_REACHED` (criação), `GROUP_ARCHIVED` (grupo
+arquivado) e `GROUP_LAST_ADMIN_REQUIRED` (saída do último admin). `GROUP_LEVEL_INSUFFICIENT` cobre tanto a criação
+quanto a entrada em grupo.
 
 ## 8. Segurança na documentação
 

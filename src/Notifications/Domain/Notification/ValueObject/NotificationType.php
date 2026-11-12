@@ -20,6 +20,9 @@ enum NotificationType: string
     case SUPERVISOR_DESIGNATED = 'SUPERVISOR_DESIGNATED';
     case SUPERVISOR_REMOVED = 'SUPERVISOR_REMOVED';
     case GROUP_ACTIVATED = 'GROUP_ACTIVATED';
+    case GROUP_ARCHIVED = 'GROUP_ARCHIVED';
+    case GROUP_ARCHIVED_OWNER = 'GROUP_ARCHIVED_OWNER';
+    case GROUP_DELETED = 'GROUP_DELETED';
     case ACTIVITY_CREATED = 'ACTIVITY_CREATED';
     case ACTIVITY_UPDATED = 'ACTIVITY_UPDATED';
     case ACTIVITY_RESCHEDULED = 'ACTIVITY_RESCHEDULED';
@@ -44,7 +47,10 @@ enum NotificationType: string
             self::MEMBERSHIP_DEMOTED,
             self::SUPERVISOR_DESIGNATED,
             self::SUPERVISOR_REMOVED,
-            self::GROUP_ACTIVATED => NotificationCategory::GROUP,
+            self::GROUP_ACTIVATED,
+            self::GROUP_ARCHIVED,
+            self::GROUP_ARCHIVED_OWNER,
+            self::GROUP_DELETED => NotificationCategory::GROUP,
 
             self::ACTIVITY_CREATED,
             self::ACTIVITY_UPDATED,

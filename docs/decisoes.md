@@ -66,6 +66,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-042](#adr-042--limite-de-membros-configurável-por-grupo) | Limite de membros configurável por grupo | Vigente |
 | [ADR-043](#adr-043--erro-por-item-e-validação-em-duas-fases) | Erro por item e validação em duas fases | Vigente |
 | [ADR-044](#adr-044--data-de-nascimento-write-once-e-plataforma-restrita-a-maiores-de-18) | Data de nascimento write-once e plataforma restrita a maiores de 18 | Vigente |
+| [ADR-045](#adr-045--ciclo-de-vida-do-grupo-ativação-persistida-arquivamento-e-exclusão-lógica) | Ciclo de vida do grupo: ativação persistida, arquivamento e exclusão lógica | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
@@ -1222,10 +1223,10 @@ O módulo Groups precisa representar grupos pequenos, com no máximo cinco membr
 
 Modelar `Group` como raiz de agregado e `Membership` como entidade interna. Cada solicitação/entrada gera um **episódio próprio**, com estados `PENDING`, `APPROVED`, `REJECTED` e `REMOVED`. Rejeição e remoção preservam a linha; uma nova entrada cria outro episódio.
 
-- O estado do grupo (`FORMING`, `ACTIVE`, `FULL`) é **derivado** da contagem de membros aprovados, sem coluna persistida.
-- Os limites ficam em `GroupPolicy`: 3 aprovados para ativar, 5 para lotar e 3 grupos por usuário.
+- O estado do grupo (`FORMING`, `ACTIVE`, `FULL`) é **derivado** da contagem de membros aprovados; `activatedAt` é um espelho persistido usado por consultas e pelo arquivamento automático (ADR-045).
+- Os limites ficam em `GroupPolicy`: 3 aprovados para ativar, limite de membros configurável por grupo (ADR-042) e 5 participações por usuário (ADR-045).
 - Índices parciais garantem no banco uma única participação ativa por par grupo/usuário e um único supervisor aprovado.
-- Aprovações e decisões usam transação e lock pessimista no grupo; o limite de grupos por usuário usa advisory lock por `user_id`.
+- Aprovações e decisões usam transação e lock pessimista no grupo; o limite de participação por usuário usa advisory lock por `user_id`.
 
 ### Alternativas consideradas
 
@@ -1237,8 +1238,9 @@ Modelar `Group` como raiz de agregado e `Membership` como entidade interna. Cada
 
 - Reentrada após rejeição ou remoção cria um novo episódio e mantém os anteriores.
 - O histórico de membros removidos é consultável por administradores.
-- Filtros por estado usam subquery de contagem; se o volume crescer, avaliar coluna denormalizada.
-- Testes: `GroupTest`, `DoctrineGroupRepositoryTest`, `GroupMembershipTest`.
+- Filtros por estado usam subquery de contagem; o índice parcial `idx_groups_forming_idle` acelera a varredura de grupos em formação.
+- Arquivo e exclusão lógica preservam as memberships para auditoria (ADR-045).
+- Testes: `GroupTest`, `GroupLifecycleTest`, `DoctrineGroupRepositoryTest`, `GroupMembershipTest`.
 
 ---
 
@@ -1279,6 +1281,7 @@ O grupo tem `name` (3–80), `description` opcional (até 500), `modality` (cami
 - Qualquer usuário autenticado pode listar e detalhar grupos com nome, descrição, modalidade, estado e contagem.
 - O `communicationLink` só é retornado para membro aprovado (`RN08.2`).
 - A listagem é paginada (máximo 30 por página) e aceita filtros por modalidade, estado, nome e disponibilidade.
+- Grupos arquivados e excluídos ficam fora da busca; o arquivado só é visível a membros aprovados e ao criador (ADR-045).
 - Não há chat próprio na V1 (`RN08.1`) nem exigência de telefone (`RN08.3`).
 
 ### Alternativas consideradas
@@ -1483,3 +1486,44 @@ funil. Além disso, o login social não tem como fornecer a data no cadastro.
   [controle-parental.md](controle-parental.md), sem código correspondente.
 - A regra de idade não substitui a comprovação de identidade: o CPF no resgate de prêmio (`RN20.6`) continua sendo o
   backstop.
+
+---
+
+## ADR-045 — Ciclo de vida do grupo: ativação persistida, arquivamento e exclusão lógica
+
+### Contexto
+
+O ADR-019 derivava o estado do grupo apenas da contagem de aprovados e fixava 3 grupos por usuário. Com o crescimento do produto, três problemas apareceram: (a) o limite de 3 era baixo para um app com três modalidades e travava o usuário sem saída; (b) não existia forma de o próprio membro sair; (c) grupos criados e nunca ativados ficavam para sempre na busca, consumindo vaga do criador. Também não havia como encerrar um grupo sem apagar histórico, o que conflita com a permanência do XP e com o modelo de episódios do ADR-019.
+
+### Decisão
+
+- `GroupPolicy::MAX_PARTICIPATION_PER_USER = 5`, contando memberships aprovadas em grupos visíveis (não arquivados e não excluídos). Grupo criado conta como participação.
+- Não existe limite próprio de criação: a criação é limitada pela participação (5) e pelo gate de formação (`MAX_FORMING_PER_CREATOR = 1`).
+- `MIN_LEVEL_TO_JOIN = 2`, alinhado ao nível mínimo de criação e ao piso do deleveling (`RN13.4`).
+- `activatedAt` é persistido como **espelho** da contagem: preenchido no terceiro aprovado, limpo quando o grupo cai abaixo de três. `status()` continua derivado; o campo serve ao gate e ao índice parcial de inatividade.
+- Dedupe de criação por `(createdBy, lower(name), modality)` entre grupos visíveis, com índice único parcial e erro `GROUP_DUPLICATE`.
+- Grupo em formação sem atividade por 30 dias é arquivado automaticamente por um schedule diário (`#[AsSchedule('groups')]`), revalidando o agregado sob lock antes de arquivar.
+- **Arquivar** (`archivedAt`, `archivedBy`, `archiveReason`) deixa o grupo em somente leitura, fora da busca e sem consumir vaga; é reversível por `unarchive`. Membros aprovados recebem `GROUP_ARCHIVED` e o criador recebe `GROUP_ARCHIVED_OWNER` por sino e e-mail; quando o próprio criador arquiva, a notificação do dono é suprimida (`RN15.14`).
+- **Excluir** (`deletedAt`, `deletedBy`, `deleteReason`) é terminal e lógico: preserva o grupo, as memberships e o histórico de atividades, e notifica todos os aprovados e o criador com `GROUP_DELETED` (incluindo o ator).
+- `DELETE /groups/{id}/membership` permite ao usuário cancelar a solicitação pendente ou encerrar a participação aprovada, respeitando a regra do último administrador.
+- `createdBy` continua sendo auditoria, não propriedade: apenas administradores aprovados arquivam ou excluem.
+- Grupos arquivados ou excluídos não reagem a novas solicitações, aprovações, alterações de dados ou designação de supervisor; rejeição e remoção continuam permitidas para limpar a fila.
+- O módulo Activities reage a `group.archived` e `group.deleted` cancelando atividades agendadas, sem import cruzado.
+
+### Alternativas consideradas
+
+- **Manter 3 grupos e apenas adicionar saída:** resolve o travamento, mas continua baixo para três modalidades e não limpa grupos abandonados.
+- **Contador separado de criação:** mais um limite, um erro e um lock para comunicar a mesma restrição que a participação já impõe.
+- **Exclusão física:** destruiria presenças validadas (XP permanente), deixaria atividades órfãs (não há FK de `activities.group_id`) e quebraria a auditoria por episódios.
+- **Derivar "em formação" por subquery no job:** correto, porém caro e sem índice simples; o espelho `activated_at` permite índice parcial e mantém a derivação no agregado.
+- **Arquivar sem notificar o criador:** reduziria e-mail, mas o criador pode não ser mais membro e perderia o aviso de que o grupo saiu da busca.
+
+### Consequências
+
+- Migração `Version20261112160821` adiciona `activated_at`, `archived_at/by/reason`, `deleted_at/by/reason`, faz backfill de `activated_at` e cria `idx_groups_forming_idle` e `uniq_groups_creator_name_modality`.
+- Os dois índices são hand-written (parcial e de expressão `lower(name)`) e aparecem como `DROP INDEX` no `SchemaDriftTest`; não aplicar migrações geradas que os removam.
+- Novos códigos públicos: `GROUP_DUPLICATE`, `GROUP_FORMING_LIMIT_REACHED`, `GROUP_ARCHIVED` (409). `GROUP_LEVEL_INSUFFICIENT` passa a cobrir entrada e criação.
+- O serviço `scheduler` consome `scheduler_groups`; sem isso o arquivamento automático não roda.
+- `GET /groups` exclui arquivados e excluídos; `GET /users/me/groups` inclui arquivados com `archived=true`.
+- E-mail deixa de ser exclusivo de eventos de conta (`RN15.9`).
+- Testes: `GroupLifecycleTest`, `LeaveGroupHandlerTest`, `ArchiveIdleFormingGroupsHandlerTest`, `GroupLifecycleTest` (HTTP), `NotificationPlannerTest`, `DoctrineGroupRepositoryTest`.

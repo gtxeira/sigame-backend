@@ -143,6 +143,19 @@ final class Membership
         $this->touch();
     }
 
+    /**
+     * Cancela uma solicitação pendente pelo próprio solicitante.
+     */
+    public function withdraw(MemberUserId $by): void
+    {
+        $this->status = MembershipStatus::REMOVED;
+        $this->removedAt = Instant::now();
+        $this->removedBy = $by;
+        $this->removalReason = RemovalReason::requestWithdrawn();
+        $this->isSupervisor = false;
+        $this->touch();
+    }
+
     public function remove(MemberUserId $removedBy, RemovalReason $reason): void
     {
         $this->status = MembershipStatus::REMOVED;

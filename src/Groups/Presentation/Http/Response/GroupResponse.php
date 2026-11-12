@@ -37,6 +37,25 @@ final readonly class GroupResponse
         public int $approvedMembers,
 
         #[OA\Property(
+            description: 'Data em que o grupo atingiu o mínimo de membros aprovados. Null enquanto está em formação.',
+            format: 'date-time',
+            example: '2026-11-09T10:00:00.000+00:00',
+            nullable: true,
+        )]
+        public ?string $activatedAt,
+
+        #[OA\Property(description: 'Indica que o grupo está arquivado e em somente leitura.', example: false)]
+        public bool $archived,
+
+        #[OA\Property(
+            description: 'Data do arquivamento. Null quando o grupo não está arquivado.',
+            format: 'date-time',
+            example: null,
+            nullable: true,
+        )]
+        public ?string $archivedAt,
+
+        #[OA\Property(
             description: 'Limite máximo de membros aprovados. Null quando o grupo é ilimitado.',
             example: 8,
             nullable: true,
@@ -78,6 +97,9 @@ final readonly class GroupResponse
             modality: $group->modality()->value,
             status: $group->status()->value,
             approvedMembers: $group->approvedCount(),
+            activatedAt: $group->activatedAt()?->toIsoStringWithMilliseconds(),
+            archived: $group->isArchived(),
+            archivedAt: $group->archivedAt()?->toIsoStringWithMilliseconds(),
             maxMembers: $group->maxMembers()?->value(),
             communicationLink: $canSeeLink ? $group->communicationLink()?->value() : null,
             viewerMembership: null === $membership ? null : ViewerMembershipResponse::fromEntity($membership),
