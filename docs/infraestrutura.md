@@ -66,8 +66,8 @@ Nunca coloque segredos reais em `.env`. Use `.env.local` (ignorado pelo Git) ou 
 | `HTTPS_PORT` | `8443` | Porta HTTPS publicada |
 | `HTTP3_PORT` | `8443` | Porta UDP do HTTP/3 |
 | `CORS_ALLOW_ORIGINS` | `https://sigame.com.br` | Regex de origens permitidas com credenciais |
-| `CADDY_MERCURE_JWT_SECRET` | — | Segredo compartilhado pelo hub Mercure e pela aplicação |
-| `MERCURE_URL` | `http://php/.well-known/mercure` | URL interna de publicação |
+| `CADDY_MERCURE_JWT_SECRET` | — | Segredo compartilhado pelo hub Mercure e pela aplicação (≥ 32 caracteres) |
+| `MERCURE_URL` | `https://mercure.internal:8443/.well-known/mercure` | URL interna de publicação (no dev, `mercure.internal` está no site do Caddy) |
 | `MERCURE_PUBLIC_URL` | `https://${SERVER_NAME}:${HTTPS_PORT}/.well-known/mercure` | URL pública do SSE |
 | `MERCURE_JWT_SECRET` | `${CADDY_MERCURE_JWT_SECRET}` | Segredo dos JWTs do Mercure |
 | `MERCURE_TOPIC_BASE` | `https://sigame.app/notifications` | Namespace lógico dos tópicos privados por usuário |

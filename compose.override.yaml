@@ -43,12 +43,16 @@ services:
       # O hub do FrankenPHP atual não aceita mais a diretiva `demo`. O Caddyfile
       # já injeta `{$MERCURE_EXTRA_DIRECTIVES}`; defina extras aqui se precisar.
       MERCURE_EXTRA_DIRECTIVES: "${MERCURE_EXTRA_DIRECTIVES:-cors_origins http://localhost:3000}"
+      # Hostname interno para o app publicar no hub (o SNI precisa casar com um site do Caddy).
+      SERVER_NAME: "${SERVER_NAME:-api.sigame.localhost}, localhost, mercure.internal"
       # See https://xdebug.org/docs/all_settings#mode
       XDEBUG_MODE: "${XDEBUG_MODE:-debug,develop}"
       APP_ENV: "${APP_ENV:-dev}"
     extra_hosts:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
+      # Publica eventos no hub pelo endereço público (certificado do Caddy).
+      - mercure.internal:host-gateway
     tty: true
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###
@@ -64,8 +68,12 @@ services:
     environment:
       APP_ENV: "${APP_ENV:-dev}"
       XDEBUG_MODE: "${XDEBUG_MODE:-debug,develop}"
+      # Mesmo segredo do hub (o .env.local do host pode divergir do Compose).
+      MERCURE_JWT_SECRET: "${CADDY_MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}"
+      MERCURE_URL: "${CADDY_MERCURE_URL:-https://mercure.internal:8443/.well-known/mercure}"
     extra_hosts:
       - host.docker.internal:host-gateway
+      - mercure.internal:host-gateway
     # O entrypoint do projeto roda migrations; o worker espera o php saudável
     # para não duplicar esse trabalho.
     entrypoint: ["docker-php-entrypoint"]
@@ -86,8 +94,11 @@ services:
     environment:
       APP_ENV: "${APP_ENV:-dev}"
       XDEBUG_MODE: "${XDEBUG_MODE:-debug,develop}"
+      MERCURE_JWT_SECRET: "${CADDY_MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}"
+      MERCURE_URL: "${CADDY_MERCURE_URL:-https://mercure.internal:8443/.well-known/mercure}"
     extra_hosts:
       - host.docker.internal:host-gateway
+      - mercure.internal:host-gateway
     entrypoint: ["docker-php-entrypoint"]
     command: ["php", "bin/console", "messenger:consume", "scheduler_activities", "scheduler_gamification", "scheduler_groups", "--time-limit=3600", "--memory-limit=128M", "-vv"]
     depends_on:
