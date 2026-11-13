@@ -52,6 +52,7 @@ final readonly class NotificationContentFactory
             NotificationType::LEVEL_REACHED => $this->levelReached($context),
             NotificationType::LEVEL_LOST => $this->levelLost($context),
             NotificationType::WEEKLY_GOAL_COMPLETED => $this->weeklyGoalCompleted($context),
+            NotificationType::ACHIEVEMENT_UNLOCKED => $this->achievementUnlocked($context),
             NotificationType::ACCOUNT_SUSPENDED => $this->accountSuspended($context),
             NotificationType::ACCOUNT_REACTIVATED => $this->accountReactivated($context),
         };
@@ -628,6 +629,24 @@ final readonly class NotificationContentFactory
                 'weekKey' => $this->string($context, 'weekKey'),
                 'streak' => $this->int($context, 'streak'),
                 'xp' => $this->int($context, 'xp'),
+            ],
+        );
+    }
+
+    /**
+     * @param array<string, scalar|array<array-key, scalar>|null> $context
+     */
+    private function achievementUnlocked(array $context): NotificationContent
+    {
+        $name = $this->string($context, 'name');
+        $name = '' === $name ? 'uma conquista' : $name;
+
+        return new NotificationContent(
+            title: 'Nova conquista',
+            body: sprintf('Você desbloqueou a conquista %s.', $name),
+            payload: [
+                'code' => $this->string($context, 'code'),
+                'achievedAt' => $this->string($context, 'achievedAt'),
             ],
         );
     }

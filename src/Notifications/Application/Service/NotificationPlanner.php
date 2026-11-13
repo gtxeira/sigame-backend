@@ -98,6 +98,7 @@ final readonly class NotificationPlanner
             NotificationType::LEVEL_REACHED,
             NotificationType::LEVEL_LOST,
             NotificationType::WEEKLY_GOAL_COMPLETED,
+            NotificationType::ACHIEVEMENT_UNLOCKED,
             NotificationType::ACCOUNT_SUSPENDED,
             NotificationType::ACCOUNT_REACTIVATED => $this->single($context, 'userId'),
         };

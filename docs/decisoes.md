@@ -67,6 +67,7 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-043](#adr-043--erro-por-item-e-validação-em-duas-fases) | Erro por item e validação em duas fases | Vigente |
 | [ADR-044](#adr-044--data-de-nascimento-write-once-e-plataforma-restrita-a-maiores-de-18) | Data de nascimento write-once e plataforma restrita a maiores de 18 | Vigente |
 | [ADR-045](#adr-045--ciclo-de-vida-do-grupo-ativação-persistida-arquivamento-e-exclusão-lógica) | Ciclo de vida do grupo: ativação persistida, arquivamento e exclusão lógica | Vigente |
+| [ADR-047](#adr-047--conquistas-como-marcos-permanentes) | Conquistas como marcos permanentes | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
@@ -1597,3 +1598,33 @@ modelo único e explícito.
   manual da SIGAME é o contorno até existir banimento permanente.
 - Testes: `GroupTest`, `GroupLifecycleTest`, `TransferOwnershipHandlerTest`, `GroupOwnershipTest`,
   `NotificationPlannerTest`, `DoctrineGroupRepositoryTest` e `DoctrineOwnershipTransferRepositoryTest`.
+
+---
+
+## ADR-047 — Conquistas como marcos permanentes
+
+### Contexto
+
+O frontend exibia o banner LENDA derivado de `level === 10`, sem registro no backend e sem garantia de celebração
+única. O produto decidiu transformar conquistas em um recurso persistido, com espaço para novos marcos além do nível.
+
+### Decisão
+
+- `user_achievements` tem chave composta `(user_id, code)`, `achieved_at` e `celebrated_at`; não há revogação.
+- A conquista é permanente: perder o nível depois não a remove.
+- O catálogo V1 tem apenas `LENDA`, exigindo `GamificationRules::MAX_LEVEL`. Novos marcos entram como novos cases.
+- `AchievementUnlocked` é publicado quando o nível sobe e alcança o critério; a Notifications cria
+  `ACHIEVEMENT_UNLOCKED` no sino, sem canal externo.
+- `POST /users/me/achievements/{code}/celebrated` é idempotente e só marca a primeira exibição.
+- A migration faz backfill de `LENDA` a partir de `user_progress.level >= 10`, usando `updated_at` como data aproximada,
+  sem disparar notificações para não gerar uma enxurrada em contas antigas.
+
+### Consequências
+
+- A celebração deixa de depender de `localStorage`.
+- A tabela não tem FK para `users`; a limpeza acompanha `user.deleted`, como em `user_progress`.
+- Códigos públicos novos: `ACHIEVEMENT_NOT_FOUND` (404).
+- O endpoint de leitura retorna apenas conquistas desbloqueadas; o catálogo completo permanece no domínio.
+- Testes: `UserAchievementTest`, `AchievementCatalogTest`, `AchievementUnlockerTest`,
+  `DoctrineUserAchievementRepositoryTest`, `UnlockAchievementsOnLevelReachedTest`, `AchievementTest`,
+  `NotificationPlannerTest` e `ApiDocumentationTest`.

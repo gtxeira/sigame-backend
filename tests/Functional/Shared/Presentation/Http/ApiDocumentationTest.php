@@ -284,6 +284,8 @@ it('documents every public api operation', function () {
             '/api/v1/users/me/groups',
             '/api/v1/users/me/progress',
             '/api/v1/users/me/progress/history',
+            '/api/v1/users/me/achievements',
+            '/api/v1/users/me/achievements/{code}/celebrated',
             '/api/v1/gamification/rules',
             '/api/v1/auth/email/verification/resend',
             '/api/v1/users/me/password',
@@ -659,6 +661,34 @@ it('does not leak the link meta into other conflicts', function () {
     );
 
     expect($example['value']['meta'])->not->toHaveKey('link');
+});
+
+it('documents the achievement endpoints', function () {
+    $doc = readApiDoc($this);
+
+    $list = apiDocValue(
+        $doc,
+        'paths', '/api/v1/users/me/achievements', 'get', 'responses',
+        '200', 'content', 'application/json', 'schema', 'allOf', 1, 'properties',
+    );
+
+    expect($list['data']['type'])->toBe('array')
+        ->and($list['data']['items']['$ref'])->toBe('#/components/schemas/AchievementResponse');
+
+    $schema = apiDocValue($doc, 'components', 'schemas', 'AchievementResponse', 'properties');
+
+    expect($schema['code']['enum'])->toBe(['LENDA'])
+        ->and($schema['achievedAt']['format'])->toBe('date-time')
+        ->and($schema['celebratedAt']['nullable'])->toBeTrue();
+
+    $celebrate = apiDocValue(
+        $doc,
+        'paths', '/api/v1/users/me/achievements/{code}/celebrated', 'post', 'responses',
+    );
+
+    expect($celebrate)->toHaveKey('404')
+        ->and($celebrate['404']['content']['application/json']['examples'])
+        ->toHaveKey('ACHIEVEMENT_NOT_FOUND');
 });
 
 it('documents the paginated group list with pagination meta', function () {

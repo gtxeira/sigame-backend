@@ -28,5 +28,6 @@ it('sends account and group owner events by email', function () {
             'previous-1',
         ))->toBe([])
         ->and($policy->channelsFor(NotificationType::MEMBERSHIP_REQUESTED))->toBe([])
-        ->and($policy->channelsFor(NotificationType::ACTIVITY_CANCELLED))->toBe([]);
+        ->and($policy->channelsFor(NotificationType::ACTIVITY_CANCELLED))->toBe([])
+        ->and($policy->channelsFor(NotificationType::ACHIEVEMENT_UNLOCKED))->toBe([]);
 });

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Activities\Domain\Error\ActivityErrorCode;
+use App\Gamification\Domain\Error\GamificationErrorCode;
 use App\Groups\Domain\Error\GroupErrorCode;
 use App\Identity\Domain\Error\IdentityErrorCode;
 use App\Notifications\Domain\Error\NotificationErrorCode;
@@ -28,7 +29,7 @@ function allErrorCodes(): array
 }
 
 /**
- * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|NotificationErrorCode|ValidationErrorCode|ApiErrorCode>>
+ * @return list<class-string<SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|GamificationErrorCode|NotificationErrorCode|ValidationErrorCode|ApiErrorCode>>
  */
 function errorCodeCatalogs(): array
 {
@@ -37,6 +38,7 @@ function errorCodeCatalogs(): array
         IdentityErrorCode::class,
         GroupErrorCode::class,
         ActivityErrorCode::class,
+        GamificationErrorCode::class,
         NotificationErrorCode::class,
         ValidationErrorCode::class,
         ApiErrorCode::class,
@@ -53,13 +55,14 @@ it('uses screaming snake case for every error code', function (string $code) {
     expect($code)->toMatch('/^[A-Z][A-Z0-9_]*$/');
 })->with(fn (): array => allErrorCodes());
 
-it('classifies every domain error code', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|NotificationErrorCode $code) {
+it('classifies every domain error code', function (SharedErrorCode|IdentityErrorCode|GroupErrorCode|ActivityErrorCode|GamificationErrorCode|NotificationErrorCode $code) {
     expect(ErrorKind::cases())->toContain($code->kind());
 })->with(fn (): array => [
     ...SharedErrorCode::cases(),
     ...IdentityErrorCode::cases(),
     ...GroupErrorCode::cases(),
     ...ActivityErrorCode::cases(),
+    ...GamificationErrorCode::cases(),
     ...NotificationErrorCode::cases(),
 ]);
 
@@ -111,5 +114,6 @@ it('classifies suspended accounts as forbidden', function () {
 
 it('classifies missing users and notifications as not found', function () {
     expect(IdentityErrorCode::UserNotFound->kind())->toBe(ErrorKind::NotFound)
-        ->and(NotificationErrorCode::NotificationNotFound->kind())->toBe(ErrorKind::NotFound);
+        ->and(NotificationErrorCode::NotificationNotFound->kind())->toBe(ErrorKind::NotFound)
+        ->and(GamificationErrorCode::AchievementNotFound->kind())->toBe(ErrorKind::NotFound);
 });

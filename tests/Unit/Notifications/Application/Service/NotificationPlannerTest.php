@@ -303,6 +303,30 @@ it('plans ownership changes with email only for the new owner', function () {
         ->and($plan->content->body)->toContain('Bia');
 });
 
+it('plans an achievement unlock for the holder', function () {
+    $groups = m::mock(GroupSummaryReaderInterface::class);
+    $activities = m::mock(ActivitySummaryReaderInterface::class);
+    $contacts = m::mock(UserContactReaderInterface::class);
+
+    $plan = notificationPlanner($groups, $activities, $contacts)->plan(new NotificationIntent(
+        type: NotificationType::ACHIEVEMENT_UNLOCKED,
+        deduplicationKey: 'achievement-unlocked:user-1:LENDA',
+        context: [
+            'userId' => 'user-1',
+            'code' => 'LENDA',
+            'name' => 'Lenda',
+            'achievedAt' => '2026-11-12T10:00:00.000+00:00',
+        ],
+    ));
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->recipientIds)->toBe(['user-1'])
+        ->and($plan->channels)->toBe([])
+        ->and($plan->content->title)->toBe('Nova conquista')
+        ->and($plan->content->body)->toContain('Lenda')
+        ->and($plan->content->payload['code'])->toBe('LENDA');
+});
+
 it('returns no plan when the referenced group is missing', function () {
     $groups = m::mock(GroupSummaryReaderInterface::class);
     $activities = m::mock(ActivitySummaryReaderInterface::class);

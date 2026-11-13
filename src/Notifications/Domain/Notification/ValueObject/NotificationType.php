@@ -34,6 +34,7 @@ enum NotificationType: string
     case LEVEL_REACHED = 'LEVEL_REACHED';
     case LEVEL_LOST = 'LEVEL_LOST';
     case WEEKLY_GOAL_COMPLETED = 'WEEKLY_GOAL_COMPLETED';
+    case ACHIEVEMENT_UNLOCKED = 'ACHIEVEMENT_UNLOCKED';
     case ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED';
     case ACCOUNT_REACTIVATED = 'ACCOUNT_REACTIVATED';
 
@@ -64,7 +65,8 @@ enum NotificationType: string
 
             self::LEVEL_REACHED,
             self::LEVEL_LOST,
-            self::WEEKLY_GOAL_COMPLETED => NotificationCategory::GAMIFICATION,
+            self::WEEKLY_GOAL_COMPLETED,
+            self::ACHIEVEMENT_UNLOCKED => NotificationCategory::GAMIFICATION,
 
             self::ACCOUNT_SUSPENDED,
             self::ACCOUNT_REACTIVATED => NotificationCategory::ACCOUNT,

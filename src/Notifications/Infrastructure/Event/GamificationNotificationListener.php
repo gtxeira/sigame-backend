@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications\Infrastructure\Event;
 
+use App\Gamification\Domain\Achievement\Event\AchievementUnlocked;
 use App\Gamification\Domain\Progress\Event\LevelLost;
 use App\Gamification\Domain\Progress\Event\LevelReached;
 use App\Gamification\Domain\Progress\Event\WeeklyGoalCompleted;
@@ -62,6 +63,21 @@ final readonly class GamificationNotificationListener
                 'weekKey' => $event->weekKey(),
                 'streak' => $event->streak(),
                 'xp' => $event->xp(),
+            ],
+        ));
+    }
+
+    #[AsEventListener(event: 'gamification.achievement.unlocked')]
+    public function onAchievementUnlocked(AchievementUnlocked $event): void
+    {
+        $this->publisher->publish(new NotificationIntent(
+            type: NotificationType::ACHIEVEMENT_UNLOCKED,
+            deduplicationKey: 'achievement-unlocked:'.$event->userId().':'.$event->code(),
+            context: [
+                'userId' => $event->userId(),
+                'code' => $event->code(),
+                'name' => $event->name(),
+                'achievedAt' => $event->occurredAt()->toIsoStringWithMilliseconds(),
             ],
         ));
     }

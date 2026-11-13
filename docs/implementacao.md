@@ -2,7 +2,7 @@
 
 > **Status:** documento de trabalho
 >
-> **Última atualização:** 2026-11-11
+> **Última atualização:** 2026-11-13
 >
 > **Finalidade:** registrar o estado da implementação, o roadmap, as decisões ainda abertas, o histórico de migrations e
 > as dívidas técnicas.
@@ -73,6 +73,7 @@ atualizado no levantamento.
 | Ofensiva semanal                                                                                                                       | Implementado  | `WEEKLY_START`, `WEEKLY_GOAL`, `StreakCalculator` e `WeeklyBonusAwarder`                                      |
 | Deleveling por inatividade                                                                                                             | Implementado  | `DelevelingPolicy`, `ApplyInactivityDecayHandler` e schedule diário                                           |
 | API de progresso e histórico de XP                                                                                                     | Implementado  | `GET /users/me/progress` e `/progress/history`                                                                |
+| Conquistas e celebração única                                                                                                          | Implementado  | `UserAchievement`, `AchievementController` e migration `Version20261113022101`                                |
 | Catálogo de regras de gamificação                                                                                                      | Implementado  | `GET /api/v1/gamification/rules`, `GetGamificationRulesHandler` e `ActivityXpTable`                           |
 | Versionamento e recálculo de XP                                                                                                        | Parcial       | `rule_version` gravado; comando `app:gamification:recalculate` pendente                                       |
 | Notificações in-app, leitura e sino                                                                                                    | Implementado  | `Notification`, `NotificationController`, `CreateNotificationsHandler` e migration `Version20261110145733`    |
@@ -143,6 +144,8 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET`    | `/api/v1/users/me/activities`                                 | Bearer JWT                                 |
 | `GET`    | `/api/v1/users/me/progress`                                   | Bearer JWT                                 |
 | `GET`    | `/api/v1/users/me/progress/history`                           | Bearer JWT                                 |
+| `GET`    | `/api/v1/users/me/achievements`                               | Bearer JWT                                 |
+| `POST`   | `/api/v1/users/me/achievements/{code}/celebrated`             | Bearer JWT                                 |
 | `GET`    | `/api/v1/gamification/rules`                                  | Bearer JWT                                 |
 | `GET`    | `/api/v1/notifications`                                       | Bearer JWT                                 |
 | `GET`    | `/api/v1/notifications/unread-count`                          | Bearer JWT                                 |
@@ -318,8 +321,8 @@ semanal.
   a atividade como sufixo da chave.
 - [x] Backfill a partir de `users.level` e do histórico de presenças.
 - [x] Registrar mapping e tipos DBAL em `config/packages/doctrine.php`.
-- [x] Catálogo de erros: a fase não expõe erros de domínio públicos; os endpoints de leitura não retornam erros de
-  negócio.
+- [x] Catálogo de erros: os endpoints de leitura não retornam erros de negócio; a celebração de conquista pode retornar
+  `ACHIEVEMENT_NOT_FOUND`.
 
 #### 6.2 Registro e onboarding
 
@@ -432,6 +435,15 @@ a projeção. A dívida está detalhada no [ADR-036](decisoes.md#adr-036--nível
 - [ ] Saída: componentes do cálculo, total e explicação.
 - [ ] Reutilizar `ActivityXpPolicy`/`ActivityXpTable`, extraídos em 6.12.
 - [ ] Exibir "até 100 XP" na V1 enquanto o simulador não existe.
+
+#### 6.14 Conquistas
+
+- [x] Entidade `UserAchievement` com chave `(user_id, code)`, `achieved_at` e `celebrated_at`.
+- [x] Catálogo V1 com `LENDA` no nível 10 e estrutura para novos marcos.
+- [x] `GET /api/v1/users/me/achievements` e `POST .../{code}/celebrated` idempotente.
+- [x] Evento `AchievementUnlocked` e notificação `ACHIEVEMENT_UNLOCKED`.
+- [x] Migration `Version20261113022101` com backfill para quem já está no nível 10.
+- [x] Testes de domínio, aplicação, integração, funcionais e OpenAPI.
 
 ### Fase 7 — Notificações + Administração de contas
 
@@ -595,6 +607,7 @@ entrypoint do container.
 | `Version20261110183601` | 2026-11-10 | Adiciona `groups.max_members` (nulo = grupo ilimitado).                                                                        |
 | `Version20261111120000` | 2026-11-11 | Adiciona `users.birth_date DATE NULL`, preenchida pelo endpoint write-once e exigida no onboarding.                            |
 | `Version20261112160821` | 2026-11-12 | Adiciona `activated_at`, campos de arquivamento e exclusão em `groups`; backfill e índices de inatividade e dedupe.           |
+| `Version20261113022101` | 2026-11-13 | Cria `user_achievements` e faz backfill da conquista `LENDA` para usuários no nível 10.                                       |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou
 de URL para chave de objeto em `Version20261108120000`.
