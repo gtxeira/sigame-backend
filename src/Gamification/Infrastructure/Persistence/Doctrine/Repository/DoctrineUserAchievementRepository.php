@@ -54,6 +54,26 @@ final class DoctrineUserAchievementRepository extends AbstractRepository impleme
         $entityManager->flush();
     }
 
+    public function insertIfAbsent(UserAchievement $achievement): bool
+    {
+        $affected = $this->getEntityManager()->getConnection()->executeStatement(
+            'INSERT INTO user_achievements (user_id, code, achieved_at)
+             VALUES (:userId, :code, :achievedAt)
+             ON CONFLICT (user_id, code) DO NOTHING',
+            [
+                'userId' => $achievement->userId(),
+                'code' => $achievement->code()->value,
+                'achievedAt' => $achievement->achievedAt(),
+            ],
+            [
+                'userId' => 'player_id',
+                'achievedAt' => 'instant',
+            ],
+        );
+
+        return 1 === $affected;
+    }
+
     public function deleteByUserId(PlayerId $userId): void
     {
         $this->getEntityManager()

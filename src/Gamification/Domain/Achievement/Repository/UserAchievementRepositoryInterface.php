@@ -17,6 +17,16 @@ interface UserAchievementRepositoryInterface
 
     public function findByUserIdAndCode(PlayerId $userId, AchievementCode $code): ?UserAchievement;
 
+    /**
+     * Insere a conquista se ainda não existir (idempotente).
+     *
+     * Usa `INSERT … ON CONFLICT DO NOTHING` para que duas requisições
+     * concorrentes não fechem o EntityManager com uma violação de unicidade.
+     *
+     * @return bool `true` quando a linha foi criada
+     */
+    public function insertIfAbsent(UserAchievement $achievement): bool;
+
     public function save(UserAchievement $achievement): void;
 
     public function deleteByUserId(PlayerId $userId): void;

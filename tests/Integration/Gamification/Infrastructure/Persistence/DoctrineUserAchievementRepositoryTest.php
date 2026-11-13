@@ -43,3 +43,25 @@ it('stores, lists and removes achievements by user', function () {
 
     expect($achievementRepository->findByUserId($userId))->toBe([]);
 });
+
+it('inserts an achievement only once when concurrent requests race', function () {
+    /** @var UserRepositoryInterface $userRepository */
+    $userRepository = $this->service(UserRepositoryInterface::class);
+    /** @var UserAchievementRepositoryInterface $achievementRepository */
+    $achievementRepository = $this->service(UserAchievementRepositoryInterface::class);
+
+    $user = User::register(
+        cpf: null,
+        email: Email::fromString('achievement-race@example.com')->value(),
+        password: HashedPassword::fromHash('hashed_password_123'),
+        name: 'Achievement Race',
+    );
+    $userRepository->save($user);
+
+    $userId = PlayerId::fromString($user->id()->value());
+    $achievement = UserAchievement::unlock($userId, AchievementCode::LENDA);
+
+    expect($achievementRepository->insertIfAbsent($achievement))->toBeTrue()
+        ->and($achievementRepository->insertIfAbsent($achievement))->toBeFalse()
+        ->and($achievementRepository->findByUserId($userId))->toHaveCount(1);
+});

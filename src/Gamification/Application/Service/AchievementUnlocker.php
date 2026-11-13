@@ -12,7 +12,6 @@ use App\Gamification\Domain\Achievement\ValueObject\AchievementCode;
 use App\Gamification\Domain\Progress\ValueObject\PlayerId;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\ValueObject\Instant;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 
 /**
  * Registra os marcos alcançados a partir do nível do usuário.
@@ -41,10 +40,9 @@ final readonly class AchievementUnlocker
             return;
         }
 
-        try {
-            $this->repository->save(UserAchievement::unlock($userId, $code, $achievedAt));
-        } catch (UniqueConstraintViolationException) {
-            // Outra requisição registrou a mesma conquista.
+        // `INSERT … ON CONFLICT DO NOTHING` mantém a operação idempotente mesmo
+        // com duas requisições concorrentes, sem fechar o EntityManager.
+        if (!$this->repository->insertIfAbsent(UserAchievement::unlock($userId, $code, $achievedAt))) {
             return;
         }
 

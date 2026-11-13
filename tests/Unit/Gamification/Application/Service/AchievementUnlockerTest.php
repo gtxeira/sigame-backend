@@ -23,7 +23,7 @@ it('registers the legend achievement and publishes the event', function () {
         ->with($userId, AchievementCode::LENDA)
         ->andReturnNull();
     $saved = null;
-    $repository->shouldReceive('save')
+    $repository->shouldReceive('insertIfAbsent')
         ->once()
         ->with(Mockery::on(
             static function (UserAchievement $achievement) use (&$saved, $userId, $achievedAt): bool {
@@ -32,7 +32,8 @@ it('registers the legend achievement and publishes the event', function () {
                 return $achievement->userId()->equals($userId)
                     && $achievement->achievedAt()->equals($achievedAt);
             },
-        ));
+        ))
+        ->andReturnTrue();
     $dispatcher->shouldReceive('dispatch')
         ->once()
         ->with(Mockery::on(
@@ -52,7 +53,7 @@ it('does not register anything below the legend level', function () {
     $dispatcher = Mockery::mock(EventDispatcherInterface::class);
 
     $repository->shouldNotReceive('findByUserIdAndCode');
-    $repository->shouldNotReceive('save');
+    $repository->shouldNotReceive('insertIfAbsent');
     $dispatcher->shouldNotReceive('dispatch');
 
     $unlocker = new AchievementUnlocker($repository, new AchievementCatalog(), $dispatcher);
@@ -69,7 +70,25 @@ it('does not duplicate an achievement already registered', function () {
         ->once()
         ->with($userId, AchievementCode::LENDA)
         ->andReturn($achievement);
-    $repository->shouldNotReceive('save');
+    $repository->shouldNotReceive('insertIfAbsent');
+    $dispatcher->shouldNotReceive('dispatch');
+
+    $unlocker = new AchievementUnlocker($repository, new AchievementCatalog(), $dispatcher);
+    $unlocker->unlock($userId, 10);
+});
+
+it('does not publish the event when another request inserted the achievement first', function () {
+    $userId = PlayerId::generate();
+    $repository = Mockery::mock(UserAchievementRepositoryInterface::class);
+    $dispatcher = Mockery::mock(EventDispatcherInterface::class);
+
+    $repository->shouldReceive('findByUserIdAndCode')
+        ->once()
+        ->with($userId, AchievementCode::LENDA)
+        ->andReturnNull();
+    $repository->shouldReceive('insertIfAbsent')
+        ->once()
+        ->andReturnFalse();
     $dispatcher->shouldNotReceive('dispatch');
 
     $unlocker = new AchievementUnlocker($repository, new AchievementCatalog(), $dispatcher);
