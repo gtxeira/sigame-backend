@@ -116,6 +116,33 @@ it('cancels and invalidates activities through the lifecycle endpoints', functio
         ->and(authTestBody($cancel)['data']['status'])->toBe('cancelled');
 });
 
+it('orders my activities by start and rejects an invalid order', function () {
+    $context = activityTestGroupWithMembers($this, 'activities-order');
+    $token = $context['adminToken'];
+
+    $earlier = activityTestCreate($this, $token, $context['groupId'], [
+        'startsAt' => (new DateTimeImmutable('+2 hours'))->format(DateTimeInterface::RFC3339_EXTENDED),
+    ]);
+    $later = activityTestCreate($this, $token, $context['groupId'], [
+        'startsAt' => (new DateTimeImmutable('+6 hours'))->format(DateTimeInterface::RFC3339_EXTENDED),
+    ]);
+
+    activityTestEnroll($this, $token, (string) $earlier['id']);
+    activityTestEnroll($this, $token, (string) $later['id']);
+
+    $ascending = $this->api->get('app_my_activity_list', ['order' => 'asc'], server: groupTestServer($token));
+    $descending = $this->api->get('app_my_activity_list', ['order' => 'desc'], server: groupTestServer($token));
+
+    expect($ascending->getStatusCode())->toBe(Response::HTTP_OK)
+        ->and(array_column(authTestBody($ascending)['data'], 'id'))->toBe([$earlier['id'], $later['id']])
+        ->and(array_column(authTestBody($descending)['data'], 'id'))->toBe([$later['id'], $earlier['id']]);
+
+    $invalid = $this->api->get('app_my_activity_list', ['order' => 'recente'], server: groupTestServer($token));
+
+    expect($invalid->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
+        ->and($this->api->errorCodes())->toContain('INVALID_CHOICE');
+});
+
 it('validates attendance after finish and lists my activities', function () {
     $context = activityTestGroupWithMembers($this, 'activities-attendance');
     $memberEmails = array_keys($context['members']);

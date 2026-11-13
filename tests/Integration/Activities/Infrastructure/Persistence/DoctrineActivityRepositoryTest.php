@@ -126,3 +126,26 @@ it('filters activities by group and participant', function () {
         ->and($byParticipant->total)->toBe(1)
         ->and($byParticipant->items[0]->id()->equals($first->id()))->toBeTrue();
 });
+
+it('orders the group and participant lists by start direction', function () {
+    $repository = $this->service(ActivityRepositoryInterface::class);
+    $group = ActivityGroupId::generate();
+    $user = ActivityUserId::generate();
+
+    $earlier = makeRepositoryActivity('+1 hour', 60, $group);
+    $earlier->enroll($user, Instant::now());
+    $repository->save($earlier);
+
+    $later = makeRepositoryActivity('+5 hours', 60, $group);
+    $later->enroll($user, Instant::now());
+    $repository->save($later);
+
+    $byGroupAsc = $repository->searchByGroup($group, new ActivitySearchCriteria());
+    $byGroupDesc = $repository->searchByGroup($group, new ActivitySearchCriteria(order: 'desc'));
+    $byParticipantDesc = $repository->searchByParticipant($user, new ActivitySearchCriteria(order: 'desc'));
+
+    expect($byGroupAsc->items[0]->id()->equals($earlier->id()))->toBeTrue()
+        ->and($byGroupDesc->items[0]->id()->equals($later->id()))->toBeTrue()
+        ->and($byParticipantDesc->items[0]->id()->equals($later->id()))->toBeTrue()
+        ->and($byParticipantDesc->items[1]->id()->equals($earlier->id()))->toBeTrue();
+});

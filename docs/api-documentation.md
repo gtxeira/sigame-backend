@@ -1,6 +1,6 @@
 # SIGAME — Documentação da API (OpenAPI)
 
-> **Última atualização:** 2026-11-11
+> **Última atualização:** 2026-11-13
 >
 > **Implementação:** `config/packages/nelmio_api_doc.php`, `src/Shared/Presentation/Http/OpenApi/` e atributos `OpenApi\Attributes` nos controllers.
 
@@ -32,7 +32,7 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Onboarding` | `/users/me/onboarding` | Ciclo de vida do recurso | Conclusão única do onboarding inicial, com promoção ao nível 2. |
 | `Grupos` | `/groups`, `/groups/{id}`, `/groups/{id}/memberships`, `/groups/{id}/supervisor` | Recurso/entidade de domínio (REST) | Ciclo de vida do grupo, das participações e do supervisor. |
 | `Atividades` | `/groups/{groupId}/activities`, `/activities/{id}`, `/activities/{id}/enrollments`, `/activities/{id}/attendances` | Recurso/entidade de domínio (REST) | Ciclo de vida, inscrição, check-in e presença em atividades. |
-| `Gamificação` | `/users/me/progress`, `/users/me/progress/history`, `/gamification/rules` | Intenção self-service | Progresso e histórico do usuário autenticado e catálogo de regras da versão vigente. |
+| `Gamificação` | `/users/me/progress`, `/users/me/progress/history`, `/users/me/achievements`, `/users/me/achievements/{code}/celebrated`, `/gamification/rules` | Intenção self-service | Progresso, histórico, conquistas do usuário autenticado e catálogo de regras da versão vigente. |
 | `Notificações` | `/notifications`, `/notifications/unread-count`, `/notifications/{id}/read`, `/notifications/read-all`, `/notifications/realtime` | Intenção self-service | Inbox, leitura e assinatura do stream do usuário autenticado. |
 | `Usuários` | `/admin/users`, `/admin/users/{id}`, `/admin/users/{id}/status-history`, `/admin/users/{id}/suspend`, `/admin/users/{id}/reactivate` | Recurso/entidade de domínio (REST) | Administração global de contas. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |

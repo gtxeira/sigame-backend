@@ -62,7 +62,7 @@ final class MyActivitiesController extends AbstractController
                 message: 'O estado informado é inválido.',
                 field: 'status',
                 summary: 'Filtros inválidos',
-                description: 'A paginação, o estado ou o intervalo de datas são inválidos.',
+                description: 'A paginação, o estado, o intervalo de datas ou a ordem são inválidos.',
             ),
         ],
         fields: [
@@ -71,11 +71,12 @@ final class MyActivitiesController extends AbstractController
             'status' => 'Estado da atividade.',
             'from' => 'Início mínimo.',
             'to' => 'Início máximo.',
+            'order' => 'Ordem por início (`asc` ou `desc`).',
         ],
     )]
     #[TooManyRequestsResponse]
     #[InternalErrorResponse]
-    public function list(#[MapQueryString] ActivityListQuery $query): JsonResponse
+    public function list(#[MapQueryString(validationFailedStatusCode: 422)] ActivityListQuery $query): JsonResponse
     {
         $actor = $this->actorId();
         $criteria = new ActivitySearchCriteria(
@@ -84,6 +85,7 @@ final class MyActivitiesController extends AbstractController
             status: null === $query->status ? null : ActivityStatus::from($query->status),
             from: $this->instantOrNull($query->from, 'from'),
             to: $this->instantOrNull($query->to, 'to'),
+            order: $query->order,
         );
 
         $result = ($this->listMyActivitiesHandler)(new ListMyActivitiesQuery(

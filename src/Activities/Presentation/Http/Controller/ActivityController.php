@@ -188,13 +188,14 @@ final class ActivityController extends AbstractController
             'status' => 'Estado da atividade.',
             'from' => 'Início mínimo.',
             'to' => 'Início máximo.',
+            'order' => 'Ordem por início (`asc` ou `desc`).',
         ],
     )]
     #[TooManyRequestsResponse]
     #[InternalErrorResponse]
     public function listGroup(
         string $groupId,
-        #[MapQueryString] ActivityListQuery $query,
+        #[MapQueryString(validationFailedStatusCode: 422)] ActivityListQuery $query,
     ): JsonResponse {
         $actor = $this->actorId();
         $criteria = $this->criteriaFrom($query);
@@ -405,6 +406,7 @@ final class ActivityController extends AbstractController
             status: null === $query->status ? null : ActivityStatus::from($query->status),
             from: $this->instantOrNull($query->from, 'from'),
             to: $this->instantOrNull($query->to, 'to'),
+            order: $query->order,
         );
     }
 

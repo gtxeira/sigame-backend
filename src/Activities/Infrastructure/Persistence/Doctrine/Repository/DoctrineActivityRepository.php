@@ -94,9 +94,11 @@ final class DoctrineActivityRepository extends AbstractRepository implements Act
 
         $this->applyFilters($queryBuilder, $criteria);
 
+        $direction = $criteria->isDescending() ? SortDirection::Descending : SortDirection::Ascending;
+
         $items = $queryBuilder
-            ->orderBy('a.startsAt', SortDirection::Ascending)
-            ->addOrderBy('a.id', SortDirection::Ascending)
+            ->orderBy('a.startsAt', $direction)
+            ->addOrderBy('a.id', $direction)
             ->setFirstResult(($criteria->page - 1) * $criteria->perPage)
             ->setMaxResults($criteria->perPage)
             ->getQuery()
@@ -127,9 +129,11 @@ final class DoctrineActivityRepository extends AbstractRepository implements Act
 
         $this->applyFilters($queryBuilder, $criteria);
 
+        $direction = $criteria->isDescending() ? SortDirection::Descending : SortDirection::Ascending;
+
         $items = $queryBuilder
-            ->orderBy('a.startsAt', SortDirection::Ascending)
-            ->addOrderBy('a.id', SortDirection::Ascending)
+            ->orderBy('a.startsAt', $direction)
+            ->addOrderBy('a.id', $direction)
             ->setFirstResult(($criteria->page - 1) * $criteria->perPage)
             ->setMaxResults($criteria->perPage)
             ->getQuery()

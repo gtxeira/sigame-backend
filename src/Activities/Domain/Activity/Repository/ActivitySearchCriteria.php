@@ -28,9 +28,16 @@ final readonly class ActivitySearchCriteria
         public ?Instant $from = null,
         public ?Instant $to = null,
         public ?array $groupIds = null,
+        /** Ordem por início: `asc` (padrão) ou `desc`. */
+        public string $order = 'asc',
     ) {
         $this->page = max(1, $page);
         $this->perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
+    }
+
+    public function isDescending(): bool
+    {
+        return 'desc' === strtolower($this->order);
     }
 
     /**
@@ -45,6 +52,7 @@ final readonly class ActivitySearchCriteria
             from: $this->from,
             to: $this->to,
             groupIds: $groupIds,
+            order: $this->order,
         );
     }
 }

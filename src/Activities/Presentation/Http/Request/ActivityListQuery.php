@@ -25,6 +25,9 @@ final readonly class ActivityListQuery
         public ?string $from = null,
         #[OA\Property(description: 'Início máximo em ISO 8601.', nullable: true)]
         public ?string $to = null,
+        #[OA\Property(description: 'Ordem por início da atividade.', enum: ['asc', 'desc'], example: 'asc')]
+        #[Assert\Choice(choices: ['asc', 'desc'], message: 'A ordem informada é inválida.')]
+        public string $order = 'asc',
     ) {
     }
 }
