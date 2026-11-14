@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\ValueObject\IdentityProvider;
+use App\Identity\Domain\User\ValueObject\ProviderSubject;
 use App\Identity\Presentation\Http\Response\CurrentUserResponse;
+use App\Shared\Domain\ValueObject\Email;
 use Symfony\Component\HttpFoundation\Response;
 
 it('returns the authenticated user on me', function () {
@@ -22,6 +26,35 @@ it('returns the authenticated user on me', function () {
     expect($me->email)->toBe('me@example.com')
         ->and($me->cpf)->toBeNull()
         ->and($me->emailVerified)->toBeFalse();
+});
+
+it('reports the login providers of the account', function () {
+    authTestCreateUser($this, 'providers@example.com');
+    $accessToken = authTestAccessToken(authTestLogin($this, 'providers@example.com'));
+    $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
+
+    $response = $this->api->get('app_me', server: $server);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+    expect($this->api->deserializeResponse(CurrentUserResponse::class)->loginProviders)->toBe(['local']);
+
+    // O kernel reinicia entre requisições: busca a instância gerenciada antes de salvar.
+    $email = Email::fromString('providers@example.com')->value();
+    $user = authTestUserRepository($this)->findByEmail($email);
+    assert($user instanceof User);
+
+    $user->linkSocialIdentity(
+        provider: IdentityProvider::GOOGLE,
+        subject: ProviderSubject::fromString('google-sub-providers'),
+        email: $email,
+    );
+    authTestUserRepository($this)->save($user);
+
+    $response = $this->api->get('app_me', server: $server);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_OK);
+    expect($this->api->deserializeResponse(CurrentUserResponse::class)->loginProviders)
+        ->toEqualCanonicalizing(['local', 'google']);
 });
 
 it('reports the verified email state on me', function () {

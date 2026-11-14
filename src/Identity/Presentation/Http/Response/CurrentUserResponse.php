@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Identity\Presentation\Http\Response;
 
 use App\Identity\Domain\User\Entity\User;
+use App\Identity\Domain\User\Entity\UserIdentity;
 use App\Identity\Domain\User\ValueObject\OnboardingStatus;
 use App\Identity\Domain\User\ValueObject\UserLevel;
 use App\Identity\Domain\User\ValueObject\UserStatus;
@@ -16,6 +17,7 @@ use OpenApi\Attributes as OA;
 final readonly class CurrentUserResponse
 {
     /**
+     * @param list<string> $loginProviders
      * @param list<string> $modalities
      */
     public function __construct(
@@ -36,6 +38,14 @@ final readonly class CurrentUserResponse
 
         #[OA\Property(description: 'Indica se o e-mail canônico foi verificado.', example: false)]
         public bool $emailVerified,
+
+        #[OA\Property(
+            description: 'Provedores de login vinculados à conta.',
+            type: 'array',
+            items: new OA\Items(type: 'string', enum: ['local', 'google']),
+            example: ['local', 'google'],
+        )]
+        public array $loginProviders,
 
         #[OA\Property(example: 'John Doe')]
         public string $name,
@@ -94,6 +104,10 @@ final readonly class CurrentUserResponse
             age: $user->ageAt(Instant::now()),
             email: $user->email()->value(),
             emailVerified: $user->isEmailVerified(),
+            loginProviders: array_values(array_unique(array_map(
+                static fn (UserIdentity $identity): string => $identity->provider()->value,
+                $user->identities(),
+            ))),
             name: $user->name(),
             heightCm: $user->height()?->centimeters(),
             weightKg: $user->weight()?->kilograms(),
