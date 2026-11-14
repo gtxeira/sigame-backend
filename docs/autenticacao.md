@@ -312,6 +312,12 @@ O cliente deve tratar `401` de rota protegida assim:
 
 O ideal é renovar proativamente perto do fim de `expiresIn` (900 segundos), evitando a maioria dos `401`.
 
+Em um **BFF** (cliente server-side que compartilha a sessão entre várias requisições), `REFRESH_TOKEN_ALREADY_ROTATED`
+e `REFRESH_IN_PROGRESS` são concorrência normal, não sessão perdida: aguarde/repita e reutilize o par emitido pela
+requisição vencedora. Só limpe a sessão em `REFRESH_TOKEN_INVALID`, `REFRESH_TOKEN_EXPIRED`, `REFRESH_TOKEN_REUSED`
+e `ACCOUNT_SUSPENDED`. Quando a resposta de falha limpa o cookie, o BFF que ainda tem o token antigo deve ignorar
+essa limpeza para poder recuperar o par novo do cache/da resposta concorrente.
+
 ---
 
 ## 3. Login com Google
