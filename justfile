@@ -5,6 +5,7 @@ _compose  := "docker compose --env-file .env --env-file .env.dev --env-file .env
 _exec     := _compose + " exec"
 _php      := _exec + " php"
 _test_php := _exec + " -e APP_ENV=test -e XDEBUG_MODE=off php"
+_storage_bucket := "profile-images"
 
 # ── Docker 🐳 ────────────────────────────────────────────────────────────────
 
@@ -13,10 +14,11 @@ _test_php := _exec + " -e APP_ENV=test -e XDEBUG_MODE=off php"
 build:
     @{{ _compose }} build --pull --no-cache
 
-# Sobe os containers em modo detached (sem logs)
+# Sobe os containers em modo detached (sem logs) e habilita a leitura pública das fotos no Garage
 [group('Docker')]
 up:
     @{{ _compose }} up --detach
+    @i=0; until {{ _compose }} exec -T garage /garage bucket website --allow {{ _storage_bucket }} >/dev/null 2>&1; do i=$((i+1)); if [ $i -ge 30 ]; then echo "Não foi possível habilitar a leitura pública de {{ _storage_bucket }}; rode just storage-setup." >&2; exit 1; fi; sleep 1; done
 
 # Constrói e sobe os containers
 [group('Docker')]
@@ -65,8 +67,8 @@ messenger-failed:
 # Habilita leitura pública (website) do bucket de fotos no Garage local
 [group('Docker')]
 storage-setup:
-    @{{ _exec }} garage /garage bucket website --allow profile-images
-    @{{ _exec }} garage /garage bucket info profile-images
+    @{{ _exec }} garage /garage bucket website --allow {{ _storage_bucket }}
+    @{{ _exec }} garage /garage bucket info {{ _storage_bucket }}
 
 # Shell sh no container PHP
 [group('Docker')]

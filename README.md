@@ -183,7 +183,8 @@ Fluxos, exemplos de request/response, códigos de erro, rate limiting e configur
 As fotos de perfil ficam no bucket S3 `profile-images`, com escrita pela credencial da aplicação e leitura pública pelo endpoint website do Garage local.
 
 ```bash
-just storage-setup   # habilita leitura website do bucket no Garage
+just up              # sobe os containers e já habilita a leitura website do bucket
+just storage-setup   # reforça a habilitação (idempotente), quando necessário
 ```
 
 O upload aceita JPEG, PNG ou WebP de até 2 MB, **quadrado em 512×512 com tolerância de 5 px por lado** (507 a 517). O enquadramento é escolhido na interface e a imagem deve chegar já re-encodada pelo cliente. A referência persistida é a chave do objeto (`users/{id}/{uuid}.{ext}`), não a URL. Detalhes em [docs/infraestrutura.md](docs/infraestrutura.md#35-armazenamento-s3).

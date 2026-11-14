@@ -147,6 +147,8 @@ O Garage local usa `garage.toml`:
 
 O upload usa as credenciais da aplicação apenas para escrita/remoção. A leitura é pública pelo endpoint website do Garage (`:3902`) e a chave do objeto inclui um UUID aleatório. Para habilitar o acesso de leitura no bucket local:
 
+O `just up` sobe os containers e já habilita a leitura pública do bucket. Para reforçar ou rodar isoladamente:
+
 ```bash
 just storage-setup
 ```
@@ -161,7 +163,7 @@ Limites do upload:
 
 > O envio deve chegar já re-encodado pelo cliente (o que também remove EXIF). O processamento no servidor — WebP, crop, metadados, compressão e derivadas — está registrado como dívida técnica em [implementacao.md §5.1](implementacao.md#51-processamento-de-imagem).
 
-> Em produção, troque `S3_PUBLIC_URL` pelo domínio/CDN do bucket e mantenha a credencial na variável `S3_*`. A matriz definitiva de visibilidade (`DEC06`) pode exigir bucket privado com proxy ou URL assinada; a URL não é persistida, só a chave.
+> Em produção, troque `S3_PUBLIC_URL` pelo domínio/CDN do bucket e mantenha a credencial na variável `S3_*`. Use **HTTPS** quando a interface também for servida por HTTPS, para não bloquear as imagens por mixed content/CSP. A matriz definitiva de visibilidade (`DEC06`) pode exigir bucket privado com proxy ou URL assinada; a URL não é persistida, só a chave.
 
 ### 3.6 Lock
 
