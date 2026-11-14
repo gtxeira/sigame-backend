@@ -1486,6 +1486,10 @@ funil. Além disso, o login social não tem como fornecer a data no cadastro.
 - `PATCH /api/v1/users/me/birth-date` é write-once e responde `409 USER_BIRTH_DATE_ALREADY_SET` em alteração.
 - `USER_BIRTH_DATE_REQUIRED` e `USER_UNDER_MINIMUM_AGE` entram no catálogo público de Identity.
 - `GET /api/v1/users/me` passa a expor `birthDate` e `age` (derivada).
+- Um gate de `kernel.request` (`BirthDateGateListener`) responde `403 USER_PROFILE_INCOMPLETE` em toda rota
+  autenticada de uso enquanto a data não existe. Só `GET /users/me`, `PATCH /users/me/birth-date` e
+  `/api/v1/auth/*` permanecem disponíveis; `ADMIN_SIGAME` é isento. Conta ativa com data de menor (legado) recebe
+  `403 USER_UNDER_MINIMUM_AGE`.
 - O expurgo de contas incompletas ainda é manual; ver [controle-parental.md](controle-parental.md).
 - O planejamento de uso por menores (faixas, consentimento, acompanhantes) fica arquivado em
   [controle-parental.md](controle-parental.md), sem código correspondente.

@@ -93,7 +93,7 @@ it('rejects an underage account and removes it', function () {
     expect((int) $progressCount)->toBe(0);
 });
 
-it('requires the birth date to complete onboarding', function () {
+it('blocks onboarding while the birth date is missing', function () {
     authTestCreateUser($this, 'birth-onboarding@example.com', birthDate: null);
     $accessToken = authTestAccessToken(authTestLogin($this, 'birth-onboarding@example.com'));
 
@@ -103,8 +103,8 @@ it('requires the birth date to complete onboarding', function () {
         server: ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken],
     );
 
-    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['USER_BIRTH_DATE_REQUIRED']);
+    expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN)
+        ->and($this->api->errorCodes())->toBe(['USER_PROFILE_INCOMPLETE']);
 });
 
 it('rejects an unauthenticated birth date update', function () {

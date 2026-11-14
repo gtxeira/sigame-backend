@@ -174,8 +174,9 @@ pré-requisito do onboarding. A plataforma é restrita a maiores de 18 anos.
   informada indicar menos de 18 anos, a conta é removida e a resposta é `USER_UNDER_MINIMUM_AGE`.
 - `RN01.15` A idade nunca é persistida. É calculada em toda leitura, no fuso `America/Sao_Paulo`; nascidos em 29/02
   completam a idade em 01/03 dos anos não bissextos.
-- `RN01.16` Conta sem data de nascimento é **incompleta**: autentica, mas não conclui onboarding, não entra em grupo,
-  não participa de atividade e não acumula progressão.
+- `RN01.16` Conta sem data de nascimento é **incompleta**: autentica, mas não usa a plataforma. Toda rota autenticada
+  de uso responde `403 USER_PROFILE_INCOMPLETE`; só `GET /users/me`, `PATCH /users/me/birth-date` e o fluxo de
+  autenticação (`/api/v1/auth/*`) continuam disponíveis. Contas `ADMIN_SIGAME` são isentas.
 - `RN01.17` A correção de uma data de nascimento já definida é feita apenas por suporte, com registro de auditoria.
 
 #### Critérios de aceitação
@@ -198,6 +199,9 @@ pré-requisito do onboarding. A plataforma é restrita a maiores de 18 anos.
 - `CA01.14` Uma conta sem data de nascimento não conclui o onboarding.
 - `CA01.15` A resposta de leitura da própria conta expõe a data de nascimento e a idade derivada, nunca a idade
   persistida.
+- `CA01.16` As rotas de uso da plataforma respondem `403 USER_PROFILE_INCOMPLETE` enquanto a data não estiver
+  definida; apenas `GET /users/me`, `PATCH /users/me/birth-date` e o fluxo de autenticação continuam disponíveis.
+  Contas `ADMIN_SIGAME` são isentas.
 
 ### RF02 — Autenticar usuário
 

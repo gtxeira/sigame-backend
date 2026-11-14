@@ -50,6 +50,15 @@ final class IdentityErrors
         );
     }
 
+    public static function profileIncomplete(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::UserProfileIncomplete,
+            message: 'Informe sua data de nascimento para usar o SIGAME.',
+            field: 'birthDate',
+        );
+    }
+
     public static function underMinimumAge(int $minimumAge): DomainError
     {
         return self::error(

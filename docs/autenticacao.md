@@ -647,11 +647,16 @@ Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastra
 
 A plataforma é restrita a **maiores de 18 anos** (`ADR-044`).
 
-- O cadastro não pede data de nascimento. A conta nasce **incompleta**: autentica e lê o próprio perfil, mas não
-  conclui onboarding, não entra em grupo e não participa de atividade.
+- O cadastro não pede data de nascimento. A conta nasce **incompleta**: autentica e lê o próprio perfil, mas **não
+  usa a plataforma**. Toda rota autenticada de uso (perfil, grupos, atividades, progresso, notificações etc.) responde
+  `403 USER_PROFILE_INCOMPLETE`.
+- A única exceção além do fluxo de autenticação (`/api/v1/auth/*`, incluindo logout e renovação) é `GET /users/me` e
+  o próprio `PATCH /users/me/birth-date`. Contas `ADMIN_SIGAME` são isentas do bloqueio.
 - A data é definida uma única vez em `PATCH /api/v1/users/me/birth-date` (`AAAA-MM-DD`) e não pode ser alterada pelo
   usuário. Correção só por suporte, com auditoria.
 - O onboarding exige a data (`USER_BIRTH_DATE_REQUIRED`).
+- Se uma conta ativa com data de menor de idade existir por legado/importação, o gate também responde
+  `403 USER_UNDER_MINIMUM_AGE`; a definição da data já remove a conta incompleta ou suspende a conta com histórico.
 - Se a data indicar menos de 18 anos, a conta incompleta é **removida** e a resposta é `USER_UNDER_MINIMUM_AGE`. A
   cascata apaga identidades, refresh tokens e tokens de identidade; o evento `user.deleted` remove a projeção de
   progresso na Gamification.

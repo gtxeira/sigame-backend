@@ -18,6 +18,7 @@ enum IdentityErrorCode: string
     case UserCpfAlreadySet = 'USER_CPF_ALREADY_SET';
     case UserBirthDateRequired = 'USER_BIRTH_DATE_REQUIRED';
     case UserBirthDateAlreadySet = 'USER_BIRTH_DATE_ALREADY_SET';
+    case UserProfileIncomplete = 'USER_PROFILE_INCOMPLETE';
     case UserUnderMinimumAge = 'USER_UNDER_MINIMUM_AGE';
     case EmailAlreadyExists = 'EMAIL_ALREADY_EXISTS';
     case UserNotFound = 'USER_NOT_FOUND';
@@ -94,7 +95,8 @@ enum IdentityErrorCode: string
             self::UserNotFound => ErrorKind::NotFound,
 
             self::AccountSuspended,
-            self::CannotSuspendAdmin => ErrorKind::Forbidden,
+            self::CannotSuspendAdmin,
+            self::UserProfileIncomplete => ErrorKind::Forbidden,
         };
     }
 }
