@@ -7,18 +7,18 @@ namespace App\Identity\Application\UseCase\Password;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\Service\TokenPairIssuerInterface;
 use App\Identity\Domain\Error\IdentityErrors;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\PasswordReset\Repository\PasswordResetTicketRepositoryInterface;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserEmailVerified;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
+use App\Identity\Domain\User\ValueObject\PlainPassword;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\ValueObject\Instant;
 use Psr\Clock\ClockInterface;
 
 /**
- * Consome o token, grava a nova senha e revoga todas as sessões.
+ * Consome o ticket, grava a nova senha e revoga todas as sessões.
  *
  * Como o reset só chega pelo e-mail canônico, concluir a troca também prova
  * a posse do endereço: um e-mail ainda não verificado é marcado como verificado.
@@ -26,7 +26,7 @@ use Psr\Clock\ClockInterface;
 final readonly class ResetPasswordHandler
 {
     public function __construct(
-        private IdentityTokenRepositoryInterface $tokenRepository,
+        private PasswordResetTicketRepositoryInterface $ticketRepository,
         private UserRepositoryInterface $userRepository,
         private PasswordHasherInterface $passwordHasher,
         private TokenPairIssuerInterface $tokenPairIssuer,
@@ -38,28 +38,32 @@ final readonly class ResetPasswordHandler
     /**
      * @return Result<bool>
      */
-    public function __invoke(string $rawToken, string $newPassword): Result
+    public function __invoke(string $rawTicket, string $newPassword): Result
     {
-        $token = $this->tokenRepository->findByHash(hash('sha256', $rawToken));
+        $passwordResult = PlainPassword::fromString($newPassword);
 
-        if (null === $token || !$token->matchesPurpose(IdentityTokenPurpose::PasswordReset)) {
-            return Result::failure([IdentityErrors::passwordResetTokenInvalid()]);
+        if ($passwordResult->isInvalid()) {
+            return Result::failure($passwordResult->errors());
         }
 
-        if ($token->isConsumed()) {
-            return Result::failure([IdentityErrors::passwordResetTokenInvalid()]);
+        $ticket = $this->ticketRepository->findByHash(hash('sha256', $rawTicket));
+
+        if (null === $ticket || $ticket->isConsumed()) {
+            return Result::failure([IdentityErrors::passwordResetTicketInvalid()]);
         }
 
-        if ($token->isExpiredAt(Instant::fromDateTime($this->clock->now()))) {
-            return Result::failure([IdentityErrors::passwordResetTokenExpired()]);
+        $now = Instant::fromDateTime($this->clock->now());
+
+        if ($ticket->isExpiredAt($now)) {
+            return Result::failure([IdentityErrors::passwordResetTicketExpired()]);
         }
 
-        if (!$this->tokenRepository->markConsumed($token)) {
-            return Result::failure([IdentityErrors::passwordResetTokenInvalid()]);
+        if (!$this->ticketRepository->markConsumed($ticket)) {
+            return Result::failure([IdentityErrors::passwordResetTicketInvalid()]);
         }
 
         /** @var User $user */
-        $user = $token->user();
+        $user = $ticket->user();
 
         if (!$user->isActive()) {
             return Result::failure([IdentityErrors::accountSuspended()]);
@@ -68,7 +72,7 @@ final readonly class ResetPasswordHandler
         $user->setPassword($this->passwordHasher->hash($newPassword));
 
         if (!$user->isEmailVerified()) {
-            $user->verifyEmail(Instant::fromDateTime($this->clock->now()));
+            $user->verifyEmail($now);
 
             $this->eventDispatcher->dispatch(UserEmailVerified::now(
                 userId: $user->id()->value(),

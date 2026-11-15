@@ -66,8 +66,8 @@ it('reports the verified email state on me', function () {
         'password' => 'secret123',
     ]);
 
-    $token = (string) authTestMailer($this)->lastToken('verification', $email);
-    $this->api->post('app_auth_email_verify', ['token' => $token]);
+    $code = (string) authTestMailer($this)->lastCode('verification', $email);
+    $this->api->post('app_auth_email_verify', ['email' => $email, 'code' => $code]);
 
     $accessToken = authTestAccessToken(authTestLogin($this, $email));
     $response = $this->api->get('app_me', server: [

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Identity\Application\Service\PasswordHasherInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\IdentityProvider;
@@ -168,18 +169,29 @@ function authTestEntityManager(FunctionalTestCase $test): EntityManagerInterface
 }
 
 /**
- * Força a expiração de um token de identidade já emitido.
+ * Força a expiração do desafio OTP ativo do usuário.
  *
  * O UPDATE roda na transação do teste e o EntityManager é limpo para que o
- * próximo request hidrate o token com a nova data.
+ * próximo request hidrate o desafio com a nova data.
  */
-function authTestExpireIdentityToken(FunctionalTestCase $test, string $rawToken): void
-{
+function authTestExpireOtpChallenge(
+    FunctionalTestCase $test,
+    string $email,
+    OtpPurpose $purpose = OtpPurpose::EmailVerification,
+): void {
     $em = authTestEntityManager($test);
 
     $em->getConnection()->executeStatement(
-        "UPDATE identity_tokens SET expires_at = now() - interval '1 hour' WHERE token_hash = ?",
-        [hash('sha256', $rawToken)],
+        <<<'SQL'
+            UPDATE identity_otp_challenges c
+            SET expires_at = now() - interval '1 hour'
+            FROM users u
+            WHERE c.user_id = u.id
+              AND u.email = ?
+              AND c.purpose = ?
+              AND c.consumed_at IS NULL
+            SQL,
+        [mb_strtolower(trim($email)), $purpose->value],
     );
     $em->clear();
 }

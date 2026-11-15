@@ -12,7 +12,7 @@ use App\Shared\Domain\ValueObject\Instant;
  */
 interface IdentityMailerInterface
 {
-    public function sendEmailVerification(Email $to, string $token, Instant $expiresAt): void;
+    public function sendEmailVerification(Email $to, string $code, Instant $expiresAt): void;
 
-    public function sendPasswordReset(Email $to, string $token, Instant $expiresAt): void;
+    public function sendPasswordReset(Email $to, string $code, Instant $expiresAt): void;
 }

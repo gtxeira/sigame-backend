@@ -287,39 +287,75 @@ final class IdentityErrors
         );
     }
 
-    public static function emailVerificationTokenInvalid(): DomainError
+    public static function emailVerificationCodeInvalid(): DomainError
     {
         return self::error(
-            code: IdentityErrorCode::EmailVerificationTokenInvalid,
-            message: 'O token de verificação de e-mail é inválido.',
-            field: 'token',
+            code: IdentityErrorCode::EmailVerificationCodeInvalid,
+            message: 'O código de verificação de e-mail é inválido.',
+            field: 'code',
         );
     }
 
-    public static function emailVerificationTokenExpired(): DomainError
+    public static function emailVerificationCodeExpired(): DomainError
     {
         return self::error(
-            code: IdentityErrorCode::EmailVerificationTokenExpired,
-            message: 'O token de verificação de e-mail expirou. Solicite um novo.',
-            field: 'token',
+            code: IdentityErrorCode::EmailVerificationCodeExpired,
+            message: 'O código de verificação de e-mail expirou. Solicite um novo.',
+            field: 'code',
         );
     }
 
-    public static function passwordResetTokenInvalid(): DomainError
+    public static function emailVerificationCodeAttemptsExceeded(): DomainError
     {
         return self::error(
-            code: IdentityErrorCode::PasswordResetTokenInvalid,
-            message: 'O token de redefinição de senha é inválido.',
-            field: 'token',
+            code: IdentityErrorCode::EmailVerificationCodeAttemptsExceeded,
+            message: 'Muitas tentativas inválidas. Solicite um novo código de verificação.',
+            field: 'code',
         );
     }
 
-    public static function passwordResetTokenExpired(): DomainError
+    public static function passwordResetCodeInvalid(): DomainError
     {
         return self::error(
-            code: IdentityErrorCode::PasswordResetTokenExpired,
-            message: 'O token de redefinição de senha expirou. Solicite um novo.',
-            field: 'token',
+            code: IdentityErrorCode::PasswordResetCodeInvalid,
+            message: 'O código de redefinição de senha é inválido.',
+            field: 'code',
+        );
+    }
+
+    public static function passwordResetCodeExpired(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordResetCodeExpired,
+            message: 'O código de redefinição de senha expirou. Solicite um novo.',
+            field: 'code',
+        );
+    }
+
+    public static function passwordResetCodeAttemptsExceeded(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordResetCodeAttemptsExceeded,
+            message: 'Muitas tentativas inválidas. Solicite um novo código de redefinição.',
+            field: 'code',
+        );
+    }
+
+    public static function passwordResetTicketInvalid(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordResetTicketInvalid,
+            message: 'A autorização para redefinir a senha é inválida. Solicite um novo código.',
+            field: 'resetToken',
+        );
+    }
+
+    public static function passwordResetTicketExpired(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::PasswordResetTicketExpired,
+            message: 'A autorização para redefinir a senha expirou. Solicite um novo código.',
+            field: 'resetToken',
         );
     }
 

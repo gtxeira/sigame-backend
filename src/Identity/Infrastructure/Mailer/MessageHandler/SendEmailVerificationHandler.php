@@ -23,15 +23,15 @@ final readonly class SendEmailVerificationHandler
     public function __invoke(SendEmailVerificationMessage $message): void
     {
         $decoded = $this->decoder->decode(
-            encryptedToken: $message->encryptedToken,
+            encryptedCode: $message->encryptedCode,
             email: $message->email,
             expiresAtTimestamp: $message->expiresAtTimestamp,
-            tokenHash: $message->tokenHash,
+            challengeId: $message->challengeId,
         );
 
         $this->mailer->sendEmailVerification(
             $decoded->to,
-            $decoded->rawToken,
+            $decoded->code,
             $decoded->expiresAt,
         );
     }

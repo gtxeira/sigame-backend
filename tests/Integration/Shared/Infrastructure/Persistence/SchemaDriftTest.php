@@ -35,5 +35,6 @@ it('keeps the database schema in sync except for known partial index predicates'
         'CREATE UNIQUE INDEX uniq_activity_attendances_active ON activity_attendances (activity_id, user_id) WHERE (status IN (\'enrolled\', \'checked_in\', \'validated\'))',
         'DROP INDEX idx_groups_forming_idle',
         'DROP INDEX uniq_groups_owner_name_modality',
+        'DROP INDEX uniq_identity_otp_challenges_active',
     ]);
 });

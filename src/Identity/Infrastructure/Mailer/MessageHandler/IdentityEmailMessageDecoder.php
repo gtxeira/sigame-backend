@@ -28,16 +28,16 @@ final readonly class IdentityEmailMessageDecoder
     }
 
     public function decode(
-        string $encryptedToken,
+        string $encryptedCode,
         string $email,
         int $expiresAtTimestamp,
-        string $tokenHash,
+        string $challengeId,
     ): DecodedIdentityEmail {
         try {
-            $rawToken = $this->encryptor->decrypt(EncryptedPayload::fromBase64($encryptedToken));
+            $code = $this->encryptor->decrypt(EncryptedPayload::fromBase64($encryptedCode));
         } catch (PayloadDecryptionFailed|InvalidArgumentException $exception) {
             $this->logger->error('Falha ao decifrar payload de e-mail de identidade', [
-                'tokenHash' => $tokenHash,
+                'challengeId' => $challengeId,
                 'reason' => $exception->getMessage(),
             ]);
 
@@ -53,7 +53,7 @@ final readonly class IdentityEmailMessageDecoder
 
         if ($emailResult->isInvalid() || $expiresAtResult->isInvalid()) {
             $this->logger->error('Payload de e-mail de identidade com dados inválidos', [
-                'tokenHash' => $tokenHash,
+                'challengeId' => $challengeId,
             ]);
 
             throw new UnrecoverableMessageHandlingException('Payload de e-mail inválido.');
@@ -61,7 +61,7 @@ final readonly class IdentityEmailMessageDecoder
 
         return new DecodedIdentityEmail(
             to: $emailResult->value(),
-            rawToken: $rawToken,
+            code: $code,
             expiresAt: $expiresAtResult->value(),
         );
     }

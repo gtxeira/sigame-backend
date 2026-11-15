@@ -35,22 +35,42 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'auth_email_verify' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:AUTH_EMAIL_VERIFY_RATE_LIMIT)%',
-                'interval' => '1 minute',
+                'interval' => '10 minutes',
+            ],
+            'auth_email_verify_ip' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_EMAIL_VERIFY_IP_RATE_LIMIT)%',
+                'interval' => '10 minutes',
             ],
             'auth_email_resend' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:AUTH_EMAIL_RESEND_RATE_LIMIT)%',
-                'interval' => '1 minute',
+                'interval' => '15 minutes',
             ],
             'auth_password_forgot' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:AUTH_PASSWORD_FORGOT_RATE_LIMIT)%',
-                'interval' => '1 minute',
+                'interval' => '15 minutes',
+            ],
+            'auth_password_forgot_ip' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_PASSWORD_FORGOT_IP_RATE_LIMIT)%',
+                'interval' => '1 hour',
+            ],
+            'auth_password_otp_verify' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_PASSWORD_OTP_VERIFY_RATE_LIMIT)%',
+                'interval' => '10 minutes',
+            ],
+            'auth_password_otp_verify_ip' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_PASSWORD_OTP_VERIFY_IP_RATE_LIMIT)%',
+                'interval' => '10 minutes',
             ],
             'auth_password_reset' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:AUTH_PASSWORD_RESET_RATE_LIMIT)%',
-                'interval' => '1 minute',
+                'interval' => '10 minutes',
             ],
             'auth_password_change' => [
                 'policy' => 'sliding_window',

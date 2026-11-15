@@ -271,6 +271,7 @@ it('documents every public api operation', function () {
             '/api/v1/auth/social/{provider}/link',
             '/api/v1/auth/email/verify',
             '/api/v1/auth/password/forgot',
+            '/api/v1/auth/password/otp/verify',
             '/api/v1/auth/password/reset',
             '/api/v1/users/me',
             '/api/v1/users/me/birth-date',

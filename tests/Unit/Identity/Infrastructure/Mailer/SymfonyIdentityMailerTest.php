@@ -54,12 +54,12 @@ it('centralizes the brazilian timezone and the readable format', function () {
         ->and(MailDateFormatter::FORMAT)->toBe('d/m/Y H:i');
 });
 
-it('renders the verification email date in America/Sao_Paulo', function () {
+it('renders the verification code and date in America/Sao_Paulo', function () {
     $subject = mailerTestSubject();
 
     $subject['mailer']->sendEmailVerification(
         to: Email::fromString('user@example.com')->value(),
-        token: 'token-123',
+        code: '123456',
         expiresAt: mailerTestInstant('2026-11-07T02:30:00+00:00'),
     );
 
@@ -69,21 +69,22 @@ it('renders the verification email date in America/Sao_Paulo', function () {
     $rendered = mailerTestRender($email);
 
     expect($rendered)
+        ->toContain('123456')
         ->toContain('06/11/2026 23:30')
         ->not->toContain('07/11/2026 02:30')
-        ->toContain('https://app.example.com/verificar-email?token=token-123')
-        ->and($email->getSubject())->toBe('Confirme seu e-mail no SIGAME')
+        ->toContain('https://app.example.com/verificar-email?email=user%40example.com')
+        ->and($email->getSubject())->toBe('Seu código de confirmação do SIGAME')
         ->and($email->getTo()[0]->getAddress())->toBe('user@example.com')
         ->and($email->getFrom()[0]->getAddress())->toBe('noreply@sigame.com.br')
         ->and($email->getFrom()[0]->getName())->toBe('SIGAME');
 });
 
-it('renders the password reset email date in America/Sao_Paulo', function () {
+it('renders the password reset code and date in America/Sao_Paulo', function () {
     $subject = mailerTestSubject();
 
     $subject['mailer']->sendPasswordReset(
         to: Email::fromString('user@example.com')->value(),
-        token: 'reset-456',
+        code: '654321',
         expiresAt: mailerTestInstant('2026-11-07T02:30:00+00:00'),
     );
 
@@ -93,10 +94,11 @@ it('renders the password reset email date in America/Sao_Paulo', function () {
     $rendered = mailerTestRender($email);
 
     expect($rendered)
+        ->toContain('654321')
         ->toContain('06/11/2026 23:30')
         ->not->toContain('07/11/2026 02:30')
-        ->toContain('https://app.example.com/redefinir-senha?token=reset-456')
-        ->and($email->getSubject())->toBe('Redefinição de senha do SIGAME');
+        ->toContain('https://app.example.com/recuperar-senha?email=user%40example.com')
+        ->and($email->getSubject())->toBe('Seu código para redefinir a senha do SIGAME');
 });
 
 it('shows the brazilian day when the expiration happens just after midnight utc', function () {
@@ -104,7 +106,7 @@ it('shows the brazilian day when the expiration happens just after midnight utc'
 
     $subject['mailer']->sendPasswordReset(
         to: Email::fromString('user@example.com')->value(),
-        token: 'reset-789',
+        code: '111222',
         expiresAt: mailerTestInstant('2026-11-07T03:00:00+00:00'),
     );
 

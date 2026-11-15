@@ -104,14 +104,14 @@ it('rejects a password reset for an account suspended after the request', functi
     $user = authTestCreateUser($this, $email);
 
     $this->api->post('app_auth_password_forgot', ['email' => $email]);
-    $token = (string) authTestMailer($this)->lastToken('password_reset', $email);
+    $code = (string) authTestMailer($this)->lastCode('password_reset', $email);
 
     $user->suspend();
     authTestUserRepository($this)->save($user);
 
-    $response = $this->api->post('app_auth_password_reset', [
-        'token' => $token,
-        'password' => 'new-secret-123',
+    $response = $this->api->post('app_auth_password_otp_verify', [
+        'email' => $email,
+        'code' => $code,
     ]);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_FORBIDDEN)

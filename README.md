@@ -60,19 +60,19 @@ Grupos informais costumam depender de convites, mensagens soltas e memória. Nã
 
 ## Stack
 
-| Camada | Tecnologia |
-|---|---|
-| Runtime | PHP 8.5 |
-| Framework | Symfony 8.1 |
-| Web server | FrankenPHP 1 + Caddy |
-| Banco | PostgreSQL 18 |
-| ORM | Doctrine ORM 3 + Doctrine Migrations 4 |
-| Autenticação | `lcobucci/jwt`, `firebase/php-jwt` e autenticador customizado |
-| Serialização / validação | Symfony Serializer e Validator |
-| Storage | Flysystem 3 + S3 (Garage local) |
-| Testes | Pest 5 + Mockery + Foundry + DAMA |
-| Qualidade | PHPStan 6, php-cs-fixer (`@Symfony`) e CaptainHook |
-| Documentação da API | NelmioApiDocBundle + Scalar |
+| Camada                   | Tecnologia                                                    |
+| ------------------------ | ------------------------------------------------------------- |
+| Runtime                  | PHP 8.5                                                       |
+| Framework                | Symfony 8.1                                                   |
+| Web server               | FrankenPHP 1 + Caddy                                          |
+| Banco                    | PostgreSQL 18                                                 |
+| ORM                      | Doctrine ORM 3 + Doctrine Migrations 4                        |
+| Autenticação             | `lcobucci/jwt`, `firebase/php-jwt` e autenticador customizado |
+| Serialização / validação | Symfony Serializer e Validator                                |
+| Storage                  | Flysystem 3 + S3 (Garage local)                               |
+| Testes                   | Pest 5 + Mockery + Foundry + DAMA                             |
+| Qualidade                | PHPStan 6, php-cs-fixer (`@Symfony`) e CaptainHook            |
+| Documentação da API      | NelmioApiDocBundle + Scalar                                   |
 
 ## Arquitetura em resumo
 
@@ -116,14 +116,14 @@ Na primeira subida, o entrypoint instala as dependências, espera o PostgreSQL e
 
 ### URLs locais
 
-| Recurso | URL |
-|---|---|
-| API | <https://api.sigame.localhost:8443> |
-| Documentação interativa | <https://api.sigame.localhost:8443/doc> |
-| OpenAPI JSON | <https://api.sigame.localhost:8443/doc.json> |
-| Readiness | <https://api.sigame.localhost:8443/api/health/readiness> |
-| Mailpit (e-mails de desenvolvimento) | <http://localhost:8025> |
-| Diagnóstico do OAuth Google (só em `dev`) | <https://localhost:8443/dev/google-oauth> |
+| Recurso                                   | URL                                                      |
+| ----------------------------------------- | -------------------------------------------------------- |
+| API                                       | <https://api.sigame.localhost:8443>                      |
+| Documentação interativa                   | <https://api.sigame.localhost:8443/doc>                  |
+| OpenAPI JSON                              | <https://api.sigame.localhost:8443/doc.json>             |
+| Readiness                                 | <https://api.sigame.localhost:8443/api/health/readiness> |
+| Mailpit (e-mails de desenvolvimento)      | <http://localhost:8025>                                  |
+| Diagnóstico do OAuth Google (só em `dev`) | <https://localhost:8443/dev/google-oauth>                |
 
 O certificado TLS é autoassinado; aceite-o no navegador na primeira visita.
 
@@ -134,7 +134,7 @@ O certificado TLS é autoassinado; aceite-o no navegador na primeira visita.
 - `.env.local` — segredos e overrides locais, **não versionado**;
 - `.env.test` — configuração da suíte de testes.
 
-Para o login com Google, preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` em `.env.local` e cadastre `GOOGLE_REDIRECT_URI_DEV` como *Authorized redirect URI* no Google Cloud Console. O passo a passo está em [docs/autenticacao.md](docs/autenticacao.md#38-testando-em-desenvolvimento).
+Para o login com Google, preencha `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` em `.env.local` e cadastre `GOOGLE_REDIRECT_URI_DEV` como _Authorized redirect URI_ no Google Cloud Console. O passo a passo está em [docs/autenticacao.md](docs/autenticacao.md#38-testando-em-desenvolvimento).
 
 A lista completa de variáveis está em [docs/infraestrutura.md](docs/infraestrutura.md).
 
@@ -142,27 +142,27 @@ A lista completa de variáveis está em [docs/infraestrutura.md](docs/infraestru
 
 Rotas de negócio usam `/api/v1`. Probes operacionais usam `/api/health`, sem versionamento.
 
-| Método | Rota | Autenticação | Descrição |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/register` | Pública | Cadastrar usuário |
-| `POST` | `/api/v1/auth/login` | Pública | Autenticar com e-mail e senha |
-| `POST` | `/api/v1/auth/social/{provider}/start` | Pública (Bearer opcional) | Iniciar o fluxo de login social |
-| `POST` | `/api/v1/auth/social/{provider}/callback` | Pública + cookie | Concluir o login social |
-| `POST` | `/api/v1/auth/social/{provider}/link` | Bearer JWT | Vincular conta social pelo ticket |
-| `POST` | `/api/v1/auth/email/verify` | Pública | Verificar o e-mail |
-| `POST` | `/api/v1/auth/email/verification/resend` | Bearer JWT | Reenviar verificação de e-mail |
-| `POST` | `/api/v1/auth/password/forgot` | Pública | Solicitar redefinição de senha |
-| `POST` | `/api/v1/auth/password/reset` | Pública | Redefinir a senha |
-| `POST` | `/api/v1/auth/refresh` | Cookie | Renovar o par de tokens |
-| `POST` | `/api/v1/auth/logout` | Cookie | Encerrar a sessão atual |
-| `POST` | `/api/v1/auth/logout/all` | Bearer JWT | Encerrar todas as sessões |
-| `GET` | `/api/v1/users/me` | Bearer JWT | Obter os dados do usuário autenticado |
-| `PATCH` | `/api/v1/users/me/cpf` | Bearer JWT | Definir o CPF (write-once) |
-| `POST` | `/api/v1/users/me/onboarding` | Bearer JWT | Concluir o onboarding e alcançar o nível 2 |
-| `POST` | `/api/v1/users/me/password` | Bearer JWT | Alterar a senha |
-| `POST` | `/api/v1/users/me/identities/{provider}` | Bearer JWT | Vincular identidade social |
-| `GET` | `/api/health/liveness` | Pública | Verificar a execução da aplicação |
-| `GET` | `/api/health/readiness` | Pública | Verificar a prontidão e o banco |
+| Método  | Rota                                      | Autenticação              | Descrição                                  |
+| ------- | ----------------------------------------- | ------------------------- | ------------------------------------------ |
+| `POST`  | `/api/v1/auth/register`                   | Pública                   | Cadastrar usuário                          |
+| `POST`  | `/api/v1/auth/login`                      | Pública                   | Autenticar com e-mail e senha              |
+| `POST`  | `/api/v1/auth/social/{provider}/start`    | Pública (Bearer opcional) | Iniciar o fluxo de login social            |
+| `POST`  | `/api/v1/auth/social/{provider}/callback` | Pública + cookie          | Concluir o login social                    |
+| `POST`  | `/api/v1/auth/social/{provider}/link`     | Bearer JWT                | Vincular conta social pelo ticket          |
+| `POST`  | `/api/v1/auth/email/verify`               | Pública                   | Verificar o e-mail                         |
+| `POST`  | `/api/v1/auth/email/verification/resend`  | Bearer JWT                | Reenviar verificação de e-mail             |
+| `POST`  | `/api/v1/auth/password/forgot`            | Pública                   | Solicitar redefinição de senha             |
+| `POST`  | `/api/v1/auth/password/reset`             | Pública                   | Redefinir a senha                          |
+| `POST`  | `/api/v1/auth/refresh`                    | Cookie                    | Renovar o par de tokens                    |
+| `POST`  | `/api/v1/auth/logout`                     | Cookie                    | Encerrar a sessão atual                    |
+| `POST`  | `/api/v1/auth/logout/all`                 | Bearer JWT                | Encerrar todas as sessões                  |
+| `GET`   | `/api/v1/users/me`                        | Bearer JWT                | Obter os dados do usuário autenticado      |
+| `PATCH` | `/api/v1/users/me/cpf`                    | Bearer JWT                | Definir o CPF (write-once)                 |
+| `POST`  | `/api/v1/users/me/onboarding`             | Bearer JWT                | Concluir o onboarding e alcançar o nível 2 |
+| `POST`  | `/api/v1/users/me/password`               | Bearer JWT                | Alterar a senha                            |
+| `POST`  | `/api/v1/users/me/identities/{provider}`  | Bearer JWT                | Vincular identidade social                 |
+| `GET`   | `/api/health/liveness`                    | Pública                   | Verificar a execução da aplicação          |
+| `GET`   | `/api/health/readiness`                   | Pública                   | Verificar a prontidão e o banco            |
 
 O contrato completo, com schemas e exemplos, é servido em `/doc`.
 
@@ -238,16 +238,16 @@ Módulos implementados: `Identity`, `Groups`, `Activities`, `Gamification` e `No
 
 ## Documentação
 
-| Documento | Conteúdo |
-|---|---|
-| [docs/arquitetura.md](docs/arquitetura.md) | Princípios, módulos, camadas, modelo de domínio e testes |
-| [docs/autenticacao.md](docs/autenticacao.md) | Tokens, endpoints, erros, rate limiting e Google |
-| [docs/desenvolvimento.md](docs/desenvolvimento.md) | Ambiente local, comandos, testes, qualidade e debug |
-| [docs/infraestrutura.md](docs/infraestrutura.md) | Serviços, portas, variáveis, S3/Garage e produção |
-| [docs/api-documentation.md](docs/api-documentation.md) | Convenções de tags, summaries, segurança e versionamento da OpenAPI |
-| [docs/implementacao.md](docs/implementacao.md) | Estado atual, roadmap, decisões abertas, migrations e dívidas técnicas |
-| [docs/decisoes.md](docs/decisoes.md) | Registro do porquê das decisões arquiteturais e de produto |
-| [docs/requisitos/levantamento-de-requisitos.md](docs/requisitos/levantamento-de-requisitos.md) | Requisitos funcionais, regras de negócio e critérios de aceitação |
+| Documento                                                                                      | Conteúdo                                                               |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [docs/arquitetura.md](docs/arquitetura.md)                                                     | Princípios, módulos, camadas, modelo de domínio e testes               |
+| [docs/autenticacao.md](docs/autenticacao.md)                                                   | Tokens, endpoints, erros, rate limiting e Google                       |
+| [docs/desenvolvimento.md](docs/desenvolvimento.md)                                             | Ambiente local, comandos, testes, qualidade e debug                    |
+| [docs/infraestrutura.md](docs/infraestrutura.md)                                               | Serviços, portas, variáveis, S3/Garage e produção                      |
+| [docs/api-documentation.md](docs/api-documentation.md)                                         | Convenções de tags, summaries, segurança e versionamento da OpenAPI    |
+| [docs/implementacao.md](docs/implementacao.md)                                                 | Estado atual, roadmap, decisões abertas, migrations e dívidas técnicas |
+| [docs/decisoes.md](docs/decisoes.md)                                                           | Registro do porquê das decisões arquiteturais e de produto             |
+| [docs/requisitos/levantamento-de-requisitos.md](docs/requisitos/levantamento-de-requisitos.md) | Requisitos funcionais, regras de negócio e critérios de aceitação      |
 
 ## Contribuição
 

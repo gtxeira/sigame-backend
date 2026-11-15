@@ -30,20 +30,20 @@ function identityHandlerTestDecoder(): IdentityEmailMessageDecoder
     );
 }
 
-function identityHandlerTestEncryptedToken(string $rawToken): string
+function identityHandlerTestEncryptedCode(string $code): string
 {
-    return identityHandlerTestEncryptor()->encrypt($rawToken)->toBase64();
+    return identityHandlerTestEncryptor()->encrypt($code)->toBase64();
 }
 
 it('delivers the email verification through the mailer', function () {
-    $rawToken = 'verification-token';
+    $code = '123456';
 
     $mailer = Mockery::mock(IdentityMailerInterface::class);
     $mailer->shouldReceive('sendEmailVerification')
         ->once()
         ->with(
             Mockery::on(static fn (Email $email): bool => 'verify@example.com' === $email->value()),
-            $rawToken,
+            $code,
             Mockery::on(static fn (Instant $expiresAt): bool => 1767225600 === $expiresAt->timestamp()),
         );
 
@@ -51,21 +51,21 @@ it('delivers the email verification through the mailer', function () {
 
     $handler(new SendEmailVerificationMessage(
         email: 'verify@example.com',
-        encryptedToken: identityHandlerTestEncryptedToken($rawToken),
+        encryptedCode: identityHandlerTestEncryptedCode($code),
         expiresAtTimestamp: 1767225600,
-        tokenHash: hash('sha256', $rawToken),
+        challengeId: '019c0000-0000-7000-8000-000000000000',
     ));
 });
 
 it('delivers the password reset through the mailer', function () {
-    $rawToken = 'reset-token';
+    $code = '654321';
 
     $mailer = Mockery::mock(IdentityMailerInterface::class);
     $mailer->shouldReceive('sendPasswordReset')
         ->once()
         ->with(
             Mockery::on(static fn (Email $email): bool => 'reset@example.com' === $email->value()),
-            $rawToken,
+            $code,
             Mockery::on(static fn (Instant $expiresAt): bool => 1767225600 === $expiresAt->timestamp()),
         );
 
@@ -73,9 +73,9 @@ it('delivers the password reset through the mailer', function () {
 
     $handler(new SendPasswordResetMessage(
         email: 'reset@example.com',
-        encryptedToken: identityHandlerTestEncryptedToken($rawToken),
+        encryptedCode: identityHandlerTestEncryptedCode($code),
         expiresAtTimestamp: 1767225600,
-        tokenHash: hash('sha256', $rawToken),
+        challengeId: '019c0000-0000-7000-8000-000000000000',
     ));
 });
 
@@ -87,8 +87,8 @@ it('does not call the mailer when the payload is invalid', function () {
 
     expect(static fn () => $handler(new SendPasswordResetMessage(
         email: 'reset@example.com',
-        encryptedToken: 'invalid-payload',
+        encryptedCode: 'invalid-payload',
         expiresAtTimestamp: 1767225600,
-        tokenHash: 'hash',
+        challengeId: '019c0000-0000-7000-8000-000000000000',
     )))->toThrow(UnrecoverableMessageHandlingException::class);
 });

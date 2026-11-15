@@ -10,46 +10,46 @@ use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
 
 /**
- * Mailer de teste que guarda os tokens em memória.
+ * Mailer de teste que guarda os códigos em memória.
  */
 final class RecordingIdentityMailer implements IdentityMailerInterface
 {
     /**
-     * @var list<array{type: string, email: string, token: string, expiresAt: string}>
+     * @var list<array{type: string, email: string, code: string, expiresAt: string}>
      */
     private array $messages = [];
 
-    public function sendEmailVerification(Email $to, string $token, Instant $expiresAt): void
+    public function sendEmailVerification(Email $to, string $code, Instant $expiresAt): void
     {
         $this->messages[] = [
             'type' => 'verification',
             'email' => $to->value(),
-            'token' => $token,
+            'code' => $code,
             'expiresAt' => MailDateFormatter::format($expiresAt),
         ];
     }
 
-    public function sendPasswordReset(Email $to, string $token, Instant $expiresAt): void
+    public function sendPasswordReset(Email $to, string $code, Instant $expiresAt): void
     {
         $this->messages[] = [
             'type' => 'password_reset',
             'email' => $to->value(),
-            'token' => $token,
+            'code' => $code,
             'expiresAt' => MailDateFormatter::format($expiresAt),
         ];
     }
 
-    public function lastToken(string $type, string $email): ?string
+    public function lastCode(string $type, string $email): ?string
     {
-        $token = null;
+        $code = null;
 
         foreach ($this->messages as $message) {
             if ($message['type'] === $type && $message['email'] === $email) {
-                $token = $message['token'];
+                $code = $message['code'];
             }
         }
 
-        return $token;
+        return $code;
     }
 
     public function count(string $type, string $email): int

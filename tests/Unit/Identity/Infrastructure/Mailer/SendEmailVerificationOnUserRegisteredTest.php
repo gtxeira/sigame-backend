@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
+use App\Identity\Application\Service\OtpCodeGeneratorInterface;
+use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
+use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpCode;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserRegistered;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
@@ -35,20 +38,36 @@ function registeredListenerUser(bool $verified = false): User
     );
 }
 
+function registeredListenerGenerator(): OtpCodeGeneratorInterface
+{
+    return new class implements OtpCodeGeneratorInterface {
+        public function generate(): OtpCode
+        {
+            return OtpCode::fromGenerated('123456');
+        }
+    };
+}
+
 function registeredListener(
     UserRepositoryInterface $users,
-    IdentityTokenRepositoryInterface $tokens,
+    OtpChallengeRepositoryInterface $challenges,
     IdentityMailDispatcherInterface $dispatcher,
     LoggerInterface $logger,
 ): SendEmailVerificationOnUserRegistered {
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->zeroOrMoreTimes()->andReturn(HashedPassword::fromHash('code-hash'));
+
     return new SendEmailVerificationOnUserRegistered(
         userRepository: $users,
         requestEmailVerificationHandler: new RequestEmailVerificationHandler(
-            tokenRepository: $tokens,
+            challengeRepository: $challenges,
+            codeGenerator: registeredListenerGenerator(),
+            passwordHasher: $hasher,
             mailDispatcher: $dispatcher,
             logger: $logger,
             clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
-            ttlSeconds: 86400,
+            ttlSeconds: 900,
+            cooldownSeconds: 0,
         ),
         logger: $logger,
     );
@@ -60,16 +79,16 @@ it('requests verification when the registered user is not verified', function ()
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findById')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('invalidateUnconsumed')->once();
-    $tokens->shouldReceive('save')->once();
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('invalidateActive')->once();
+    $challenges->shouldReceive('save')->once();
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldReceive('dispatchEmailVerification')->once();
 
     $listener = registeredListener(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
@@ -83,15 +102,15 @@ it('does nothing when the user already has a verified email', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findById')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('save');
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchEmailVerification');
 
     $listener = registeredListener(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
@@ -103,15 +122,15 @@ it('does nothing when the user is not found', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findById')->once()->andReturn(null);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('save');
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchEmailVerification');
 
     $listener = registeredListener(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
@@ -136,7 +155,7 @@ it('logs a warning instead of breaking the registration when the lookup fails', 
 
     $listener = registeredListener(
         $users,
-        Mockery::mock(IdentityTokenRepositoryInterface::class),
+        Mockery::mock(OtpChallengeRepositoryInterface::class),
         Mockery::mock(IdentityMailDispatcherInterface::class),
         $logger,
     );

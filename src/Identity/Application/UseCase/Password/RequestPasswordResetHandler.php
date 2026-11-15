@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Identity\Application\UseCase\Password;
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
-use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Application\Service\OtpCodeGeneratorInterface;
+use App\Identity\Application\Service\PasswordHasherInterface;
+use App\Identity\Domain\Otp\Entity\OtpChallenge;
+use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Shared\Domain\ValueObject\Email;
@@ -20,18 +22,20 @@ use Throwable;
 /**
  * Solicita o reset de senha sem revelar se o e-mail existe.
  *
- * Pedidos repetidos dentro do cooldown não geram novo token nem novo e-mail.
+ * Pedidos repetidos dentro do cooldown não geram novo código nem novo e-mail.
  */
 final readonly class RequestPasswordResetHandler
 {
     public function __construct(
         private UserRepositoryInterface $userRepository,
-        private IdentityTokenRepositoryInterface $tokenRepository,
+        private OtpChallengeRepositoryInterface $challengeRepository,
+        private OtpCodeGeneratorInterface $codeGenerator,
+        private PasswordHasherInterface $passwordHasher,
         private IdentityMailDispatcherInterface $mailDispatcher,
         private LoggerInterface $logger,
         private ClockInterface $clock,
-        #[Autowire(env: 'int:PASSWORD_RESET_TTL')]
-        private int $ttlSeconds = 1800,
+        #[Autowire(env: 'int:PASSWORD_RESET_OTP_TTL')]
+        private int $ttlSeconds = 600,
         #[Autowire(env: 'int:PASSWORD_RESET_COOLDOWN')]
         private int $cooldownSeconds = 60,
     ) {
@@ -53,9 +57,9 @@ final readonly class RequestPasswordResetHandler
 
         $now = $this->clock->now();
 
-        if ($this->cooldownSeconds > 0 && $this->tokenRepository->hasUnconsumedCreatedAfter(
+        if ($this->cooldownSeconds > 0 && $this->challengeRepository->hasActiveCreatedAfter(
             $user,
-            IdentityTokenPurpose::PasswordReset,
+            OtpPurpose::PasswordReset,
             sprintf('-%d seconds', $this->cooldownSeconds)
                 |> $now->modify(...)
                 |> Instant::fromDateTime(...),
@@ -63,32 +67,32 @@ final readonly class RequestPasswordResetHandler
             return;
         }
 
-        $this->tokenRepository->invalidateUnconsumed($user, IdentityTokenPurpose::PasswordReset);
+        $this->challengeRepository->invalidateActive($user, OtpPurpose::PasswordReset);
 
-        $rawToken = bin2hex(random_bytes(32));
+        $code = $this->codeGenerator->generate();
 
         $expiresAt = sprintf('+%d seconds', $this->ttlSeconds)
             |> $now->modify(...)
             |> Instant::fromDateTime(...);
 
-        $token = IdentityToken::create(
+        $challenge = OtpChallenge::create(
             user: $user,
-            purpose: IdentityTokenPurpose::PasswordReset,
-            tokenHash: hash('sha256', $rawToken),
+            purpose: OtpPurpose::PasswordReset,
+            codeHash: $this->passwordHasher->hash($code->value())->value(),
             expiresAt: $expiresAt,
         );
 
-        $this->tokenRepository->save($token);
+        $this->challengeRepository->save($challenge);
 
         try {
             $this->mailDispatcher->dispatchPasswordReset(
                 $user->email(),
-                $rawToken,
+                $code->value(),
                 $expiresAt,
-                $token->tokenHash(),
+                $challenge->id(),
             );
         } catch (Throwable $exception) {
-            $this->consumeSilently($token, $user);
+            $this->consumeSilently($challenge, $user);
             $this->logger->warning('Falha ao enfileirar e-mail de reset de senha', [
                 'userId' => $user->id()->value(),
                 'reason' => $exception->getMessage(),
@@ -97,14 +101,14 @@ final readonly class RequestPasswordResetHandler
     }
 
     /**
-     * Impede que um token não entregue continue válido após a falha de envio.
+     * Impede que um código não entregue continue válido após a falha de envio.
      */
-    private function consumeSilently(IdentityToken $token, User $user): void
+    private function consumeSilently(OtpChallenge $challenge, User $user): void
     {
         try {
-            $this->tokenRepository->markConsumed($token);
+            $this->challengeRepository->markConsumed($challenge);
         } catch (Throwable $exception) {
-            $this->logger->warning('Falha ao invalidar token após erro de e-mail de reset', [
+            $this->logger->warning('Falha ao invalidar código após erro de e-mail de reset', [
                 'userId' => $user->id()->value(),
                 'reason' => $exception->getMessage(),
             ]);

@@ -15,7 +15,8 @@ use Symfony\Component\Mime\Address;
 /**
  * Adapter Symfony Mailer para os e-mails de identidade.
  *
- * O token vai no link do front-end; a API só recebe o token de volta.
+ * O código OTP vai no corpo da mensagem; o link leva apenas o e-mail para
+ * pré-preencher a tela, nunca uma credencial.
  */
 final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
 {
@@ -30,27 +31,29 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
     ) {
     }
 
-    public function sendEmailVerification(Email $to, string $token, Instant $expiresAt): void
+    public function sendEmailVerification(Email $to, string $code, Instant $expiresAt): void
     {
         $this->send(
             to: $to,
-            subject: 'Confirme seu e-mail no SIGAME',
+            subject: 'Seu código de confirmação do SIGAME',
             template: 'email/verify_email.html.twig',
             context: [
-                'url' => $this->frontendUrl.'/verificar-email?token='.urlencode($token),
+                'code' => $code,
+                'url' => $this->frontendUrl.'/verificar-email?email='.urlencode($to->value()),
                 'expiresAt' => MailDateFormatter::format($expiresAt),
             ],
         );
     }
 
-    public function sendPasswordReset(Email $to, string $token, Instant $expiresAt): void
+    public function sendPasswordReset(Email $to, string $code, Instant $expiresAt): void
     {
         $this->send(
             to: $to,
-            subject: 'Redefinição de senha do SIGAME',
+            subject: 'Seu código para redefinir a senha do SIGAME',
             template: 'email/password_reset.html.twig',
             context: [
-                'url' => $this->frontendUrl.'/redefinir-senha?token='.urlencode($token),
+                'code' => $code,
+                'url' => $this->frontendUrl.'/recuperar-senha?email='.urlencode($to->value()),
                 'expiresAt' => MailDateFormatter::format($expiresAt),
             ],
         );

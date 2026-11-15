@@ -7,16 +7,16 @@ namespace App\Identity\Infrastructure\Mailer\Message;
 /**
  * Mensagem assíncrona para enviar a verificação de e-mail.
  *
- * O token bruto vai cifrado; o hash fica em claro para permitir a compensação
- * do token em caso de falha definitiva.
+ * O código bruto vai cifrado; o identificador do desafio fica em claro para
+ * permitir a compensação do código em caso de falha definitiva.
  */
 final readonly class SendEmailVerificationMessage
 {
     public function __construct(
         public string $email,
-        public string $encryptedToken,
+        public string $encryptedCode,
         public int $expiresAtTimestamp,
-        public string $tokenHash,
+        public string $challengeId,
     ) {
     }
 }

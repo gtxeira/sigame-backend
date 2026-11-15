@@ -4,27 +4,27 @@ declare(strict_types=1);
 
 namespace App\Identity\Infrastructure\Persistence\ORM\Type;
 
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenId;
+use App\Identity\Domain\PasswordReset\ValueObject\PasswordResetTicketId;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 
 /**
- * Doctrine Type para o Value Object IdentityTokenId.
+ * Doctrine Type para o Value Object PasswordResetTicketId.
  */
-final class IdentityTokenIdType extends Type
+final class PasswordResetTicketIdType extends Type
 {
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
         return 'UUID';
     }
 
-    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?IdentityTokenId
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?PasswordResetTicketId
     {
         if (null === $value || '' === $value) {
             return null;
         }
 
-        return IdentityTokenId::fromString((string) $value);
+        return PasswordResetTicketId::fromString((string) $value);
     }
 
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
@@ -33,7 +33,7 @@ final class IdentityTokenIdType extends Type
             return null;
         }
 
-        if ($value instanceof IdentityTokenId) {
+        if ($value instanceof PasswordResetTicketId) {
             return $value->value();
         }
 
@@ -42,7 +42,7 @@ final class IdentityTokenIdType extends Type
 
     public function getName(): string
     {
-        return 'identity_token_id';
+        return 'password_reset_ticket_id';
     }
 
     public function requiresSQLCommentHint(AbstractPlatform $platform): bool

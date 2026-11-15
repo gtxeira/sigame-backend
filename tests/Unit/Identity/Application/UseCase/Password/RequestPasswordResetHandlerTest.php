@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
+use App\Identity\Application\Service\OtpCodeGeneratorInterface;
+use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\UseCase\Password\RequestPasswordResetHandler;
-use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\Otp\Entity\OtpChallenge;
+use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpChallengeId;
+use App\Identity\Domain\Otp\ValueObject\OtpCode;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
@@ -25,21 +29,40 @@ function passwordResetRequestUser(string $email = 'reset-request@example.com'): 
     );
 }
 
+function passwordResetRequestGenerator(string $code = '123456'): OtpCodeGeneratorInterface
+{
+    return new class($code) implements OtpCodeGeneratorInterface {
+        public function __construct(private string $code)
+        {
+        }
+
+        public function generate(): OtpCode
+        {
+            return OtpCode::fromGenerated($this->code);
+        }
+    };
+}
+
 function passwordResetRequestHandler(
     UserRepositoryInterface $users,
-    IdentityTokenRepositoryInterface $tokens,
+    OtpChallengeRepositoryInterface $challenges,
     IdentityMailDispatcherInterface $dispatcher,
     LoggerInterface $logger,
-    int $cooldownSeconds = 60,
+    int $cooldownSeconds = 0,
     ?MockClock $clock = null,
 ): RequestPasswordResetHandler {
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->zeroOrMoreTimes()->andReturn(HashedPassword::fromHash('code-hash'));
+
     return new RequestPasswordResetHandler(
         userRepository: $users,
-        tokenRepository: $tokens,
+        challengeRepository: $challenges,
+        codeGenerator: passwordResetRequestGenerator(),
+        passwordHasher: $hasher,
         mailDispatcher: $dispatcher,
         logger: $logger,
         clock: $clock ?? new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
-        ttlSeconds: 1800,
+        ttlSeconds: 600,
         cooldownSeconds: $cooldownSeconds,
     );
 }
@@ -48,15 +71,15 @@ it('does nothing for an invalid email', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldNotReceive('findByEmail');
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('save');
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchPasswordReset');
 
     $handler = passwordResetRequestHandler(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
@@ -68,15 +91,15 @@ it('does nothing when the account does not exist', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn(null);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('save');
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchPasswordReset');
 
     $handler = passwordResetRequestHandler(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
@@ -91,15 +114,15 @@ it('does nothing when the account is suspended', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('save');
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchPasswordReset');
 
     $handler = passwordResetRequestHandler(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
@@ -107,95 +130,82 @@ it('does nothing when the account is suspended', function () {
     $handler('reset-request@example.com');
 });
 
-it('invalidates previous tokens and sends a reset token valid for 30 minutes', function () {
+it('invalidates previous challenges and sends a code valid for 10 minutes', function () {
     $user = passwordResetRequestUser();
+    $saved = null;
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('hasUnconsumedCreatedAfter')
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('invalidateActive')
         ->once()
-        ->with(
-            $user,
-            IdentityTokenPurpose::PasswordReset,
-            Mockery::on(static fn (Instant $since): bool => $since->equals(
-                Instant::fromDateTime(new DateTimeImmutable('2025-12-31T23:59:00+00:00')),
-            )),
-        )
-        ->andReturn(false);
-
-    $tokens->shouldReceive('invalidateUnconsumed')
-        ->once()
-        ->with($user, IdentityTokenPurpose::PasswordReset);
-
-    $saved = null;
-    $rawToken = null;
-
-    $tokens->shouldReceive('save')->once()->with(Mockery::on(
-        static function (IdentityToken $token) use (&$saved): bool {
-            $saved = $token;
+        ->with($user, OtpPurpose::PasswordReset);
+    $challenges->shouldReceive('save')->once()->with(Mockery::on(
+        static function (OtpChallenge $challenge) use (&$saved): bool {
+            $saved = $challenge;
 
             return true;
         },
     ));
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatched = null;
     $dispatcher->shouldReceive('dispatchPasswordReset')
         ->once()
-        ->with(
-            $user->email(),
-            Mockery::on(static function (string $token) use (&$rawToken): bool {
-                $rawToken = $token;
-
-                return true;
-            }),
-            Mockery::on(static fn (Instant $expiresAt): bool => $expiresAt->equals(
-                Instant::fromDateTime(new DateTimeImmutable('2026-01-01T00:30:00+00:00')),
-            )),
-            Mockery::on(static function (string $tokenHash) use (&$rawToken): bool {
-                return hash('sha256', (string) $rawToken) === $tokenHash;
-            }),
-        );
+        ->andReturnUsing(static function (
+            Email $email,
+            string $code,
+            Instant $expiresAt,
+            OtpChallengeId $challengeId,
+        ) use (&$dispatched): void {
+            $dispatched = [
+                'email' => $email,
+                'code' => $code,
+                'expiresAt' => $expiresAt,
+                'challengeId' => $challengeId,
+            ];
+        });
 
     $handler = passwordResetRequestHandler(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
     );
 
     $handler('reset-request@example.com');
 
-    expect($saved)->toBeInstanceOf(IdentityToken::class)
-        ->and($rawToken)->toBeString()->not->toBeEmpty()
-        ->and($saved?->purpose())->toBe(IdentityTokenPurpose::PasswordReset)
-        ->and($saved?->tokenHash())->toBe(hash('sha256', (string) $rawToken));
+    expect($saved)->toBeInstanceOf(OtpChallenge::class)
+        ->and($saved?->purpose())->toBe(OtpPurpose::PasswordReset)
+        ->and($saved?->codeHash())->toBe('code-hash')
+        ->and($dispatched['email']->value())->toBe('reset-request@example.com')
+        ->and($dispatched['code'])->toBe('123456')
+        ->and($dispatched['expiresAt']->equals(
+            Instant::fromDateTime(new DateTimeImmutable('2026-01-01T00:10:00+00:00')),
+        ))->toBeTrue()
+        ->and($dispatched['challengeId']->equals($saved?->id()))->toBeTrue();
 });
 
-it('logs a warning instead of failing when the dispatcher throws', function () {
+it('consumes the code when the dispatcher throws', function () {
     $user = passwordResetRequestUser();
+    $saved = null;
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('hasUnconsumedCreatedAfter')->once()->andReturn(false);
-    $tokens->shouldReceive('invalidateUnconsumed')->once();
-
-    $saved = null;
-    $tokens->shouldReceive('save')->once()->with(Mockery::on(
-        static function (IdentityToken $token) use (&$saved): bool {
-            $saved = $token;
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('invalidateActive')->once();
+    $challenges->shouldReceive('save')->once()->with(Mockery::on(
+        static function (OtpChallenge $challenge) use (&$saved): bool {
+            $saved = $challenge;
 
             return true;
         },
     ));
-    $tokens->shouldReceive('markConsumed')
+    $challenges->shouldReceive('markConsumed')
         ->once()
-        ->with(Mockery::on(static function (IdentityToken $token) use (&$saved): bool {
-            return $token === $saved;
-        }));
+        ->andReturn(true);
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldReceive('dispatchPasswordReset')
@@ -209,74 +219,40 @@ it('logs a warning instead of failing when the dispatcher throws', function () {
             static fn (array $context): bool => 'smtp offline' === $context['reason'],
         ));
 
-    $handler = passwordResetRequestHandler($users, $tokens, $dispatcher, $logger);
+    $handler = passwordResetRequestHandler($users, $challenges, $dispatcher, $logger);
 
     $handler('reset-request@example.com');
 });
 
-it('uses the email from the resolved account instead of the request payload', function () {
-    $user = passwordResetRequestUser('canonical@example.com');
-
-    $users = Mockery::mock(UserRepositoryInterface::class);
-    $users->shouldReceive('findByEmail')
-        ->once()
-        ->with(Mockery::on(static fn (Email $email): bool => 'other@example.com' === $email->value()))
-        ->andReturn($user);
-
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('hasUnconsumedCreatedAfter')->once()->andReturn(false);
-    $tokens->shouldReceive('invalidateUnconsumed')->once();
-    $tokens->shouldReceive('save')->once();
-
-    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
-    $dispatcher->shouldReceive('dispatchPasswordReset')
-        ->once()
-        ->with(
-            $user->email(),
-            Mockery::type('string'),
-            Mockery::type(Instant::class),
-            Mockery::type('string'),
-        );
-
-    $handler = passwordResetRequestHandler(
-        $users,
-        $tokens,
-        $dispatcher,
-        Mockery::mock(LoggerInterface::class),
-    );
-
-    $handler('other@example.com');
-});
-
-it('does not send a new token while the cooldown is active', function () {
+it('does not send a new code while the cooldown is active', function () {
     $user = passwordResetRequestUser();
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('hasUnconsumedCreatedAfter')
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('hasActiveCreatedAfter')
         ->once()
         ->with(
             $user,
-            IdentityTokenPurpose::PasswordReset,
+            OtpPurpose::PasswordReset,
             Mockery::on(static fn (Instant $since): bool => $since->equals(
                 Instant::fromDateTime(new DateTimeImmutable('2025-12-31T23:59:00+00:00')),
             )),
         )
         ->andReturn(true);
-    $tokens->shouldNotReceive('invalidateUnconsumed');
-    $tokens->shouldNotReceive('save');
-    $tokens->shouldNotReceive('markConsumed');
+    $challenges->shouldNotReceive('invalidateActive');
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchPasswordReset');
 
     $handler = passwordResetRequestHandler(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
+        cooldownSeconds: 60,
     );
 
     $handler('reset-request@example.com');
@@ -288,17 +264,17 @@ it('skips the cooldown check when it is disabled', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('hasUnconsumedCreatedAfter');
-    $tokens->shouldReceive('invalidateUnconsumed')->once();
-    $tokens->shouldReceive('save')->once();
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('hasActiveCreatedAfter');
+    $challenges->shouldReceive('invalidateActive')->once();
+    $challenges->shouldReceive('save')->once();
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldReceive('dispatchPasswordReset')->once();
 
     $handler = passwordResetRequestHandler(
         $users,
-        $tokens,
+        $challenges,
         $dispatcher,
         Mockery::mock(LoggerInterface::class),
         cooldownSeconds: 0,

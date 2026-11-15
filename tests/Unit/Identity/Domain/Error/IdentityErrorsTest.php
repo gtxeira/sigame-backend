@@ -32,6 +32,23 @@ it('builds email already verified error', function () {
         ->and($error->field)->toBeNull();
 });
 
+it('builds otp verification and reset errors', function () {
+    $invalid = IdentityErrors::emailVerificationCodeInvalid();
+    $expired = IdentityErrors::passwordResetCodeExpired();
+    $attempts = IdentityErrors::passwordResetCodeAttemptsExceeded();
+    $ticket = IdentityErrors::passwordResetTicketExpired();
+
+    expect($invalid->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID')
+        ->and($invalid->kind)->toBe(ErrorKind::Validation)
+        ->and($invalid->field)->toBe('code')
+        ->and($expired->code)->toBe('PASSWORD_RESET_CODE_EXPIRED')
+        ->and($expired->kind)->toBe(ErrorKind::Validation)
+        ->and($attempts->code)->toBe('PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED')
+        ->and($attempts->field)->toBe('code')
+        ->and($ticket->code)->toBe('PASSWORD_RESET_TICKET_EXPIRED')
+        ->and($ticket->field)->toBe('resetToken');
+});
+
 it('builds user level below minimum error', function () {
     $error = IdentityErrors::userLevelBelowMinimum(1);
 

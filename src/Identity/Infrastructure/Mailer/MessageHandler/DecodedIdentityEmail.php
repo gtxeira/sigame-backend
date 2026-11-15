@@ -14,7 +14,7 @@ final readonly class DecodedIdentityEmail
 {
     public function __construct(
         public Email $to,
-        public string $rawToken,
+        public string $code,
         public Instant $expiresAt,
     ) {
     }

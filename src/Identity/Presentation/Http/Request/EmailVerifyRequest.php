@@ -8,16 +8,21 @@ use OpenApi\Attributes as OA;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * DTO para confirmar o e-mail com o token recebido por mensagem.
+ * DTO para confirmar o e-mail com o código recebido por mensagem.
  */
-#[OA\Schema(description: 'Token de verificação de e-mail.')]
+#[OA\Schema(description: 'Código de verificação de e-mail.')]
 final readonly class EmailVerifyRequest
 {
     public function __construct(
-        #[OA\Property(description: 'Token enviado por e-mail.', example: 'a1b2c3...')]
-        #[Assert\NotBlank(message: 'O token é obrigatório.')]
-        #[Assert\Length(max: 128, maxMessage: 'O token deve ter no máximo 128 caracteres.')]
-        public string $token = '',
+        #[OA\Property(description: 'E-mail da conta.', format: 'email', example: 'user@example.com')]
+        #[Assert\NotBlank(message: 'O email é obrigatório.')]
+        #[Assert\Email(message: 'O formato do email é inválido.')]
+        public string $email = '',
+
+        #[OA\Property(description: 'Código de 6 dígitos enviado por e-mail.', example: '123456')]
+        #[Assert\NotBlank(message: 'O código é obrigatório.')]
+        #[Assert\Regex(pattern: '/^\d{6}$/', message: 'O código deve ter 6 dígitos.')]
+        public string $code = '',
     ) {
     }
 }

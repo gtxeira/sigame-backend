@@ -386,11 +386,12 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 
 ### Decisão
 
-- Persistir tokens de uso único em `identity_tokens` apenas como SHA-256, com `purpose`, `expires_at` e `consumed_at`.
-- Verificação de e-mail: 24 horas, enviada no cadastro e reenviável autenticado.
-- Reset de senha: 30 minutos, solicitação sempre responde `204` (sem enumeração).
-- Pedidos repetidos para a mesma conta respeitam um cooldown (`PASSWORD_RESET_COOLDOWN`, 60s); falha no envio consome o token recém-criado para não deixar credencial válida sem entrega.
-- O consumo é atômico (`UPDATE ... WHERE consumed_at IS NULL`); reset e troca revogam todas as famílias de refresh tokens.
+- Persistir códigos OTP de 6 dígitos em `identity_otp_challenges` apenas como hash bcrypt/Argon2id, com `purpose`, `attempts`, `expires_at` e `consumed_at`.
+- Verificação de e-mail: 15 minutos, enviada no cadastro e reenviável autenticado.
+- Reset de senha: 10 minutos, solicitação sempre responde `204` (sem enumeração); a validação do código devolve um ticket de 5 minutos em `identity_password_reset_tickets`, persistido como SHA-256.
+- Cinco tentativas erradas invalidam o código; um novo código invalida o anterior.
+- Pedidos repetidos para a mesma conta respeitam um cooldown (`PASSWORD_RESET_COOLDOWN`/`EMAIL_VERIFICATION_COOLDOWN`, 60s); falha no envio consome o código de reset recém-criado para não deixar credencial válida sem entrega.
+- O consumo e o contador de tentativas são atômicos (`UPDATE ... WHERE consumed_at IS NULL`); reset e troca revogam todas as famílias de refresh tokens.
 - O envio fica atrás de `IdentityMailerInterface`, com adapter Symfony Mailer e Mailpit em desenvolvimento.
 
 ### Alternativas consideradas
@@ -1467,7 +1468,7 @@ funil. Além disso, o login social não tem como fornecer a data no cadastro.
 - A idade **nunca é persistida**: é derivada de `BirthDate::ageAt()` em toda leitura, no fuso `America/Sao_Paulo`;
   nascidos em 29/02 completam a idade em 01/03 dos anos não bissextos.
 - A idade mínima é `AgePolicy::MINIMUM_AGE = 18`. Se a data indicar menos de 18 anos, a conta incompleta é **removida**
-  (não suspensa), com cascata em `user_identities`, `refresh_tokens` e `identity_tokens` e remoção da projeção
+  (não suspensa), com cascata em `user_identities`, `refresh_tokens`, `identity_otp_challenges` e `identity_password_reset_tickets` e remoção da projeção
   `user_progress` via evento `user.deleted`. Conta com histórico anterior à exigência é suspensa em vez de apagada.
 - Contas incompletas que nunca definem a data são candidatas a expurgo administrativo.
 - Correções de data já definida são feitas apenas por suporte, com auditoria.

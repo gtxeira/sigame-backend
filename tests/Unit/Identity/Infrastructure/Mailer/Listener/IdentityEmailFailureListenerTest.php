@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\Otp\Entity\OtpChallenge;
+use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpChallengeId;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Infrastructure\Mailer\Listener\IdentityEmailFailureListener;
@@ -16,7 +17,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 
-function identityFailureTestToken(): IdentityToken
+function identityFailureTestChallenge(): OtpChallenge
 {
     $user = User::register(
         cpf: null,
@@ -25,10 +26,10 @@ function identityFailureTestToken(): IdentityToken
         name: 'Failure User',
     );
 
-    return IdentityToken::create(
+    return OtpChallenge::create(
         user: $user,
-        purpose: IdentityTokenPurpose::PasswordReset,
-        tokenHash: hash('sha256', 'raw-token'),
+        purpose: OtpPurpose::PasswordReset,
+        codeHash: 'hashed-code',
         expiresAt: Instant::now(),
     );
 }
@@ -48,17 +49,17 @@ function identityFailureTestEvent(object $message, bool $willRetry = false): Wor
     return $event;
 }
 
-it('consumes the reset token after a definitive failure', function () {
-    $token = identityFailureTestToken();
+it('consumes the reset challenge after a definitive failure', function () {
+    $challenge = identityFailureTestChallenge();
 
-    $repository = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $repository->shouldReceive('findByHash')
+    $repository = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $repository->shouldReceive('findById')
         ->once()
-        ->with($token->tokenHash())
-        ->andReturn($token);
+        ->with(Mockery::on(static fn (OtpChallengeId $id): bool => $id->equals($challenge->id())))
+        ->andReturn($challenge);
     $repository->shouldReceive('markConsumed')
         ->once()
-        ->with($token)
+        ->with($challenge)
         ->andReturn(true);
 
     $logger = Mockery::mock(LoggerInterface::class);
@@ -70,15 +71,15 @@ it('consumes the reset token after a definitive failure', function () {
 
     $listener(identityFailureTestEvent(new SendPasswordResetMessage(
         email: 'failure@example.com',
-        encryptedToken: 'encrypted',
+        encryptedCode: 'encrypted',
         expiresAtTimestamp: 1767225600,
-        tokenHash: $token->tokenHash(),
+        challengeId: $challenge->id()->value(),
     )));
 });
 
-it('does not consume the reset token while a retry is still possible', function () {
-    $repository = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $repository->shouldNotReceive('findByHash');
+it('does not consume the reset challenge while a retry is still possible', function () {
+    $repository = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $repository->shouldNotReceive('findById');
     $repository->shouldNotReceive('markConsumed');
 
     $logger = Mockery::mock(LoggerInterface::class);
@@ -90,17 +91,17 @@ it('does not consume the reset token while a retry is still possible', function 
     $listener(identityFailureTestEvent(
         new SendPasswordResetMessage(
             email: 'failure@example.com',
-            encryptedToken: 'encrypted',
+            encryptedCode: 'encrypted',
             expiresAtTimestamp: 1767225600,
-            tokenHash: 'hash',
+            challengeId: OtpChallengeId::generate()->value(),
         ),
         willRetry: true,
     ));
 });
 
-it('keeps the verification token valid after a definitive failure', function () {
-    $repository = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $repository->shouldNotReceive('findByHash');
+it('keeps the verification challenge valid after a definitive failure', function () {
+    $repository = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $repository->shouldNotReceive('findById');
     $repository->shouldNotReceive('markConsumed');
 
     $logger = Mockery::mock(LoggerInterface::class);
@@ -112,15 +113,15 @@ it('keeps the verification token valid after a definitive failure', function () 
 
     $listener(identityFailureTestEvent(new SendEmailVerificationMessage(
         email: 'failure@example.com',
-        encryptedToken: 'encrypted',
+        encryptedCode: 'encrypted',
         expiresAtTimestamp: 1767225600,
-        tokenHash: 'hash',
+        challengeId: OtpChallengeId::generate()->value(),
     )));
 });
 
-it('logs when the token is no longer found', function () {
-    $repository = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $repository->shouldReceive('findByHash')->once()->andReturn(null);
+it('logs when the challenge is no longer found', function () {
+    $repository = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $repository->shouldReceive('findById')->once()->andReturn(null);
     $repository->shouldNotReceive('markConsumed');
 
     $logger = Mockery::mock(LoggerInterface::class);
@@ -130,20 +131,20 @@ it('logs when the token is no longer found', function () {
 
     $listener(identityFailureTestEvent(new SendPasswordResetMessage(
         email: 'failure@example.com',
-        encryptedToken: 'encrypted',
+        encryptedCode: 'encrypted',
         expiresAtTimestamp: 1767225600,
-        tokenHash: 'hash',
+        challengeId: OtpChallengeId::generate()->value(),
     )));
 });
 
 it('logs and does not break the worker when the repository fails', function () {
-    $repository = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $repository->shouldReceive('findByHash')->once()->andThrow(new RuntimeException('database down'));
+    $repository = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $repository->shouldReceive('findById')->once()->andThrow(new RuntimeException('database down'));
 
     $logger = Mockery::mock(LoggerInterface::class);
     $logger->shouldReceive('error')
         ->once()
-        ->with('Falha ao consumir token após erro de envio de e-mail', Mockery::on(
+        ->with('Falha ao consumir código após erro de envio de e-mail', Mockery::on(
             static fn (array $context): bool => 'database down' === $context['reason'],
         ));
 
@@ -151,15 +152,15 @@ it('logs and does not break the worker when the repository fails', function () {
 
     $listener(identityFailureTestEvent(new SendPasswordResetMessage(
         email: 'failure@example.com',
-        encryptedToken: 'encrypted',
+        encryptedCode: 'encrypted',
         expiresAtTimestamp: 1767225600,
-        tokenHash: 'hash',
+        challengeId: OtpChallengeId::generate()->value(),
     )));
 });
 
 it('ignores unknown messages', function () {
-    $repository = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $repository->shouldNotReceive('findByHash');
+    $repository = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $repository->shouldNotReceive('findById');
 
     $logger = Mockery::mock(LoggerInterface::class);
     $logger->shouldNotReceive('warning');

@@ -8,14 +8,15 @@ Este documento descreve o contrato de autenticação da API: tokens, cookies, en
 
 ## 1. Modelo de tokens
 
-O SIGAME **não usa "JWT duplo"**. Apenas o access token é JWT; o refresh token é uma credencial opaca de alta entropia. Verificação de e-mail e reset de senha usam **tokens de uso único** persistidos apenas como hash.
+O SIGAME **não usa "JWT duplo"**. Apenas o access token é JWT; o refresh token é uma credencial opaca de alta entropia. Verificação de e-mail e reset de senha usam **códigos OTP de 6 dígitos**, persistidos apenas como hash bcrypt/Argon2id.
 
 | Token | Formato | Duração | Persistência | Onde trafega |
 |---|---|---|---|---|
 | Access token | JWT HS256 | 15 minutos | Nenhuma (stateless) | `Authorization: Bearer <token>` |
 | Refresh token | `rt_` + 64 caracteres hexadecimais | 7 dias, renovados a cada rotação | SHA-256 no banco | Cookie `HttpOnly` |
-| Verificação de e-mail | 64 caracteres hexadecimais | 24 horas | SHA-256 em `identity_tokens` | Link enviado por e-mail |
-| Reset de senha | 64 caracteres hexadecimais | 30 minutos | SHA-256 em `identity_tokens` | Link enviado por e-mail |
+| Código de verificação de e-mail | 6 dígitos | 15 minutos | bcrypt em `identity_otp_challenges` | Código enviado por e-mail |
+| Código de reset de senha | 6 dígitos | 10 minutos | bcrypt em `identity_otp_challenges` | Código enviado por e-mail |
+| Ticket de reset | 64 caracteres hexadecimais | 5 minutos | SHA-256 em `identity_password_reset_tickets` | Resposta da API; no web, cookie `HttpOnly` do BFF |
 
 ### 1.1 Access token
 
@@ -113,9 +114,12 @@ ainda é 23:30 do dia anterior em Brasília).
 | `REFRESH_COOKIE_SAMESITE` | `lax` | `lax`, `strict` ou `none` |
 | `OAUTH_FLOW_TTL` | `600` | Validade do fluxo OAuth em segundos |
 | `SOCIAL_LINK_TICKET_TTL` | `600` | Validade do ticket de vínculo em segundos |
-| `EMAIL_VERIFICATION_TTL` | `86400` | Validade do token de verificação |
-| `PASSWORD_RESET_TTL` | `1800` | Validade do token de reset |
+| `EMAIL_VERIFICATION_OTP_TTL` | `900` | Validade do código de verificação de e-mail |
+| `EMAIL_VERIFICATION_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de código de verificação da mesma conta |
+| `PASSWORD_RESET_OTP_TTL` | `600` | Validade do código de reset de senha |
+| `PASSWORD_RESET_TICKET_TTL` | `300` | Validade do ticket que autoriza a troca de senha |
 | `PASSWORD_RESET_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de reset da mesma conta |
+| `IDENTITY_OTP_MAX_ATTEMPTS` | `5` | Tentativas erradas antes de invalidar o código |
 | `MAILER_DSN` | `null://null` | Transporte de e-mail; em dev, `smtp://mailer:1025` (UI do Mailpit em <http://localhost:8025>) |
 | `MAILER_FROM_ADDRESS` | `noreply@sigame.com.br` | Remetente |
 | `MAILER_FROM_NAME` | `SIGAME` | Nome do remetente |
@@ -127,13 +131,13 @@ Em desenvolvimento com front em `http://localhost:3000` e API em outro host, use
 
 ### 1.7 Entrega assíncrona de e-mails
 
-A verificação de e-mail e o reset de senha criam o token no request e apenas **enfileiram** a mensagem; o envio real acontece no worker do Messenger.
+A verificação de e-mail e o reset de senha criam o código no request e apenas **enfileiram** a mensagem; o envio real acontece no worker do Messenger.
 
-- O token bruto vai cifrado (`EncryptedPayload`/`PayloadEncryptor`) e o banco guarda apenas o SHA-256, como antes.
-- O cooldown de reset e a invalidação do token anterior continuam no request, então o comportamento observável não muda.
-- Retries do worker reutilizam o mesmo token; um e-mail duplicado tem o mesmo link válido.
-- Em falha definitiva, o token de reset é consumido (não deixa credencial válida sem entrega) e o de verificação continua válido para reenvio.
-- Mensagens de reset na fila de falhas são terminais: o token já foi consumido; remova-as com `messenger:failed:remove`, não faça retry.
+- O código bruto vai cifrado (`EncryptedPayload`/`PayloadEncryptor`); o banco guarda apenas o hash bcrypt/Argon2id.
+- O cooldown e a invalidação do código anterior continuam no request.
+- Retries do worker reutilizam o mesmo código; um e-mail duplicado tem o mesmo código válido.
+- Em falha definitiva, o código de reset é consumido (não deixa credencial válida sem entrega) e o de verificação continua válido para reenvio.
+- Mensagens de reset na fila de falhas são terminais: o código já foi consumido; remova-as com `messenger:failed:remove`, não faça retry.
 - O worker é um processo separado (`worker` no Compose); em desenvolvimento, acompanhe com `just worker-logs`.
 - A chave `MESSENGER_MAIL_ENCRYPTION_KEY` precisa ser a mesma no web e no worker; rotacione-a apenas com a fila drenada.
 
@@ -576,34 +580,38 @@ Se a caixa estiver vazia, o `worker` provavelmente está parado e a mensagem seg
 
 ## 4. Verificação de e-mail
 
-O cadastro local envia um link para `FRONTEND_URL/verificar-email?token=...`. O front mantém o token na URL até a confirmação; no clique em **Confirmar e-mail**, limpa a URL e chama a API.
+O cadastro local envia um código OTP de 6 dígitos para o e-mail canônico. O front pré-preenche o e-mail via `FRONTEND_URL/verificar-email?email=...` (sem credencial) e a pessoa digita o código.
 
 ### 4.1 Confirmar
 
 `POST /api/v1/auth/email/verify` — público.
 
 ```json
-{ "token": "a1b2c3..." }
+{ "email": "user@example.com", "code": "123456" }
 ```
 
 - `204` quando o e-mail é verificado.
-- `EMAIL_VERIFICATION_TOKEN_INVALID` (422) para token inexistente ou já usado.
-- `EMAIL_VERIFICATION_TOKEN_EXPIRED` (422) para token vencido.
+- `EMAIL_VERIFICATION_CODE_INVALID` (422) para código inexistente, já usado ou de outro e-mail.
+- `EMAIL_VERIFICATION_CODE_EXPIRED` (422) para código vencido.
+- `EMAIL_VERIFICATION_CODE_ATTEMPTS_EXCEEDED` (422) após 5 tentativas erradas; o código é invalidado e é preciso pedir outro.
+- O código tem 6 dígitos, vale por 15 minutos e só pode ser usado uma vez.
 - O prazo exibido no e-mail é formatado em `America/Sao_Paulo` (`dd/mm/aaaa HH:MM`).
-- Limite: 10 tentativas por minuto por IP.
+- Limite: 10 tentativas por 10 minutos por e-mail + IP e 30 por 10 minutos por IP.
 
 ### 4.2 Reenviar
 
 `POST /api/v1/auth/email/verification/resend` — Bearer. Apesar do prefixo `/auth`, a rota exige `Authorization`; a confirmação pública continua em `POST /auth/email/verify`.
 
-- O cadastro local já enfileira uma confirmação automaticamente; use o reenvio quando o e-mail não chegou ou o link expirou.
-- Gera um novo token e invalida o anterior; responde `204` quando a mensagem é enfileirada.
+- O cadastro local já enfileira uma confirmação automaticamente; use o reenvio quando o e-mail não chegou ou o código expirou.
+- Gera um novo código e invalida o anterior; responde `204` quando a mensagem é enfileirada.
 - Contas já verificadas recebem `409` com `EMAIL_ALREADY_VERIFIED` e nenhum novo e-mail é enviado.
-- Limite: 3 reenvios por minuto por usuário. A checagem de conta verificada acontece antes do rate limit, porque não há trabalho a executar.
+- Limite: 3 reenvios por 15 minutos por usuário e cooldown de 60 segundos. A checagem de conta verificada acontece antes do rate limit, porque não há trabalho a executar.
 
 ---
 
 ## 5. Recuperação e troca de senha
+
+O reset acontece em **duas etapas**: validar o código devolve um ticket temporário de 5 minutos; a troca de senha usa esse ticket. No frontend web, o ticket fica em um cookie selado `HttpOnly` do BFF e nunca chega ao JavaScript.
 
 ### 5.1 Solicitar reset
 
@@ -613,21 +621,39 @@ O cadastro local envia um link para `FRONTEND_URL/verificar-email?token=...`. O 
 { "email": "user@example.com" }
 ```
 
-Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um token de 30 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. O link aponta para `FRONTEND_URL/redefinir-senha?token=<token>`; o front remove o token da URL depois de lê-lo e chama o endpoint de redefinição. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo token nem novo e-mail. Limite: 5 tentativas por minuto por e-mail + IP.
+Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um código de 6 dígitos válido por 10 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo código nem novo e-mail. Limite: 3 pedidos por 15 minutos por e-mail + IP e 10 por hora por IP.
+
+### 5.1.1 Validar o código
+
+`POST /api/v1/auth/password/otp/verify` — público.
+
+```json
+{ "email": "user@example.com", "code": "123456" }
+```
+
+```json
+{ "data": { "resetToken": "a1b2c3...", "expiresIn": 300 } }
+```
+
+- Valida o código e devolve um ticket de uso único válido por 5 minutos.
+- `PASSWORD_RESET_CODE_INVALID`, `PASSWORD_RESET_CODE_EXPIRED` e `PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED` seguem o mesmo comportamento da verificação de e-mail.
+- Limite: 10 tentativas por 10 minutos por e-mail + IP e 30 por 10 minutos por IP.
 
 ### 5.2 Redefinir
 
 `POST /api/v1/auth/password/reset` — público.
 
 ```json
-{ "token": "a1b2c3...", "password": "new-secret-123" }
+{ "resetToken": "a1b2c3...", "password": "new-secret-123" }
 ```
 
-- Consome o token, grava a nova senha e **revoga todas as sessões**.
-- Se o e-mail ainda não estava verificado, ele passa a ser marcado como verificado: receber o token no endereço canônico prova a posse da caixa postal.
+- Consome o ticket, grava a nova senha e **revoga todas as sessões**.
+- Cada ticket autoriza uma única troca e expira em 5 minutos.
+- Se o e-mail ainda não estava verificado, ele passa a ser marcado como verificado: receber o código no endereço canônico prova a posse da caixa postal.
 - Não autentica automaticamente; o usuário deve fazer login.
 - Contas criadas por provedor social passam a ter uma credencial local (o e-mail já é verificado pelo provedor).
-- Erros: `PASSWORD_RESET_TOKEN_INVALID`, `PASSWORD_RESET_TOKEN_EXPIRED`, `ACCOUNT_SUSPENDED`.
+- Erros: `PASSWORD_RESET_TICKET_INVALID`, `PASSWORD_RESET_TICKET_EXPIRED`, `ACCOUNT_SUSPENDED`.
+- No fluxo web, o BFF injeta o `resetToken` a partir do cookie selado; o navegador envia apenas a senha.
 
 ### 5.3 Trocar a senha autenticado
 
@@ -677,10 +703,14 @@ responsável, faixas de idade e acompanhantes em atividades) está arquivado em
 | `auth_social_callback` | sliding window | 10/min | provider + IP |
 | `auth_social_link` | sliding window | 10/min | `user_id` |
 | `auth_refresh` | sliding window | 30/min | IP |
-| `auth_email_verify` | sliding window | 10/min | IP |
-| `auth_email_resend` | sliding window | 3/min | `user_id` |
-| `auth_password_forgot` | sliding window | 5/min | e-mail + IP |
-| `auth_password_reset` | sliding window | 10/min | IP |
+| `auth_email_verify` | sliding window | 10/10 min | e-mail + IP |
+| `auth_email_verify_ip` | sliding window | 30/10 min | IP |
+| `auth_email_resend` | sliding window | 3/15 min | `user_id` |
+| `auth_password_forgot` | sliding window | 3/15 min | e-mail + IP |
+| `auth_password_forgot_ip` | sliding window | 10/h | IP |
+| `auth_password_otp_verify` | sliding window | 10/10 min | e-mail + IP |
+| `auth_password_otp_verify_ip` | sliding window | 30/10 min | IP |
+| `auth_password_reset` | sliding window | 10/10 min | IP |
 | `auth_password_change` | sliding window | 5/min | `user_id` |
 | `user_cpf` | sliding window | 10/min | `user_id` |
 
@@ -717,6 +747,7 @@ Apple **não** está implementada nesta entrega. O enum `IdentityProvider` e o r
 | Cookie do fluxo OAuth | `src/Identity/Presentation/Http/Response/SocialFlowCookieFactory.php` |
 | Verificação de e-mail | `src/Identity/Application/UseCase/EmailVerification/` |
 | Senhas | `src/Identity/Application/UseCase/Password/` |
+| OTP e tickets | `src/Identity/Domain/Otp/` e `src/Identity/Domain/PasswordReset/` |
 | Envio de e-mail | `src/Identity/Infrastructure/Mailer/` |
 | Página de diagnóstico OAuth | `src/Identity/Presentation/Http/Controller/DevOAuthController.php` |
 | Testes de rotação | `tests/Unit/Identity/Application/Service/TokenPairIssuerTest.php` |
@@ -733,4 +764,5 @@ Apple **não** está implementada nesta entrega. O enum `IdentityProvider` e o r
 | Testes do mailer, templates e fuso horário | `tests/Unit/Identity/Infrastructure/Mailer/` |
 | Testes das stores de OAuth e do JWKS | `tests/Unit/Identity/Infrastructure/Social/` |
 | Testes do Origin guard | `tests/Unit/Shared/Presentation/Http/Security/CookieOriginGuardTest.php` |
-| Testes do repositório de tokens de uso único | `tests/Integration/Identity/Infrastructure/Persistence/DoctrineIdentityTokenRepositoryTest.php` |
+| Testes do repositório de desafios OTP | `tests/Integration/Identity/Infrastructure/Persistence/DoctrineOtpChallengeRepositoryTest.php` |
+| Testes do repositório de tickets de reset | `tests/Integration/Identity/Infrastructure/Persistence/DoctrinePasswordResetTicketRepositoryTest.php` |

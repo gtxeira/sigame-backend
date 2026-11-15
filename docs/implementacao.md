@@ -596,6 +596,7 @@ entrypoint do container.
 | `Version20261106090000` | 2026-11-06 | Adiciona `users.email` e `users.email_verified_at` e faz o backfill a partir das identidades.                                  |
 | `Version20261106090100` | 2026-11-06 | Valida duplicatas e cria o índice único de `users.email`.                                                                      |
 | `Version20261106090200` | 2026-11-06 | Cria `identity_tokens` para verificação de e-mail e reset de senha.                                                            |
+| `Version20261114190000` | 2026-11-14 | Substitui `identity_tokens` por desafios OTP e tickets temporários de reset.                                                    |
 | `Version20261106100000` | 2026-11-06 | Cria `messenger_messages` para o transporte Doctrine do Messenger.                                                             |
 | `Version20261108120000` | 2026-11-08 | Renomeia `users.photo_url` para `photo_key`, limpa URLs antigas e reduz a coluna para 255 caracteres.                          |
 | `Version20261109120000` | 2026-11-09 | Cria `groups` (com `created_by`) e `group_memberships` (episódios, índices parciais de duplicidade e supervisor).              |

@@ -5,9 +5,10 @@ declare(strict_types=1);
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\Service\TokenPairIssuerInterface;
 use App\Identity\Application\UseCase\Password\ResetPasswordHandler;
-use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\Otp\Entity\OtpChallenge;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
+use App\Identity\Domain\PasswordReset\Entity\PasswordResetTicket;
+use App\Identity\Domain\PasswordReset\Repository\PasswordResetTicketRepositoryInterface;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserEmailVerified;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
@@ -19,24 +20,40 @@ use App\Shared\Domain\ValueObject\Email;
 use App\Shared\Domain\ValueObject\Instant;
 use Symfony\Component\Clock\MockClock;
 
-function resetPasswordTestToken(
+function resetPasswordTestUser(string $email = 'reset@example.com'): User
+{
+    return User::register(
+        cpf: null,
+        email: Email::fromString($email)->value(),
+        password: HashedPassword::fromHash('old-hash'),
+        name: 'Reset User',
+    );
+}
+
+function resetPasswordTestTicket(
     User $user,
-    string $rawToken = 'raw-reset-token',
+    string $rawToken = 'raw-reset-ticket',
     ?Instant $expiresAt = null,
-    IdentityTokenPurpose $purpose = IdentityTokenPurpose::PasswordReset,
-): IdentityToken {
-    return IdentityToken::create(
+): PasswordResetTicket {
+    $challenge = OtpChallenge::create(
         user: $user,
-        purpose: $purpose,
+        purpose: OtpPurpose::PasswordReset,
+        codeHash: 'code-hash',
+        expiresAt: Instant::fromDateTime(new DateTimeImmutable('2026-01-01T00:10:00+00:00')),
+    );
+
+    return PasswordResetTicket::create(
+        user: $user,
+        challenge: $challenge,
         tokenHash: hash('sha256', $rawToken),
         expiresAt: $expiresAt ?? Instant::fromDateTime(
-            new DateTimeImmutable('2026-01-01T00:30:00+00:00'),
+            new DateTimeImmutable('2026-01-01T00:05:00+00:00'),
         ),
     );
 }
 
 function resetPasswordTestHandler(
-    IdentityTokenRepositoryInterface $tokens,
+    PasswordResetTicketRepositoryInterface $tickets,
     UserRepositoryInterface $users,
     PasswordHasherInterface $hasher,
     TokenPairIssuerInterface $tokenPairIssuer,
@@ -48,7 +65,7 @@ function resetPasswordTestHandler(
     }
 
     return new ResetPasswordHandler(
-        tokenRepository: $tokens,
+        ticketRepository: $tickets,
         userRepository: $users,
         passwordHasher: $hasher,
         tokenPairIssuer: $tokenPairIssuer,
@@ -58,18 +75,16 @@ function resetPasswordTestHandler(
 }
 
 it('resets the password and revokes every session', function () {
-    $user = User::register(
-        cpf: null,
-        email: Email::fromString('reset@example.com')->value(),
-        password: HashedPassword::fromHash('old-hash'),
-        name: 'Reset User',
-    );
-    $token = resetPasswordTestToken($user);
+    $user = resetPasswordTestUser();
+    $ticket = resetPasswordTestTicket($user);
     $newHash = HashedPassword::fromHash('new-hash');
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldReceive('markConsumed')->once()->with($token)->andReturn(true);
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')
+        ->once()
+        ->with(hash('sha256', 'raw-reset-ticket'))
+        ->andReturn($ticket);
+    $tickets->shouldReceive('markConsumed')->once()->with($ticket)->andReturn(true);
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('save')->once()->with($user);
@@ -80,8 +95,8 @@ it('resets the password and revokes every session', function () {
     $tokenPairIssuer = Mockery::mock(TokenPairIssuerInterface::class);
     $tokenPairIssuer->shouldReceive('revokeAllSessions')->once()->with($user->id());
 
-    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer)(
-        'raw-reset-token',
+    $result = resetPasswordTestHandler($tickets, $users, $hasher, $tokenPairIssuer)(
+        'raw-reset-ticket',
         'new-secret-123',
     );
 
@@ -91,17 +106,12 @@ it('resets the password and revokes every session', function () {
 });
 
 it('verifies an unverified email after a successful reset', function () {
-    $user = User::register(
-        cpf: null,
-        email: Email::fromString('unverified-reset@example.com')->value(),
-        password: HashedPassword::fromHash('old-hash'),
-        name: 'Unverified Reset',
-    );
-    $token = resetPasswordTestToken($user);
+    $user = resetPasswordTestUser('unverified-reset@example.com');
+    $ticket = resetPasswordTestTicket($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldReceive('markConsumed')->once()->with($token)->andReturn(true);
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')->once()->andReturn($ticket);
+    $tickets->shouldReceive('markConsumed')->once()->andReturn(true);
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('save')->once()->with($user);
@@ -110,7 +120,7 @@ it('verifies an unverified email after a successful reset', function () {
     $hasher->shouldReceive('hash')->once()->andReturn(HashedPassword::fromHash('new-hash'));
 
     $tokenPairIssuer = Mockery::mock(TokenPairIssuerInterface::class);
-    $tokenPairIssuer->shouldReceive('revokeAllSessions')->once()->with($user->id());
+    $tokenPairIssuer->shouldReceive('revokeAllSessions')->once();
 
     $events = Mockery::mock(EventDispatcherInterface::class);
     $events->shouldReceive('dispatch')
@@ -122,8 +132,8 @@ it('verifies an unverified email after a successful reset', function () {
 
     expect($user->isEmailVerified())->toBeFalse();
 
-    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer, $events)(
-        'raw-reset-token',
+    $result = resetPasswordTestHandler($tickets, $users, $hasher, $tokenPairIssuer, $events)(
+        'raw-reset-ticket',
         'new-secret-123',
     );
 
@@ -139,11 +149,11 @@ it('creates a local credential for a social-only account', function () {
         email: Email::fromString('social-reset@example.com')->value(),
         name: 'Social Reset',
     );
-    $token = resetPasswordTestToken($user);
+    $ticket = resetPasswordTestTicket($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldReceive('markConsumed')->once()->andReturn(true);
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')->once()->andReturn($ticket);
+    $tickets->shouldReceive('markConsumed')->once()->andReturn(true);
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('save')->once();
@@ -159,8 +169,8 @@ it('creates a local credential for a social-only account', function () {
 
     expect($user->hasLocalPassword())->toBeFalse();
 
-    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer, $events)(
-        'raw-reset-token',
+    $result = resetPasswordTestHandler($tickets, $users, $hasher, $tokenPairIssuer, $events)(
+        'raw-reset-ticket',
         'new-secret-123',
     );
 
@@ -170,88 +180,57 @@ it('creates a local credential for a social-only account', function () {
         ->and($user->isEmailVerified())->toBeTrue();
 });
 
-it('rejects an unknown token', function () {
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn(null);
-    $tokens->shouldNotReceive('markConsumed');
+it('rejects an unknown ticket', function () {
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')->once()->andReturn(null);
+    $tickets->shouldNotReceive('markConsumed');
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldNotReceive('save');
 
     $result = resetPasswordTestHandler(
-        $tokens,
+        $tickets,
         $users,
         Mockery::mock(PasswordHasherInterface::class),
         Mockery::mock(TokenPairIssuerInterface::class),
-    )('missing-token', 'new-secret-123');
+    )('missing-ticket', 'new-secret-123');
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TOKEN_INVALID');
+        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TICKET_INVALID');
 });
 
-it('rejects a token issued for email verification', function () {
-    $user = User::register(
-        cpf: null,
-        email: Email::fromString('wrong-purpose@example.com')->value(),
-        password: HashedPassword::fromHash('old-hash'),
-        name: 'Wrong Purpose',
-    );
-    $token = resetPasswordTestToken($user, purpose: IdentityTokenPurpose::EmailVerification);
-
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldNotReceive('markConsumed');
-
-    $result = resetPasswordTestHandler(
-        $tokens,
-        Mockery::mock(UserRepositoryInterface::class),
-        Mockery::mock(PasswordHasherInterface::class),
-        Mockery::mock(TokenPairIssuerInterface::class),
-    )('raw-reset-token', 'new-secret-123');
-
-    expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TOKEN_INVALID');
-});
-
-it('rejects an expired token', function () {
-    $user = User::register(
-        cpf: null,
-        email: Email::fromString('expired@example.com')->value(),
-        password: HashedPassword::fromHash('old-hash'),
-        name: 'Expired',
-    );
-    $token = resetPasswordTestToken(
+it('rejects an expired ticket', function () {
+    $user = resetPasswordTestUser('expired@example.com');
+    $ticket = resetPasswordTestTicket(
         $user,
         expiresAt: Instant::fromDateTime(new DateTimeImmutable('2025-12-31T23:59:59+00:00')),
     );
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldNotReceive('markConsumed');
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')->once()->andReturn($ticket);
+    $tickets->shouldNotReceive('markConsumed');
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldNotReceive('save');
 
     $result = resetPasswordTestHandler(
-        $tokens,
-        Mockery::mock(UserRepositoryInterface::class),
+        $tickets,
+        $users,
         Mockery::mock(PasswordHasherInterface::class),
         Mockery::mock(TokenPairIssuerInterface::class),
-    )('raw-reset-token', 'new-secret-123');
+    )('raw-reset-ticket', 'new-secret-123');
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TOKEN_EXPIRED');
+        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TICKET_EXPIRED');
 });
 
-it('rejects the token when the atomic consumption loses a race', function () {
-    $user = User::register(
-        cpf: null,
-        email: Email::fromString('race@example.com')->value(),
-        password: HashedPassword::fromHash('old-hash'),
-        name: 'Race',
-    );
-    $token = resetPasswordTestToken($user);
+it('rejects the ticket when the atomic consumption loses a race', function () {
+    $user = resetPasswordTestUser('race@example.com');
+    $ticket = resetPasswordTestTicket($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldReceive('markConsumed')->once()->andReturn(false);
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')->once()->andReturn($ticket);
+    $tickets->shouldReceive('markConsumed')->once()->andReturn(false);
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldNotReceive('save');
@@ -260,29 +239,24 @@ it('rejects the token when the atomic consumption loses a race', function () {
     $tokenPairIssuer->shouldNotReceive('revokeAllSessions');
 
     $result = resetPasswordTestHandler(
-        $tokens,
+        $tickets,
         $users,
         Mockery::mock(PasswordHasherInterface::class),
         $tokenPairIssuer,
-    )('raw-reset-token', 'new-secret-123');
+    )('raw-reset-ticket', 'new-secret-123');
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TOKEN_INVALID');
+        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_TICKET_INVALID');
 });
 
 it('rejects a reset for a suspended account', function () {
-    $user = User::register(
-        cpf: null,
-        email: Email::fromString('suspended@example.com')->value(),
-        password: HashedPassword::fromHash('old-hash'),
-        name: 'Suspended',
-    );
+    $user = resetPasswordTestUser('suspended@example.com');
     $user->suspend();
-    $token = resetPasswordTestToken($user);
+    $ticket = resetPasswordTestTicket($user);
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('findByHash')->once()->andReturn($token);
-    $tokens->shouldReceive('markConsumed')->once()->andReturn(true);
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldReceive('findByHash')->once()->andReturn($ticket);
+    $tickets->shouldReceive('markConsumed')->once()->andReturn(true);
 
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldNotReceive('save');
@@ -293,11 +267,27 @@ it('rejects a reset for a suspended account', function () {
     $tokenPairIssuer = Mockery::mock(TokenPairIssuerInterface::class);
     $tokenPairIssuer->shouldNotReceive('revokeAllSessions');
 
-    $result = resetPasswordTestHandler($tokens, $users, $hasher, $tokenPairIssuer)(
-        'raw-reset-token',
+    $result = resetPasswordTestHandler($tickets, $users, $hasher, $tokenPairIssuer)(
+        'raw-reset-ticket',
         'new-secret-123',
     );
 
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe('ACCOUNT_SUSPENDED');
+});
+
+it('rejects a password that does not meet the policy before looking up the ticket', function () {
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldNotReceive('findByHash');
+
+    $result = resetPasswordTestHandler(
+        $tickets,
+        Mockery::mock(UserRepositoryInterface::class),
+        Mockery::mock(PasswordHasherInterface::class),
+        Mockery::mock(TokenPairIssuerInterface::class),
+    )('raw-reset-ticket', 'short');
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('STRING_TOO_SHORT')
+        ->and($result->errors()[0]->field)->toBe('password');
 });

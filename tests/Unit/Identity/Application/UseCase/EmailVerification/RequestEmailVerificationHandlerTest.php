@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
+use App\Identity\Application\Service\OtpCodeGeneratorInterface;
+use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\UseCase\EmailVerification\EmailVerificationRequestOutcome;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
-use App\Identity\Domain\IdentityToken\Entity\IdentityToken;
-use App\Identity\Domain\IdentityToken\Repository\IdentityTokenRepositoryInterface;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\Otp\Entity\OtpChallenge;
+use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpChallengeId;
+use App\Identity\Domain\Otp\ValueObject\OtpCode;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Shared\Domain\ValueObject\Email;
@@ -25,89 +29,152 @@ function emailVerificationTestUser(string $email = 'verify@example.com'): User
     );
 }
 
+function emailVerificationTestGenerator(string $code = '123456'): OtpCodeGeneratorInterface
+{
+    return new class($code) implements OtpCodeGeneratorInterface {
+        public function __construct(private string $code)
+        {
+        }
+
+        public function generate(): OtpCode
+        {
+            return OtpCode::fromGenerated($this->code);
+        }
+    };
+}
+
 it('returns early when the email is already verified', function () {
     $user = emailVerificationTestUser();
     $user->verifyEmail();
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldNotReceive('invalidateUnconsumed');
-    $tokens->shouldNotReceive('save');
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('invalidateActive');
+    $challenges->shouldNotReceive('save');
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldNotReceive('dispatchEmailVerification');
 
     $handler = new RequestEmailVerificationHandler(
-        tokenRepository: $tokens,
+        challengeRepository: $challenges,
+        codeGenerator: emailVerificationTestGenerator(),
+        passwordHasher: Mockery::mock(PasswordHasherInterface::class),
         mailDispatcher: $dispatcher,
         logger: Mockery::mock(LoggerInterface::class),
         clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
-        ttlSeconds: 86400,
+        ttlSeconds: 900,
+        cooldownSeconds: 0,
     );
 
     expect($handler($user))->toBe(EmailVerificationRequestOutcome::AlreadyVerified);
 });
 
-it('invalidates previous tokens and sends a token valid for the configured ttl', function () {
+it('invalidates previous challenges and sends a code valid for the configured ttl', function () {
     $user = emailVerificationTestUser();
     $clock = new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00'));
-
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('invalidateUnconsumed')
-        ->once()
-        ->with($user, IdentityTokenPurpose::EmailVerification);
-
     $saved = null;
-    $rawToken = null;
 
-    $tokens->shouldReceive('save')
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('invalidateActive')
         ->once()
-        ->with(Mockery::on(static function (IdentityToken $token) use (&$saved): bool {
-            $saved = $token;
+        ->with($user, OtpPurpose::EmailVerification);
+    $challenges->shouldReceive('save')
+        ->once()
+        ->with(Mockery::on(static function (OtpChallenge $challenge) use (&$saved): bool {
+            $saved = $challenge;
 
             return true;
         }));
 
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->with('123456')->andReturn(HashedPassword::fromHash('code-hash'));
+
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatched = null;
     $dispatcher->shouldReceive('dispatchEmailVerification')
         ->once()
-        ->with(
-            Mockery::on(static fn (Email $email): bool => 'verify@example.com' === $email->value()),
-            Mockery::on(static function (string $token) use (&$rawToken): bool {
-                $rawToken = $token;
-
-                return true;
-            }),
-            Mockery::on(static fn (Instant $expiresAt): bool => $expiresAt->equals(
-                Instant::fromDateTime(new DateTimeImmutable('2026-01-02T00:00:00+00:00')),
-            )),
-            Mockery::on(static function (string $tokenHash) use (&$rawToken): bool {
-                return hash('sha256', (string) $rawToken) === $tokenHash;
-            }),
-        );
+        ->andReturnUsing(static function (
+            Email $email,
+            string $code,
+            Instant $expiresAt,
+            OtpChallengeId $challengeId,
+        ) use (&$dispatched): void {
+            $dispatched = [
+                'email' => $email,
+                'code' => $code,
+                'expiresAt' => $expiresAt,
+                'challengeId' => $challengeId,
+            ];
+        });
 
     $handler = new RequestEmailVerificationHandler(
-        tokenRepository: $tokens,
+        challengeRepository: $challenges,
+        codeGenerator: emailVerificationTestGenerator(),
+        passwordHasher: $hasher,
         mailDispatcher: $dispatcher,
         logger: Mockery::mock(LoggerInterface::class),
         clock: $clock,
-        ttlSeconds: 86400,
+        ttlSeconds: 900,
+        cooldownSeconds: 0,
     );
 
     $outcome = $handler($user);
 
     expect($outcome)->toBe(EmailVerificationRequestOutcome::Queued)
-        ->and($saved)->toBeInstanceOf(IdentityToken::class)
-        ->and($rawToken)->toBeString()->not->toBeEmpty()
-        ->and($saved?->purpose())->toBe(IdentityTokenPurpose::EmailVerification)
-        ->and($saved?->tokenHash())->toBe(hash('sha256', (string) $rawToken));
+        ->and($saved)->toBeInstanceOf(OtpChallenge::class)
+        ->and($saved?->purpose())->toBe(OtpPurpose::EmailVerification)
+        ->and($saved?->codeHash())->toBe('code-hash')
+        ->and($dispatched['email']->value())->toBe('verify@example.com')
+        ->and($dispatched['code'])->toBe('123456')
+        ->and($dispatched['expiresAt']->equals(
+            Instant::fromDateTime(new DateTimeImmutable('2026-01-01T00:15:00+00:00')),
+        ))->toBeTrue()
+        ->and($dispatched['challengeId']->equals($saved?->id()))->toBeTrue();
+});
+
+it('does not send a new code while the cooldown is active', function () {
+    $user = emailVerificationTestUser();
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('hasActiveCreatedAfter')
+        ->once()
+        ->with(
+            $user,
+            OtpPurpose::EmailVerification,
+            Mockery::on(static fn (Instant $since): bool => $since->equals(
+                Instant::fromDateTime(new DateTimeImmutable('2025-12-31T23:59:00+00:00')),
+            )),
+        )
+        ->andReturn(true);
+    $challenges->shouldNotReceive('invalidateActive');
+    $challenges->shouldNotReceive('save');
+
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldNotReceive('dispatchEmailVerification');
+
+    $handler = new RequestEmailVerificationHandler(
+        challengeRepository: $challenges,
+        codeGenerator: emailVerificationTestGenerator(),
+        passwordHasher: Mockery::mock(PasswordHasherInterface::class),
+        mailDispatcher: $dispatcher,
+        logger: Mockery::mock(LoggerInterface::class),
+        clock: new MockClock($now),
+        ttlSeconds: 900,
+        cooldownSeconds: 60,
+    );
+
+    expect($handler($user))->toBe(EmailVerificationRequestOutcome::Queued);
 });
 
 it('logs a warning instead of failing when the dispatcher throws', function () {
     $user = emailVerificationTestUser();
 
-    $tokens = Mockery::mock(IdentityTokenRepositoryInterface::class);
-    $tokens->shouldReceive('invalidateUnconsumed')->once();
-    $tokens->shouldReceive('save')->once();
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('invalidateActive')->once();
+    $challenges->shouldReceive('save')->once();
+
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->andReturn(HashedPassword::fromHash('code-hash'));
 
     $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
     $dispatcher->shouldReceive('dispatchEmailVerification')
@@ -122,11 +189,14 @@ it('logs a warning instead of failing when the dispatcher throws', function () {
         ));
 
     $handler = new RequestEmailVerificationHandler(
-        tokenRepository: $tokens,
+        challengeRepository: $challenges,
+        codeGenerator: emailVerificationTestGenerator(),
+        passwordHasher: $hasher,
         mailDispatcher: $dispatcher,
         logger: $logger,
         clock: new MockClock(new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
-        ttlSeconds: 86400,
+        ttlSeconds: 900,
+        cooldownSeconds: 0,
     );
 
     expect($handler($user))->toBe(EmailVerificationRequestOutcome::Queued);

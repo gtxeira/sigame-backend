@@ -6,7 +6,7 @@ namespace App\Identity\Presentation\Http\Controller;
 
 use App\Identity\Application\UseCase\EmailVerification\EmailVerificationRequestOutcome;
 use App\Identity\Application\UseCase\EmailVerification\RequestEmailVerificationHandler;
-use App\Identity\Application\UseCase\EmailVerification\VerifyEmailHandler;
+use App\Identity\Application\UseCase\EmailVerification\VerifyEmailOtpHandler;
 use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Infrastructure\Security\SecurityUser;
 use App\Identity\Presentation\Http\Request\EmailVerifyRequest;
@@ -40,12 +40,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class EmailVerificationController extends AbstractController
 {
     public function __construct(
-        private readonly VerifyEmailHandler $verifyEmailHandler,
+        private readonly VerifyEmailOtpHandler $verifyEmailOtpHandler,
         private readonly RequestEmailVerificationHandler $requestEmailVerificationHandler,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
         #[Autowire(service: 'limiter.auth_email_verify')]
         private readonly RateLimiterFactoryInterface $verifyLimiter,
+        #[Autowire(service: 'limiter.auth_email_verify_ip')]
+        private readonly RateLimiterFactoryInterface $verifyIpLimiter,
         #[Autowire(service: 'limiter.auth_email_resend')]
         private readonly RateLimiterFactoryInterface $resendLimiter,
     ) {
@@ -54,33 +56,42 @@ final class EmailVerificationController extends AbstractController
     /**
      * Verificar o e-mail
      *
-     * Consome o token enviado por e-mail e marca o endereço canônico como
-     * verificado. O token é de uso único e expira.
+     * Valida o código OTP enviado por e-mail e marca o endereço canônico como
+     * verificado. O código é de uso único, expira e é invalidado após 5 erros.
      */
     #[Route('/auth/email/verify', name: 'app_auth_email_verify', methods: ['POST'])]
     #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'E-mail verificado.')]
     #[ValidationErrorResponse(
         examples: [
             'FIELD_REQUIRED' => new ApiErrorExample(
-                message: 'O token é obrigatório.',
-                field: 'token',
+                message: 'O código é obrigatório.',
+                field: 'code',
                 summary: 'Erros de Validação',
                 description: 'O payload de verificação contém dados inválidos.',
             ),
-            'EMAIL_VERIFICATION_TOKEN_INVALID' => new ApiErrorExample(
-                message: 'O token de verificação de e-mail é inválido.',
-                field: 'token',
-                summary: 'Token inválido',
-                description: 'O token não existe ou já foi utilizado.',
+            'EMAIL_VERIFICATION_CODE_INVALID' => new ApiErrorExample(
+                message: 'O código de verificação de e-mail é inválido.',
+                field: 'code',
+                summary: 'Código inválido',
+                description: 'O código não existe, já foi utilizado ou não pertence a este e-mail.',
             ),
-            'EMAIL_VERIFICATION_TOKEN_EXPIRED' => new ApiErrorExample(
-                message: 'O token de verificação de e-mail expirou. Solicite um novo.',
-                field: 'token',
-                summary: 'Token expirado',
-                description: 'O token passou do prazo de validade.',
+            'EMAIL_VERIFICATION_CODE_EXPIRED' => new ApiErrorExample(
+                message: 'O código de verificação de e-mail expirou. Solicite um novo.',
+                field: 'code',
+                summary: 'Código expirado',
+                description: 'O código passou do prazo de validade.',
+            ),
+            'EMAIL_VERIFICATION_CODE_ATTEMPTS_EXCEEDED' => new ApiErrorExample(
+                message: 'Muitas tentativas inválidas. Solicite um novo código de verificação.',
+                field: 'code',
+                summary: 'Tentativas excedidas',
+                description: 'O código foi invalidado após 5 tentativas erradas.',
             ),
         ],
-        fields: ['token' => 'Token de verificação.'],
+        fields: [
+            'email' => 'E-mail da conta.',
+            'code' => 'Código de 6 dígitos.',
+        ],
     )]
     #[TooManyRequestsResponse]
     #[BadRequestResponse]
@@ -90,12 +101,13 @@ final class EmailVerificationController extends AbstractController
         #[MapRequestPayload] EmailVerifyRequest $request,
         Request $httpRequest,
     ): Response {
-        $this->rateLimitGuard->assertWithin(
-            $this->verifyLimiter,
-            $httpRequest->getClientIp() ?? 'unknown',
-        );
+        $clientIp = $httpRequest->getClientIp() ?? 'unknown';
+        $emailKey = mb_strtolower(trim($request->email)).'|'.$clientIp;
 
-        $result = ($this->verifyEmailHandler)($request->token);
+        $this->rateLimitGuard->assertWithin($this->verifyLimiter, $emailKey);
+        $this->rateLimitGuard->assertWithin($this->verifyIpLimiter, $clientIp);
+
+        $result = ($this->verifyEmailOtpHandler)($request->email, $request->code);
 
         return $result->isFailure()
             ? $this->resultResponder->failure($result)
@@ -105,9 +117,9 @@ final class EmailVerificationController extends AbstractController
     /**
      * Reenviar verificação de e-mail
      *
-     * Gera um novo token e invalida o anterior. O cadastro local já enfileira
+     * Gera um novo código e invalida o anterior. O cadastro local já enfileira
      * a confirmação automaticamente; use este endpoint quando o e-mail não
-     * chegou ou quando o link expirou. Contas já verificadas não recebem novo
+     * chegou ou quando o código expirou. Contas já verificadas não recebem novo
      * e-mail.
      */
     #[Route('/auth/email/verification/resend', name: 'app_auth_email_resend', methods: ['POST'])]

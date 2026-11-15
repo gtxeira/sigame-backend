@@ -2,40 +2,42 @@
 
 declare(strict_types=1);
 
-namespace App\Identity\Domain\IdentityToken\Entity;
+namespace App\Identity\Domain\Otp\Entity;
 
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenId;
-use App\Identity\Domain\IdentityToken\ValueObject\IdentityTokenPurpose;
+use App\Identity\Domain\Otp\ValueObject\OtpChallengeId;
+use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\User\Entity\User;
 use App\Shared\Domain\ValueObject\Instant;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Token de uso único para verificação de e-mail ou redefinição de senha.
+ * Desafio OTP de uso único para verificação de e-mail ou redefinição de senha.
  *
- * Apenas o SHA-256 do valor bruto é persistido; o valor original existe só no
- * link enviado ao usuário.
+ * Apenas o hash do código é persistido; o código original existe só no e-mail
+ * enviado ao usuário.
  */
 #[ORM\Entity]
-#[ORM\Table(name: 'identity_tokens')]
-#[ORM\UniqueConstraint(name: 'uniq_identity_tokens_token_hash', fields: ['tokenHash'])]
-#[ORM\Index(name: 'idx_identity_tokens_user_purpose', fields: ['user', 'purpose'])]
-final class IdentityToken
+#[ORM\Table(name: 'identity_otp_challenges')]
+#[ORM\Index(name: 'idx_identity_otp_challenges_user_purpose', fields: ['user', 'purpose'])]
+final class OtpChallenge
 {
     private function __construct(
         #[ORM\Id]
-        #[ORM\Column(type: 'identity_token_id')]
-        private IdentityTokenId $id,
+        #[ORM\Column(type: 'otp_challenge_id')]
+        private OtpChallengeId $id,
 
         #[ORM\ManyToOne(targetEntity: User::class)]
         #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
         private User $user,
 
-        #[ORM\Column(type: 'string', length: 30, enumType: IdentityTokenPurpose::class)]
-        private IdentityTokenPurpose $purpose,
+        #[ORM\Column(type: 'string', length: 30, enumType: OtpPurpose::class)]
+        private OtpPurpose $purpose,
 
-        #[ORM\Column(type: 'string', length: 64)]
-        private string $tokenHash,
+        #[ORM\Column(type: 'string', length: 255)]
+        private string $codeHash,
+
+        #[ORM\Column(type: 'smallint', options: ['default' => 0])]
+        private int $attempts,
 
         #[ORM\Column(type: 'instant')]
         private Instant $expiresAt,
@@ -50,15 +52,16 @@ final class IdentityToken
 
     public static function create(
         User $user,
-        IdentityTokenPurpose $purpose,
-        string $tokenHash,
+        OtpPurpose $purpose,
+        string $codeHash,
         Instant $expiresAt,
     ): self {
         return new self(
-            id: IdentityTokenId::generate(),
+            id: OtpChallengeId::generate(),
             user: $user,
             purpose: $purpose,
-            tokenHash: $tokenHash,
+            codeHash: $codeHash,
+            attempts: 0,
             expiresAt: $expiresAt,
             consumedAt: null,
             createdAt: Instant::now(),
@@ -75,9 +78,21 @@ final class IdentityToken
         return null !== $this->consumedAt;
     }
 
-    public function matchesPurpose(IdentityTokenPurpose $purpose): bool
+    public function hasReachedAttemptLimit(int $maxAttempts): bool
     {
-        return $this->purpose === $purpose;
+        return $this->attempts >= $maxAttempts;
+    }
+
+    /**
+     * Registra uma tentativa errada e invalida o desafio ao atingir o limite.
+     */
+    public function recordFailedAttempt(int $maxAttempts, Instant $now): void
+    {
+        ++$this->attempts;
+
+        if ($this->attempts >= $maxAttempts) {
+            $this->consume($now);
+        }
     }
 
     public function consume(Instant $at): void
@@ -89,7 +104,7 @@ final class IdentityToken
         $this->consumedAt = $at;
     }
 
-    public function id(): IdentityTokenId
+    public function id(): OtpChallengeId
     {
         return $this->id;
     }
@@ -99,14 +114,19 @@ final class IdentityToken
         return $this->user;
     }
 
-    public function purpose(): IdentityTokenPurpose
+    public function purpose(): OtpPurpose
     {
         return $this->purpose;
     }
 
-    public function tokenHash(): string
+    public function codeHash(): string
     {
-        return $this->tokenHash;
+        return $this->codeHash;
+    }
+
+    public function attempts(): int
+    {
+        return $this->attempts;
     }
 
     public function expiresAt(): Instant

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
+use App\Identity\Domain\Otp\ValueObject\OtpChallengeId;
 use App\Identity\Infrastructure\Mailer\Message\SendEmailVerificationMessage;
 use App\Identity\Infrastructure\Mailer\Message\SendPasswordResetMessage;
 use App\Identity\Infrastructure\Mailer\MessengerIdentityMailDispatcher;
@@ -45,14 +46,15 @@ function mailDispatcherTestSubject(): array
 
 it('dispatches an encrypted password reset message', function () {
     $subject = mailDispatcherTestSubject();
-    $rawToken = 'raw-reset-token';
+    $code = '123456';
+    $challengeId = OtpChallengeId::generate();
     $expiresAt = Instant::fromDateTime(new DateTimeImmutable('2026-01-01T00:30:00+00:00'));
 
     $subject['dispatcher']->dispatchPasswordReset(
         to: Email::fromString('user@example.com')->value(),
-        rawToken: $rawToken,
+        code: $code,
         expiresAt: $expiresAt,
-        tokenHash: hash('sha256', $rawToken),
+        challengeId: $challengeId,
     );
 
     $message = $subject['messages'][0];
@@ -61,25 +63,26 @@ it('dispatches an encrypted password reset message', function () {
     assert($message instanceof SendPasswordResetMessage);
 
     $decrypted = mailDispatcherTestEncryptor()->decrypt(
-        EncryptedPayload::fromBase64($message->encryptedToken),
+        EncryptedPayload::fromBase64($message->encryptedCode),
     );
 
     expect($message->email)->toBe('user@example.com')
-        ->and($message->tokenHash)->toBe(hash('sha256', $rawToken))
+        ->and($message->challengeId)->toBe($challengeId->value())
         ->and($message->expiresAtTimestamp)->toBe($expiresAt->timestamp())
-        ->and($decrypted)->toBe($rawToken)
-        ->and(serialize($message))->not->toContain($rawToken);
+        ->and($decrypted)->toBe($code)
+        ->and(serialize($message))->not->toContain($code);
 });
 
 it('dispatches an encrypted email verification message', function () {
     $subject = mailDispatcherTestSubject();
-    $rawToken = 'raw-verification-token';
+    $code = '654321';
+    $challengeId = OtpChallengeId::generate();
 
     $subject['dispatcher']->dispatchEmailVerification(
         to: Email::fromString('verify@example.com')->value(),
-        rawToken: $rawToken,
+        code: $code,
         expiresAt: Instant::now(),
-        tokenHash: hash('sha256', $rawToken),
+        challengeId: $challengeId,
     );
 
     $message = $subject['messages'][0];
@@ -88,11 +91,11 @@ it('dispatches an encrypted email verification message', function () {
     assert($message instanceof SendEmailVerificationMessage);
 
     $decrypted = mailDispatcherTestEncryptor()->decrypt(
-        EncryptedPayload::fromBase64($message->encryptedToken),
+        EncryptedPayload::fromBase64($message->encryptedCode),
     );
 
     expect($message->email)->toBe('verify@example.com')
-        ->and($message->tokenHash)->toBe(hash('sha256', $rawToken))
-        ->and($decrypted)->toBe($rawToken)
-        ->and(serialize($message))->not->toContain($rawToken);
+        ->and($message->challengeId)->toBe($challengeId->value())
+        ->and($decrypted)->toBe($code)
+        ->and(serialize($message))->not->toContain($code);
 });

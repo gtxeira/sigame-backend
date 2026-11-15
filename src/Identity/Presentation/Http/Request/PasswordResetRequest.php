@@ -8,16 +8,16 @@ use OpenApi\Attributes as OA;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * DTO para redefinir a senha com o token recebido por e-mail.
+ * DTO para redefinir a senha com o ticket temporário.
  */
-#[OA\Schema(description: 'Redefinição de senha por token.')]
+#[OA\Schema(description: 'Redefinição de senha por ticket temporário.')]
 final readonly class PasswordResetRequest
 {
     public function __construct(
-        #[OA\Property(description: 'Token enviado por e-mail.', example: 'a1b2c3...')]
-        #[Assert\NotBlank(message: 'O token é obrigatório.')]
-        #[Assert\Length(max: 128, maxMessage: 'O token deve ter no máximo 128 caracteres.')]
-        public string $token = '',
+        #[OA\Property(description: 'Ticket temporário devolvido pela validação do código.', example: 'a1b2c3...')]
+        #[Assert\NotBlank(message: 'A autorização de redefinição é obrigatória.')]
+        #[Assert\Length(max: 128, maxMessage: 'A autorização deve ter no máximo 128 caracteres.')]
+        public string $resetToken = '',
 
         #[OA\Property(description: 'Nova senha.', example: 'secret123')]
         #[Assert\NotBlank(message: 'A senha é obrigatória.')]
