@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Identity\Presentation\Http\Response\RegisterUserResponse;
+use App\Shared\Domain\ValueObject\Email;
 use Symfony\Component\HttpFoundation\Response;
 
 it('defines the birth date once and rejects changes', function () {
@@ -62,13 +62,15 @@ it('rejects an underage account and removes it', function () {
     $email = 'birth-underage@example.com';
 
     $this->api->post('app_auth_register', [
-        'cpf' => null,
         'email' => $email,
         'name' => 'Underage User',
         'password' => 'secret1234',
     ]);
 
-    $registered = $this->api->deserializeResponse(RegisterUserResponse::class);
+    authTestVerifyEmail($this, $email);
+
+    $registered = authTestUserRepository($this)->findByEmail(Email::fromString($email)->value());
+    assert(null !== $registered);
     $accessToken = authTestAccessToken(authTestLogin($this, $email, 'secret1234'));
 
     $response = $this->api->patch(
@@ -87,7 +89,7 @@ it('rejects an underage account and removes it', function () {
 
     $progressCount = authTestEntityManager($this)->getConnection()->fetchOne(
         'SELECT COUNT(*) FROM user_progress WHERE user_id = ?',
-        [$registered->id],
+        [$registered->id()->value()],
     );
 
     expect((int) $progressCount)->toBe(0);

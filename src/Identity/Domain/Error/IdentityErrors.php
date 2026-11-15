@@ -147,6 +147,15 @@ final class IdentityErrors
         );
     }
 
+    public static function emailNotVerified(): DomainError
+    {
+        return self::error(
+            code: IdentityErrorCode::EmailNotVerified,
+            message: 'Confirme seu e-mail antes de entrar. Verifique a caixa de entrada.',
+            field: 'email',
+        );
+    }
+
     public static function refreshTokenInvalid(): DomainError
     {
         return self::error(
@@ -279,37 +288,11 @@ final class IdentityErrors
         );
     }
 
-    public static function emailAlreadyVerified(): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::EmailAlreadyVerified,
-            message: 'O e-mail já está verificado.',
-        );
-    }
-
     public static function emailVerificationCodeInvalid(): DomainError
     {
         return self::error(
             code: IdentityErrorCode::EmailVerificationCodeInvalid,
-            message: 'O código de verificação de e-mail é inválido.',
-            field: 'code',
-        );
-    }
-
-    public static function emailVerificationCodeExpired(): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::EmailVerificationCodeExpired,
-            message: 'O código de verificação de e-mail expirou. Solicite um novo.',
-            field: 'code',
-        );
-    }
-
-    public static function emailVerificationCodeAttemptsExceeded(): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::EmailVerificationCodeAttemptsExceeded,
-            message: 'Muitas tentativas inválidas. Solicite um novo código de verificação.',
+            message: 'O código de verificação é inválido ou expirou. Solicite um novo.',
             field: 'code',
         );
     }
@@ -318,25 +301,7 @@ final class IdentityErrors
     {
         return self::error(
             code: IdentityErrorCode::PasswordResetCodeInvalid,
-            message: 'O código de redefinição de senha é inválido.',
-            field: 'code',
-        );
-    }
-
-    public static function passwordResetCodeExpired(): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::PasswordResetCodeExpired,
-            message: 'O código de redefinição de senha expirou. Solicite um novo.',
-            field: 'code',
-        );
-    }
-
-    public static function passwordResetCodeAttemptsExceeded(): DomainError
-    {
-        return self::error(
-            code: IdentityErrorCode::PasswordResetCodeAttemptsExceeded,
-            message: 'Muitas tentativas inválidas. Solicite um novo código de redefinição.',
+            message: 'O código de redefinição é inválido ou expirou. Solicite um novo.',
             field: 'code',
         );
     }

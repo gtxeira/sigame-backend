@@ -131,22 +131,10 @@ final class PasswordController extends AbstractController
                 description: 'O payload de validação contém dados inválidos.',
             ),
             'PASSWORD_RESET_CODE_INVALID' => new ApiErrorExample(
-                message: 'O código de redefinição de senha é inválido.',
+                message: 'O código de redefinição é inválido ou expirou. Solicite um novo.',
                 field: 'code',
                 summary: 'Código inválido',
-                description: 'O código não existe, já foi utilizado ou não pertence a este e-mail.',
-            ),
-            'PASSWORD_RESET_CODE_EXPIRED' => new ApiErrorExample(
-                message: 'O código de redefinição de senha expirou. Solicite um novo.',
-                field: 'code',
-                summary: 'Código expirado',
-                description: 'O código passou do prazo de validade.',
-            ),
-            'PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED' => new ApiErrorExample(
-                message: 'Muitas tentativas inválidas. Solicite um novo código de redefinição.',
-                field: 'code',
-                summary: 'Tentativas excedidas',
-                description: 'O código foi invalidado após 5 tentativas erradas.',
+                description: 'O código não existe, já foi utilizado, expirou ou não pertence a este e-mail.',
             ),
         ],
         fields: [

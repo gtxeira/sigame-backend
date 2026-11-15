@@ -73,7 +73,6 @@ it('classifies state conflicts as conflict', function (IdentityErrorCode|GroupEr
     IdentityErrorCode::EmailAlreadyExists,
     IdentityErrorCode::SocialIdentityAlreadyLinked,
     IdentityErrorCode::OnboardingAlreadyCompleted,
-    IdentityErrorCode::EmailAlreadyVerified,
     IdentityErrorCode::UserCpfAlreadySet,
     IdentityErrorCode::UserBirthDateAlreadySet,
     IdentityErrorCode::RefreshInProgress,
@@ -107,8 +106,9 @@ it('classifies authentication problems as authentication', function (IdentityErr
     IdentityErrorCode::SocialAuthenticationFailed,
 ]);
 
-it('classifies suspended accounts as forbidden', function () {
+it('classifies suspended accounts and unverified emails as forbidden', function () {
     expect(IdentityErrorCode::AccountSuspended->kind())->toBe(ErrorKind::Forbidden)
+        ->and(IdentityErrorCode::EmailNotVerified->kind())->toBe(ErrorKind::Forbidden)
         ->and(IdentityErrorCode::CannotSuspendAdmin->kind())->toBe(ErrorKind::Forbidden);
 });
 

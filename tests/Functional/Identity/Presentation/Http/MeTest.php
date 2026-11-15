@@ -25,7 +25,7 @@ it('returns the authenticated user on me', function () {
 
     expect($me->email)->toBe('me@example.com')
         ->and($me->cpf)->toBeNull()
-        ->and($me->emailVerified)->toBeFalse();
+        ->and($me->emailVerified)->toBeTrue();
 });
 
 it('reports the login providers of the account', function () {

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Identity\Application\Service\DummyPasswordHash;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\UseCase\EmailVerification\VerifyEmailOtpHandler;
 use App\Identity\Domain\Otp\Entity\OtpChallenge;
@@ -127,7 +128,7 @@ it('counts a wrong code and keeps the challenge active', function () {
         ->and($result->errors()[0]->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID');
 });
 
-it('invalidates the challenge on the fifth wrong attempt', function () {
+it('invalidates the challenge on the fifth wrong attempt with the same public error', function () {
     $user = verifyEmailOtpTestUser();
     $challenge = verifyEmailOtpTestChallenge($user);
 
@@ -148,10 +149,10 @@ it('invalidates the challenge on the fifth wrong attempt', function () {
     );
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('EMAIL_VERIFICATION_CODE_ATTEMPTS_EXCEEDED');
+        ->and($result->errors()[0]->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID');
 });
 
-it('rejects an expired code', function () {
+it('rejects an expired code with the same public error', function () {
     $user = verifyEmailOtpTestUser();
     $challenge = verifyEmailOtpTestChallenge(
         $user,
@@ -166,14 +167,21 @@ it('rejects an expired code', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $result = verifyEmailOtpTestHandler(
-        $challenges,
-        $users,
-        Mockery::mock(PasswordHasherInterface::class),
-    )('verify-otp@example.com', '123456');
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('verify')
+        ->once()
+        ->with('123456', Mockery::on(
+            static fn (HashedPassword $hash): bool => DummyPasswordHash::VALUE === $hash->value(),
+        ))
+        ->andReturn(false);
+
+    $result = verifyEmailOtpTestHandler($challenges, $users, $hasher)(
+        'verify-otp@example.com',
+        '123456',
+    );
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('EMAIL_VERIFICATION_CODE_EXPIRED');
+        ->and($result->errors()[0]->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID');
 });
 
 it('rejects an unknown email without revealing the account', function () {
@@ -183,11 +191,18 @@ it('rejects an unknown email without revealing the account', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn(null);
 
-    $result = verifyEmailOtpTestHandler(
-        $challenges,
-        $users,
-        Mockery::mock(PasswordHasherInterface::class),
-    )('unknown@example.com', '123456');
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('verify')
+        ->once()
+        ->with('123456', Mockery::on(
+            static fn (HashedPassword $hash): bool => DummyPasswordHash::VALUE === $hash->value(),
+        ))
+        ->andReturn(false);
+
+    $result = verifyEmailOtpTestHandler($challenges, $users, $hasher)(
+        'unknown@example.com',
+        '123456',
+    );
 
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID');

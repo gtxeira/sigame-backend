@@ -5,21 +5,18 @@ declare(strict_types=1);
 namespace App\Identity\Application\UseCase\RegisterUser;
 
 /**
- * Command para registro de novo usuário.
+ * Command para solicitação de cadastro.
+ *
+ * O CPF não faz parte do cadastro público para não expor a existência de
+ * documentos; ele é definido depois, autenticado, no perfil.
  */
 final readonly class RegisterUserCommand
 {
     public function __construct(
-        private ?string $cpf,
         private string $email,
         private string $name,
         private string $password,
     ) {
-    }
-
-    public function cpf(): ?string
-    {
-        return $this->cpf;
     }
 
     public function email(): string

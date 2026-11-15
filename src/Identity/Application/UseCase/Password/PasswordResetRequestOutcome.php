@@ -27,8 +27,7 @@ final readonly class PasswordResetRequestOutcome
     }
 
     /**
-     * Pedido recente: o código anterior continua válido e nenhum novo e-mail é
-     * enviado antes do fim do cooldown.
+     * Pedido recente: nenhum novo e-mail é enviado antes do fim do cooldown.
      */
     public static function throttled(int $retryAfterSeconds): self
     {

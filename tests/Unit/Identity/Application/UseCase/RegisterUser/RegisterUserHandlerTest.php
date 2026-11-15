@@ -2,266 +2,203 @@
 
 declare(strict_types=1);
 
+use App\Identity\Application\Service\AccountExistsNoticeThrottleInterface;
+use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserCommand;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserHandler;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserRegistered;
-use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
+use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Shared\Application\Event\EventDispatcherInterface;
-use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 
-beforeEach(function () {
-    $this->userRepository = Mockery::mock(UserRepositoryInterface::class);
-    $this->passwordHasher = Mockery::mock(PasswordHasherInterface::class);
-    $this->eventDispatcher = Mockery::mock(EventDispatcherInterface::class);
-
-    $this->handler = new RegisterUserHandler(
-        userRepository: $this->userRepository,
-        passwordHasher: $this->passwordHasher,
-        eventDispatcher: $this->eventDispatcher,
+function registerUserTestHandler(
+    UserRepositoryInterface $users,
+    PasswordHasherInterface $hasher,
+    IdentityMailDispatcherInterface $dispatcher,
+    AccountExistsNoticeThrottleInterface $throttle,
+    EventDispatcherInterface $events,
+): RegisterUserHandler {
+    return new RegisterUserHandler(
+        userRepository: $users,
+        passwordHasher: $hasher,
+        mailDispatcher: $dispatcher,
+        accountExistsNoticeThrottle: $throttle,
+        eventDispatcher: $events,
     );
-});
+}
 
-it('registers a user successfully', function () {
-    $cpf = '52998224725';
-    $email = 'test@example.com';
-    $name = 'João Silva';
-    $password = 'secret123';
+function registerUserTestExistingUser(string $email = 'existing@example.com'): User
+{
+    return User::register(
+        cpf: null,
+        email: Email::fromString($email)->value(),
+        password: HashedPassword::fromHash('hashed'),
+        name: 'Existing User',
+    );
+}
+
+it('registers a new user without cpf and dispatches the registered event', function () {
     $hashedPassword = HashedPassword::fromHash('hashed_secret123');
 
-    $this->userRepository
-        ->shouldReceive('findByCpf')
-        ->once()
-        ->with(Mockery::on(static fn (Cpf $value): bool => $value->value() === $cpf))
-        ->andReturn(null);
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn(null);
+    $users->shouldReceive('save')->once()->with(Mockery::on(
+        static fn (User $user): bool => null === $user->cpf()
+            && 'test@example.com' === $user->email()->value()
+            && 'João Silva' === $user->name(),
+    ));
 
-    $this->userRepository
-        ->shouldReceive('findByEmail')
-        ->once()
-        ->andReturn(null);
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->with('secret123')->andReturn($hashedPassword);
 
-    $this->passwordHasher
-        ->shouldReceive('hash')
-        ->once()
-        ->with($password)
-        ->andReturn($hashedPassword);
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldNotReceive('dispatchAccountExists');
 
-    $this->userRepository
-        ->shouldReceive('save')
-        ->once()
-        ->with(Mockery::on(static fn (User $user) => $user->cpf()->value() === $cpf));
+    $throttle = Mockery::mock(AccountExistsNoticeThrottleInterface::class);
+    $throttle->shouldNotReceive('reserve');
 
-    $this->eventDispatcher
-        ->shouldReceive('dispatch')
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldReceive('dispatch')
         ->once()
         ->with(Mockery::type(UserRegistered::class));
 
-    $command = new RegisterUserCommand(
-        cpf: $cpf,
-        email: $email,
-        name: $name,
-        password: $password,
+    $result = registerUserTestHandler($users, $hasher, $dispatcher, $throttle, $events)(
+        new RegisterUserCommand(
+            email: 'test@example.com',
+            name: 'João Silva',
+            password: 'secret123',
+        ),
     );
 
-    $result = ($this->handler)($command);
-
-    expect($result->isSuccess())->toBeTrue();
-
-    $user = $result->value();
-
-    expect($user->cpf()?->value())->toBe($cpf)
-        ->and($user->email()->value())->toBe($email)
-        ->and($user->name())->toBe($name);
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->value())->toBeTrue();
 });
 
-it('registers a user without cpf', function () {
-    $email = 'no-cpf@example.com';
-    $hashedPassword = HashedPassword::fromHash('hashed_secret123');
+it('hashes the password and notifies the owner when the email already exists', function () {
+    $existing = registerUserTestExistingUser();
 
-    $this->userRepository->shouldReceive('findByCpf')->never();
-    $this->userRepository->shouldReceive('findByEmail')->once()->andReturn(null);
-    $this->passwordHasher->shouldReceive('hash')->once()->andReturn($hashedPassword);
-    $this->userRepository->shouldReceive('save')->once()->with(Mockery::on(
-        static fn (User $user): bool => null === $user->cpf(),
-    ));
-    $this->eventDispatcher->shouldReceive('dispatch')->once()->with(Mockery::type(UserRegistered::class));
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')
+        ->once()
+        ->with(Mockery::on(static fn (Email $email): bool => 'existing@example.com' === $email->value()))
+        ->andReturn($existing);
+    $users->shouldNotReceive('save');
 
-    $result = ($this->handler)(new RegisterUserCommand(
-        cpf: null,
-        email: $email,
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->with('secret123')->andReturn(HashedPassword::fromHash('hashed'));
+
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldReceive('dispatchAccountExists')
+        ->once()
+        ->with(Mockery::on(static fn (Email $email): bool => 'existing@example.com' === $email->value()));
+
+    $throttle = Mockery::mock(AccountExistsNoticeThrottleInterface::class);
+    $throttle->shouldReceive('reserve')->once()->andReturn(true);
+
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldNotReceive('dispatch');
+
+    $result = registerUserTestHandler($users, $hasher, $dispatcher, $throttle, $events)(
+        new RegisterUserCommand(
+            email: 'existing@example.com',
+            name: 'João Silva',
+            password: 'secret123',
+        ),
+    );
+
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->value())->toBeFalse();
+});
+
+it('skips the notice while its cooldown is active', function () {
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn(registerUserTestExistingUser());
+
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->andReturn(HashedPassword::fromHash('hashed'));
+
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldNotReceive('dispatchAccountExists');
+
+    $throttle = Mockery::mock(AccountExistsNoticeThrottleInterface::class);
+    $throttle->shouldReceive('reserve')->once()->andReturn(false);
+
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldNotReceive('dispatch');
+
+    $result = registerUserTestHandler(
+        $users,
+        $hasher,
+        $dispatcher,
+        $throttle,
+        $events,
+    )(new RegisterUserCommand(
+        email: 'existing@example.com',
         name: 'João Silva',
         password: 'secret123',
     ));
 
     expect($result->isSuccess())->toBeTrue()
-        ->and($result->value()->cpf())->toBeNull();
+        ->and($result->value())->toBeFalse();
 });
 
-it('returns failure with expected validation errors', function (string $cpf, string $email, array $expectedCodes) {
-    $command = new RegisterUserCommand(
-        cpf: $cpf,
-        email: $email,
-        name: 'João Silva',
-        password: 'secret123',
+it('treats a uniqueness race on save as an existing account', function () {
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn(null);
+    $users->shouldReceive('save')->once()->andThrow(EmailAlreadyExistsException::create());
+
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('hash')->once()->andReturn(HashedPassword::fromHash('hashed'));
+
+    $dispatcher = Mockery::mock(IdentityMailDispatcherInterface::class);
+    $dispatcher->shouldReceive('dispatchAccountExists')->once();
+
+    $throttle = Mockery::mock(AccountExistsNoticeThrottleInterface::class);
+    $throttle->shouldReceive('reserve')->once()->andReturn(true);
+
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldNotReceive('dispatch');
+
+    $result = registerUserTestHandler($users, $hasher, $dispatcher, $throttle, $events)(
+        new RegisterUserCommand(
+            email: 'race@example.com',
+            name: 'João Silva',
+            password: 'secret123',
+        ),
     );
 
-    $result = ($this->handler)($command);
-
-    expect($result->isFailure())->toBeTrue();
-
-    $errors = $result->errors();
-
-    expect($errors)->toHaveCount(count($expectedCodes))
-        ->and(array_map(static fn ($error) => $error->code, $errors))->toBe($expectedCodes);
-})->with([
-    'invalid cpf' => ['invalid', 'test@example.com', ['INVALID_FORMAT']],
-    'invalid email' => ['52998224725', 'invalid-email', ['INVALID_FORMAT']],
-    'invalid cpf and email' => ['invalid', 'invalid-email', ['INVALID_FORMAT', 'INVALID_FORMAT']],
-]);
-
-it('returns failure when cpf already exists', function () {
-    $cpf = '52998224725';
-    $email = 'test@example.com';
-
-    $existingUser = User::register(
-        cpf: Cpf::fromString($cpf)->value(),
-        email: Email::fromString($email)->value(),
-        password: HashedPassword::fromHash('hashed'),
-        name: 'Existing User',
-    );
-
-    $this->userRepository
-        ->shouldReceive('findByCpf')
-        ->andReturn($existingUser);
-
-    $this->userRepository
-        ->shouldReceive('findByEmail')
-        ->andReturn(null);
-
-    $command = new RegisterUserCommand(
-        cpf: $cpf,
-        email: $email,
-        name: 'João Silva',
-        password: 'secret123',
-    );
-
-    $result = ($this->handler)($command);
-
-    expect($result->isFailure())->toBeTrue();
-
-    $error = $result->errors()[0];
-
-    expect($error->code)->toBe('USER_CPF_ALREADY_EXISTS');
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->value())->toBeFalse();
 });
 
-it('returns failure when email already exists', function () {
-    $cpf = '52998224725';
-    $email = 'test@example.com';
+it('returns validation errors without hashing or touching the repository', function () {
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldNotReceive('findByEmail');
+    $users->shouldNotReceive('save');
 
-    $existingUser = User::register(
-        cpf: Cpf::fromString('47705122014')->value(),
-        email: Email::fromString($email)->value(),
-        password: HashedPassword::fromHash('hashed'),
-        name: 'Existing User',
-    );
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldNotReceive('hash');
 
-    $this->userRepository
-        ->shouldReceive('findByCpf')
-        ->andReturn(null);
+    $events = Mockery::mock(EventDispatcherInterface::class);
+    $events->shouldNotReceive('dispatch');
 
-    $this->userRepository
-        ->shouldReceive('findByEmail')
-        ->andReturn($existingUser);
-
-    $command = new RegisterUserCommand(
-        cpf: $cpf,
-        email: $email,
+    $result = registerUserTestHandler(
+        $users,
+        $hasher,
+        Mockery::mock(IdentityMailDispatcherInterface::class),
+        Mockery::mock(AccountExistsNoticeThrottleInterface::class),
+        $events,
+    )(new RegisterUserCommand(
+        email: 'invalid-email',
         name: 'João Silva',
-        password: 'secret123',
-    );
-
-    $result = ($this->handler)($command);
-
-    expect($result->isFailure())->toBeTrue();
-
-    $error = $result->errors()[0];
-
-    expect($error->code)->toBe('EMAIL_ALREADY_EXISTS');
-});
-
-it('returns failure when the cpf constraint is violated on save', function () {
-    $cpf = '52998224725';
-    $email = 'cpf-race@example.com';
-
-    $this->userRepository->shouldReceive('findByCpf')->once()->andReturn(null);
-    $this->userRepository->shouldReceive('findByEmail')->once()->andReturn(null);
-    $this->passwordHasher
-        ->shouldReceive('hash')
-        ->once()
-        ->andReturn(HashedPassword::fromHash('hashed'));
-    $this->userRepository
-        ->shouldReceive('save')
-        ->once()
-        ->andThrow(CpfAlreadyExistsException::create());
-    $this->eventDispatcher->shouldNotReceive('dispatch');
-
-    $result = ($this->handler)(new RegisterUserCommand(
-        cpf: $cpf,
-        email: $email,
-        name: 'João Silva',
-        password: 'secret123',
+        password: 'short',
     ));
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('USER_CPF_ALREADY_EXISTS');
-});
-
-it('does not save user on validation failure', function () {
-    $command = new RegisterUserCommand(
-        cpf: 'invalid',
-        email: 'test@example.com',
-        name: 'João Silva',
-        password: 'secret123',
-    );
-
-    $this->userRepository->shouldNotReceive('save');
-    $this->eventDispatcher->shouldNotReceive('dispatch');
-
-    ($this->handler)($command);
-});
-
-it('does not save user on business rule violation', function () {
-    $cpf = '52998224725';
-    $email = 'test@example.com';
-
-    $existingUser = User::register(
-        cpf: Cpf::fromString($cpf)->value(),
-        email: Email::fromString($email)->value(),
-        password: HashedPassword::fromHash('hashed'),
-        name: 'Existing User',
-    );
-
-    $this->userRepository
-        ->shouldReceive('findByCpf')
-        ->andReturn($existingUser);
-
-    $this->userRepository
-        ->shouldReceive('findByEmail')
-        ->andReturn(null);
-
-    $this->userRepository->shouldNotReceive('save');
-    $this->eventDispatcher->shouldNotReceive('dispatch');
-
-    $command = new RegisterUserCommand(
-        cpf: $cpf,
-        email: $email,
-        name: 'João Silva',
-        password: 'secret123',
-    );
-
-    ($this->handler)($command);
+        ->and(array_map(static fn ($error) => $error->code, $result->errors()))
+        ->toBe(['INVALID_FORMAT', 'STRING_TOO_SHORT']);
 });

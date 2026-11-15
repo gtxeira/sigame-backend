@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Identity\Application\UseCase\EmailVerification;
 
+use App\Identity\Application\Service\DummyPasswordHash;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
@@ -58,39 +59,36 @@ final readonly class VerifyEmailOtpHandler
         $codeValue = $codeResult->value();
 
         $user = $this->userRepository->findByEmail($emailValue);
-
-        if (null === $user) {
-            return Result::failure([IdentityErrors::emailVerificationCodeInvalid()]);
-        }
-
-        $challenge = $this->challengeRepository->findActive($user, OtpPurpose::EmailVerification);
-
-        if (null === $challenge || $challenge->isConsumed()) {
-            return Result::failure([IdentityErrors::emailVerificationCodeInvalid()]);
-        }
+        $challenge = null === $user
+            ? null
+            : $this->challengeRepository->findActive($user, OtpPurpose::EmailVerification);
 
         $now = Instant::fromDateTime($this->clock->now());
+        $usable = null !== $challenge
+            && !$challenge->isConsumed()
+            && !$challenge->isExpiredAt($now)
+            && !$challenge->hasReachedAttemptLimit($this->maxAttempts);
 
-        if ($challenge->isExpiredAt($now)) {
-            return Result::failure([IdentityErrors::emailVerificationCodeExpired()]);
-        }
-
-        if ($challenge->hasReachedAttemptLimit($this->maxAttempts)) {
-            return Result::failure([IdentityErrors::emailVerificationCodeAttemptsExceeded()]);
-        }
-
-        if (!$this->passwordHasher->verify(
+        // Sempre uma verificação: sem desafio utilizável, usa o hash dummy para
+        // que o tempo de resposta não revele o estado da conta.
+        $matches = $this->passwordHasher->verify(
             $codeValue->value(),
-            HashedPassword::fromHash($challenge->codeHash()),
-        )) {
-            $attempts = $this->challengeRepository->recordFailedAttempt($challenge, $this->maxAttempts);
+            HashedPassword::fromHash($usable ? $challenge->codeHash() : DummyPasswordHash::VALUE),
+        );
 
-            return Result::failure([
-                $attempts >= $this->maxAttempts
-                    ? IdentityErrors::emailVerificationCodeAttemptsExceeded()
-                    : IdentityErrors::emailVerificationCodeInvalid(),
-            ]);
+        if (!$matches) {
+            if ($usable) {
+                $this->challengeRepository->recordFailedAttempt($challenge, $this->maxAttempts);
+            }
+
+            return Result::failure([IdentityErrors::emailVerificationCodeInvalid()]);
         }
+
+        if (!$usable) {
+            return Result::failure([IdentityErrors::emailVerificationCodeInvalid()]);
+        }
+
+        $user = $challenge->user();
 
         if (!$this->challengeRepository->markConsumed($challenge)) {
             return Result::failure([IdentityErrors::emailVerificationCodeInvalid()]);

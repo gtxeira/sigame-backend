@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Identity\Application\UseCase\AuthenticateUser;
 
 use App\Identity\Application\DTO\TokenPair;
+use App\Identity\Application\Service\DummyPasswordHash;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\Service\TokenPairIssuerInterface;
 use App\Identity\Domain\Error\IdentityErrors;
@@ -18,12 +19,6 @@ use App\Shared\Domain\ValueObject\Email;
  */
 final readonly class AuthenticateUserHandler
 {
-    /**
-     * Hash fixo para equalizar o custo do verify quando o e-mail não existe,
-     * evitando enumeração de usuários por tempo de resposta.
-     */
-    private const string DUMMY_HASH = '$2y$12$nTt0pudahZf3SjiV80P5zORv0z7NzlQ.wmGhWR3wyt2dmTnbukuVG';
-
     public function __construct(
         private UserRepositoryInterface $userRepository,
         private PasswordHasherInterface $passwordHasher,
@@ -39,7 +34,10 @@ final readonly class AuthenticateUserHandler
         $emailResult = Email::fromString($command->email());
 
         if ($emailResult->isInvalid()) {
-            $this->passwordHasher->verify($command->password(), HashedPassword::fromHash(self::DUMMY_HASH));
+            $this->passwordHasher->verify(
+                $command->password(),
+                HashedPassword::fromHash(DummyPasswordHash::VALUE),
+            );
 
             return Result::failure([IdentityErrors::invalidCredentials()]);
         }
@@ -47,7 +45,10 @@ final readonly class AuthenticateUserHandler
         $user = $this->userRepository->findByEmail($emailResult->value());
 
         if (null === $user) {
-            $this->passwordHasher->verify($command->password(), HashedPassword::fromHash(self::DUMMY_HASH));
+            $this->passwordHasher->verify(
+                $command->password(),
+                HashedPassword::fromHash(DummyPasswordHash::VALUE),
+            );
 
             return Result::failure([IdentityErrors::invalidCredentials()]);
         }
@@ -60,6 +61,10 @@ final readonly class AuthenticateUserHandler
 
         if (!$user->isActive()) {
             return Result::failure([IdentityErrors::accountSuspended()]);
+        }
+
+        if (!$user->isEmailVerified()) {
+            return Result::failure([IdentityErrors::emailNotVerified()]);
         }
 
         return Result::success($this->tokenPairIssuer->issueForNewSession($user));

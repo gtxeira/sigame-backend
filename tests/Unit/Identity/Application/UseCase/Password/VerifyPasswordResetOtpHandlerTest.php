@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Identity\Application\Service\DummyPasswordHash;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Application\UseCase\Password\VerifyPasswordResetOtpHandler;
 use App\Identity\Domain\Otp\Entity\OtpChallenge;
@@ -131,12 +132,12 @@ it('counts a wrong code without issuing a ticket', function () {
         ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_CODE_INVALID');
 });
 
-it('rejects a suspended account before validating the code', function () {
+it('does not reveal a suspended account without a valid code', function () {
     $user = verifyResetOtpTestUser();
     $user->suspend();
 
     $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
-    $challenges->shouldNotReceive('findActive');
+    $challenges->shouldReceive('findActive')->once()->andReturn(null);
 
     $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
     $tickets->shouldNotReceive('save');
@@ -144,18 +145,79 @@ it('rejects a suspended account before validating the code', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $result = verifyResetOtpTestHandler(
-        $challenges,
-        $tickets,
-        $users,
-        Mockery::mock(PasswordHasherInterface::class),
-    )('reset-otp@example.com', '123456');
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('verify')
+        ->once()
+        ->with('123456', Mockery::on(
+            static fn (HashedPassword $hash): bool => DummyPasswordHash::VALUE === $hash->value(),
+        ))
+        ->andReturn(false);
+
+    $result = verifyResetOtpTestHandler($challenges, $tickets, $users, $hasher)(
+        'reset-otp@example.com',
+        '123456',
+    );
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_CODE_INVALID');
+});
+
+it('reports a suspended account only after a valid code', function () {
+    $user = verifyResetOtpTestUser();
+    $user->suspend();
+    $challenge = verifyResetOtpTestChallenge($user);
+
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldReceive('findActive')->once()->andReturn($challenge);
+    $challenges->shouldNotReceive('markConsumed');
+
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldNotReceive('save');
+    $tickets->shouldNotReceive('invalidateActive');
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn($user);
+
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('verify')->once()->andReturn(true);
+
+    $result = verifyResetOtpTestHandler($challenges, $tickets, $users, $hasher)(
+        'reset-otp@example.com',
+        '123456',
+    );
 
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe('ACCOUNT_SUSPENDED');
 });
 
-it('rejects an expired reset code', function () {
+it('rejects an unknown email with the same public error', function () {
+    $challenges = Mockery::mock(OtpChallengeRepositoryInterface::class);
+    $challenges->shouldNotReceive('findActive');
+
+    $tickets = Mockery::mock(PasswordResetTicketRepositoryInterface::class);
+    $tickets->shouldNotReceive('save');
+
+    $users = Mockery::mock(UserRepositoryInterface::class);
+    $users->shouldReceive('findByEmail')->once()->andReturn(null);
+
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('verify')
+        ->once()
+        ->with('123456', Mockery::on(
+            static fn (HashedPassword $hash): bool => DummyPasswordHash::VALUE === $hash->value(),
+        ))
+        ->andReturn(false);
+
+    $result = verifyResetOtpTestHandler($challenges, $tickets, $users, $hasher)(
+        'unknown@example.com',
+        '123456',
+    );
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_CODE_INVALID');
+});
+
+it('rejects an expired reset code with the same public error', function () {
     $user = verifyResetOtpTestUser();
     $challenge = verifyResetOtpTestChallenge(
         $user,
@@ -172,13 +234,19 @@ it('rejects an expired reset code', function () {
     $users = Mockery::mock(UserRepositoryInterface::class);
     $users->shouldReceive('findByEmail')->once()->andReturn($user);
 
-    $result = verifyResetOtpTestHandler(
-        $challenges,
-        $tickets,
-        $users,
-        Mockery::mock(PasswordHasherInterface::class),
-    )('reset-otp@example.com', '123456');
+    $hasher = Mockery::mock(PasswordHasherInterface::class);
+    $hasher->shouldReceive('verify')
+        ->once()
+        ->with('123456', Mockery::on(
+            static fn (HashedPassword $hash): bool => DummyPasswordHash::VALUE === $hash->value(),
+        ))
+        ->andReturn(false);
+
+    $result = verifyResetOtpTestHandler($challenges, $tickets, $users, $hasher)(
+        'reset-otp@example.com',
+        '123456',
+    );
 
     expect($result->isFailure())->toBeTrue()
-        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_CODE_EXPIRED');
+        ->and($result->errors()[0]->code)->toBe('PASSWORD_RESET_CODE_INVALID');
 });

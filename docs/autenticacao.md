@@ -118,8 +118,9 @@ ainda é 23:30 do dia anterior em Brasília).
 | `EMAIL_VERIFICATION_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de código de verificação da mesma conta |
 | `PASSWORD_RESET_OTP_TTL` | `600` | Validade do código de reset de senha |
 | `PASSWORD_RESET_TICKET_TTL` | `300` | Validade do ticket que autoriza a troca de senha |
-| `PASSWORD_RESET_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de reset da mesma conta |
+| `PASSWORD_RESET_COOLDOWN` | `60` | Intervalo mínimo entre pedidos de reset do mesmo e-mail (exista conta ou não) |
 | `IDENTITY_OTP_MAX_ATTEMPTS` | `5` | Tentativas erradas antes de invalidar o código |
+| `ACCOUNT_EXISTS_NOTICE_COOLDOWN` | `900` | Intervalo mínimo entre avisos de "conta já existe" para o mesmo e-mail |
 | `MAILER_DSN` | `null://null` | Transporte de e-mail; em dev, `smtp://mailer:1025` (UI do Mailpit em <http://localhost:8025>) |
 | `MAILER_FROM_ADDRESS` | `noreply@sigame.com.br` | Remetente |
 | `MAILER_FROM_NAME` | `SIGAME` | Nome do remetente |
@@ -174,18 +175,18 @@ Todas as rotas de negócio usam o prefixo `/api/v1`.
 
 ```json
 {
-  "cpf": "477.051.220-14",
   "email": "user@example.com",
   "name": "John Doe",
   "password": "secret123"
 }
 ```
 
-- `cpf` é opcional e pode vir formatado.
-- A resposta `201` traz os dados do usuário.
-- O cadastro **não autentica**: chame o login em seguida.
-- Um e-mail de confirmação é enfileirado e enviado pelo worker; o cadastro continua válido mesmo se o envio falhar (use o reenvio).
-- Erros: `FIELD_REQUIRED`, `INVALID_FORMAT`, `STRING_TOO_SHORT`, `STRING_TOO_LONG`, `USER_CPF_ALREADY_EXISTS`, `EMAIL_ALREADY_EXISTS`.
+- O CPF **não** faz parte do cadastro público; ele é definido depois, autenticado, no perfil.
+- A resposta é sempre `202 Accepted` com o mesmo corpo (`{ "data": { "status": "pending" } }`), exista ou não conta com o e-mail. Nenhum dado do usuário é devolvido.
+- Se o e-mail for novo, a conta é criada (ainda não verificada) e um código de confirmação é enfileirado.
+- Se o e-mail já existir, **nenhuma conta é criada** e o dono recebe um aviso por e-mail com instruções para entrar ou recuperar a senha. O aviso não contém link de acesso.
+- O aviso tem cooldown próprio (`ACCOUNT_EXISTS_NOTICE_COOLDOWN`, padrão 900s) para não ser usado como spam.
+- Erros: apenas de formato (`FIELD_REQUIRED`, `INVALID_FORMAT`, `STRING_TOO_SHORT`, `STRING_TOO_LONG`). Conflito de e-mail não é revelado.
 - Limite: 5 tentativas por minuto por e-mail + IP.
 
 ### 2.2 Login local
@@ -213,6 +214,10 @@ Resposta `200`:
 ```
 
 O refresh token **não** aparece no corpo. Ele vem em `Set-Cookie: refresh_token=rt_...`.
+
+- O e-mail precisa estar **verificado** para autenticar. Contas criadas antes desta regra foram marcadas como verificadas na migration `Version20261115120000`.
+- Senha correta em conta não verificada retorna `403` com `EMAIL_NOT_VERIFIED`. O cliente deve oferecer o reenvio público em `POST /auth/email/verification/resend`.
+- Conta suspensa retorna `403` com `ACCOUNT_SUSPENDED` apenas depois da senha correta.
 
 ### 2.3 Renovação
 
@@ -591,21 +596,23 @@ O cadastro local envia um código OTP de 6 dígitos para o e-mail canônico. O f
 ```
 
 - `204` quando o e-mail é verificado.
-- `EMAIL_VERIFICATION_CODE_INVALID` (422) para código inexistente, já usado ou de outro e-mail.
-- `EMAIL_VERIFICATION_CODE_EXPIRED` (422) para código vencido.
-- `EMAIL_VERIFICATION_CODE_ATTEMPTS_EXCEEDED` (422) após 5 tentativas erradas; o código é invalidado e é preciso pedir outro.
-- O código tem 6 dígitos, vale por 15 minutos e só pode ser usado uma vez.
+- `EMAIL_VERIFICATION_CODE_INVALID` (422) para código inexistente, já usado, expirado, invalidado por tentativas ou de outro e-mail. A resposta é a mesma em todos os casos, para não revelar o estado da conta.
+- O código tem 6 dígitos, vale por 15 minutos e só pode ser usado uma vez. Após 5 tentativas erradas ele é invalidado internamente.
 - O prazo exibido no e-mail é formatado em `America/Sao_Paulo` (`dd/mm/aaaa HH:MM`).
 - Limite: 10 tentativas por 10 minutos por e-mail + IP e 30 por 10 minutos por IP.
 
 ### 4.2 Reenviar
 
-`POST /api/v1/auth/email/verification/resend` — Bearer. Apesar do prefixo `/auth`, a rota exige `Authorization`; a confirmação pública continua em `POST /auth/email/verify`.
+`POST /api/v1/auth/email/verification/resend` — público.
+
+```json
+{ "email": "user@example.com" }
+```
 
 - O cadastro local já enfileira uma confirmação automaticamente; use o reenvio quando o e-mail não chegou ou o código expirou.
-- Gera um novo código e invalida o anterior; responde `204` quando a mensagem é enfileirada.
-- Contas já verificadas recebem `409` com `EMAIL_ALREADY_VERIFIED` e nenhum novo e-mail é enviado.
-- Limite: 3 reenvios por 15 minutos por usuário e cooldown de 60 segundos. A checagem de conta verificada acontece antes do rate limit, porque não há trabalho a executar.
+- Sempre responde `204`. Se a conta existir e ainda não estiver verificada, gera um novo código e invalida o anterior; caso contrário, não envia nada.
+- A resposta é a mesma para conta inexistente, já verificada ou suspensa, para não revelar o estado da conta.
+- Limite: 3 reenvios por 15 minutos por e-mail + IP e 10 por 15 minutos por IP; cooldown de 60 segundos por conta.
 
 ---
 
@@ -621,7 +628,7 @@ O reset acontece em **duas etapas**: validar o código devolve um ticket tempor�
 { "email": "user@example.com" }
 ```
 
-Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um código de 6 dígitos válido por 10 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo código nem novo e-mail; nesse caso a resposta continua `204` e inclui `Retry-After` com os segundos restantes do cooldown. Limite: 3 pedidos por 15 minutos por e-mail + IP e 10 por hora por IP.
+Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um código de 6 dígitos válido por 10 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. O cooldown de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) é aplicado **por e-mail, exista conta ou não**: pedidos repetidos não geram novo código nem novo e-mail e a resposta continua `204`, agora com `Retry-After` indicando os segundos restantes. Assim o cabeçalho não distingue contas cadastradas de inexistentes. Limite: 3 pedidos por 15 minutos por e-mail + IP e 10 por hora por IP.
 
 ### 5.1.1 Validar o código
 
@@ -636,7 +643,8 @@ Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastra
 ```
 
 - Valida o código e devolve um ticket de uso único válido por 5 minutos.
-- `PASSWORD_RESET_CODE_INVALID`, `PASSWORD_RESET_CODE_EXPIRED` e `PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED` seguem o mesmo comportamento da verificação de e-mail.
+- `PASSWORD_RESET_CODE_INVALID` cobre código inexistente, já usado, expirado, invalidado por tentativas ou de outro e-mail. A resposta é a mesma em todos os casos.
+- A suspensão da conta (`ACCOUNT_SUSPENDED`) só é revelada depois que o código correto é validado.
 - Limite: 10 tentativas por 10 minutos por e-mail + IP e 30 por 10 minutos por IP.
 
 ### 5.2 Redefinir
@@ -705,7 +713,8 @@ responsável, faixas de idade e acompanhantes em atividades) está arquivado em
 | `auth_refresh` | sliding window | 30/min | IP |
 | `auth_email_verify` | sliding window | 10/10 min | e-mail + IP |
 | `auth_email_verify_ip` | sliding window | 30/10 min | IP |
-| `auth_email_resend` | sliding window | 3/15 min | `user_id` |
+| `auth_email_resend` | sliding window | 3/15 min | e-mail + IP |
+| `auth_email_resend_ip` | sliding window | 10/15 min | IP |
 | `auth_password_forgot` | sliding window | 3/15 min | e-mail + IP |
 | `auth_password_forgot_ip` | sliding window | 10/h | IP |
 | `auth_password_otp_verify` | sliding window | 10/10 min | e-mail + IP |

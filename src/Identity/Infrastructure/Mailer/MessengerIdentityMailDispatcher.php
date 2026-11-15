@@ -6,6 +6,7 @@ namespace App\Identity\Infrastructure\Mailer;
 
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Domain\Otp\ValueObject\OtpChallengeId;
+use App\Identity\Infrastructure\Mailer\Message\SendAccountExistsMessage;
 use App\Identity\Infrastructure\Mailer\Message\SendEmailVerificationMessage;
 use App\Identity\Infrastructure\Mailer\Message\SendPasswordResetMessage;
 use App\Shared\Domain\ValueObject\Email;
@@ -53,5 +54,10 @@ final readonly class MessengerIdentityMailDispatcher implements IdentityMailDisp
             expiresAtTimestamp: $expiresAt->timestamp(),
             challengeId: $challengeId->value(),
         ));
+    }
+
+    public function dispatchAccountExists(Email $to): void
+    {
+        $this->bus->dispatch(new SendAccountExistsMessage(email: $to->value()));
     }
 }

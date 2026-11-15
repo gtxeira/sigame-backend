@@ -59,6 +59,16 @@ final readonly class SymfonyIdentityMailer implements IdentityMailerInterface
         );
     }
 
+    public function sendAccountExists(Email $to): void
+    {
+        $this->send(
+            to: $to,
+            subject: 'Sua conta no SIGAME já existe',
+            template: 'email/account_exists.html.twig',
+            context: [],
+        );
+    }
+
     /**
      * @param array<string, mixed> $context
      */

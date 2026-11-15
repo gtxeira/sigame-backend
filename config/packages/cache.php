@@ -13,6 +13,15 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'cache.social_flow' => [
                     'adapter' => 'cache.app',
                 ],
+                // Cooldown por e-mail dos pedidos de reset de senha. A chave é
+                // o hash do e-mail, inclusive para endereços sem conta.
+                'cache.password_reset_throttle' => [
+                    'adapter' => 'cache.app',
+                ],
+                // Cooldown do aviso "conta já existe" enviado no cadastro.
+                'cache.account_exists_notice' => [
+                    'adapter' => 'cache.app',
+                ],
             ],
         ],
     ]);

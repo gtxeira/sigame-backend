@@ -7,6 +7,7 @@ namespace App\Identity\Application\UseCase\Password;
 use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Application\Service\OtpCodeGeneratorInterface;
 use App\Identity\Application\Service\PasswordHasherInterface;
+use App\Identity\Application\Service\PasswordResetThrottleInterface;
 use App\Identity\Domain\Otp\Entity\OtpChallenge;
 use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
 use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
@@ -22,7 +23,8 @@ use Throwable;
 /**
  * Solicita o reset de senha sem revelar se o e-mail existe.
  *
- * Pedidos repetidos dentro do cooldown não geram novo código nem novo e-mail.
+ * O cooldown é aplicado por e-mail (exista conta ou não) antes da busca no
+ * banco, para que a resposta seja a mesma nos dois casos.
  */
 final readonly class RequestPasswordResetHandler
 {
@@ -32,12 +34,11 @@ final readonly class RequestPasswordResetHandler
         private OtpCodeGeneratorInterface $codeGenerator,
         private PasswordHasherInterface $passwordHasher,
         private IdentityMailDispatcherInterface $mailDispatcher,
+        private PasswordResetThrottleInterface $throttle,
         private LoggerInterface $logger,
         private ClockInterface $clock,
         #[Autowire(env: 'int:PASSWORD_RESET_OTP_TTL')]
         private int $ttlSeconds = 600,
-        #[Autowire(env: 'int:PASSWORD_RESET_COOLDOWN')]
-        private int $cooldownSeconds = 60,
     ) {
     }
 
@@ -49,29 +50,25 @@ final readonly class RequestPasswordResetHandler
             return PasswordResetRequestOutcome::requested();
         }
 
-        $user = $this->userRepository->findByEmail($emailResult->value());
+        /** @var Email $emailValue */
+        $emailValue = $emailResult->value();
+
+        $retryAfter = $this->throttle->reserve($emailValue);
+
+        if (null !== $retryAfter) {
+            return PasswordResetRequestOutcome::throttled($retryAfter);
+        }
+
+        $user = $this->userRepository->findByEmail($emailValue);
 
         if (null === $user || !$user->isActive()) {
+            // Mesma KDF do caminho com conta: o tempo não denuncia o cadastro.
+            $this->passwordHasher->hash($this->codeGenerator->generate()->value());
+
             return PasswordResetRequestOutcome::requested();
         }
 
         $now = $this->clock->now();
-
-        if ($this->cooldownSeconds > 0) {
-            $lastRequestAt = $this->challengeRepository->findActiveCreatedAt(
-                $user,
-                OtpPurpose::PasswordReset,
-            );
-
-            if (null !== $lastRequestAt) {
-                $elapsed = $now->getTimestamp() - $lastRequestAt->timestamp();
-                $remaining = $this->cooldownSeconds - $elapsed;
-
-                if ($remaining > 0) {
-                    return PasswordResetRequestOutcome::throttled($remaining);
-                }
-            }
-        }
 
         $this->challengeRepository->invalidateActive($user, OtpPurpose::PasswordReset);
 

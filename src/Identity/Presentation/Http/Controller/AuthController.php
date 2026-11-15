@@ -94,8 +94,14 @@ final class AuthController extends AbstractController
                 summary: 'Conta suspensa',
                 description: 'A conta existe, mas está suspensa.',
             ),
+            'EMAIL_NOT_VERIFIED' => new ApiErrorExample(
+                message: 'Confirme seu e-mail antes de entrar. Verifique a caixa de entrada.',
+                field: 'email',
+                summary: 'E-mail não confirmado',
+                description: 'A senha está correta, mas o e-mail ainda não foi confirmado.',
+            ),
         ],
-        fields: ['status' => 'Situação da conta.'],
+        fields: ['status' => 'Situação da conta.', 'email' => 'E-mail da conta.'],
     )]
     #[ValidationErrorResponse(fields: [
         'email' => 'E-mail do usuário.',

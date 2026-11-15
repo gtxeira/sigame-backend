@@ -2,119 +2,90 @@
 
 declare(strict_types=1);
 
-use App\Identity\Domain\User\ValueObject\UserLevel;
-use App\Identity\Domain\User\ValueObject\UserStatus;
-use App\Identity\Presentation\Http\Response\RegisterUserResponse;
+use App\Identity\Presentation\Http\Response\RegistrationAcceptedResponse;
+use App\Shared\Domain\ValueObject\Email;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Functional\Identity\Presentation\Http\Request\RegisterUserRequestFactory;
 
-it('returns 201 created with valid data', function () {
-    $cpf = faker()->cpf();
+it('accepts a registration and sends a verification code', function () {
+    $email = faker()->unique()->safeEmail();
     $name = faker()->name();
 
-    $payload = RegisterUserRequestFactory::new([
-        'cpf' => $cpf,
-        'name' => $name,
-    ])->create();
-
     $response = $this->api->post(
         route: 'app_auth_register',
-        payload: $payload,
-    );
-
-    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
-
-    $user = $this->api->deserializeResponse(RegisterUserResponse::class);
-
-    expect($user->cpf)->toBe($cpf)
-        ->and($user->name)->toBe($name)
-        ->and($user->level)->toBe(UserLevel::MIN_LEVEL)
-        ->and($user->status)->toBe(UserStatus::ACTIVE->value);
-});
-
-it('registers without cpf', function () {
-    $email = faker()->unique()->safeEmail();
-
-    $response = $this->api->post(
-        route: 'app_auth_register',
-        payload: [
-            'cpf' => null,
+        payload: RegisterUserRequestFactory::new([
             'email' => $email,
-            'name' => faker()->name(),
-            'password' => 'secret1234',
-        ],
+            'name' => $name,
+        ])->create(),
     );
 
-    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
+    expect($response->getStatusCode())->toBe(Response::HTTP_ACCEPTED);
 
-    $user = $this->api->deserializeResponse(RegisterUserResponse::class);
+    $accepted = $this->api->deserializeResponse(RegistrationAcceptedResponse::class);
 
-    expect($user->cpf)->toBeNull()
-        ->and($user->email)->toBe($email);
+    expect($accepted->status)->toBe('pending');
+
+    $user = authTestUserRepository($this)->findByEmail(Email::fromString($email)->value());
+
+    expect($user)->not->toBeNull()
+        ->and($user?->name())->toBe($name)
+        ->and($user?->cpf())->toBeNull()
+        ->and($user?->isEmailVerified())->toBeFalse()
+        ->and(authTestMailer($this)->lastCode('verification', $email))->toBeString();
 });
 
-it('rejects duplicate email', function () {
-    $email = faker()->email();
+it('returns the same accepted response for an existing email and notifies the owner', function () {
+    $email = 'existing-register@example.com';
+    authTestCreateUser($this, $email);
 
-    $jsonRequest = fn () => $this->api->post(
-        route: 'app_auth_register',
-        payload: RegisterUserRequestFactory::new(['email' => $email])->create(),
-    );
+    $payload = RegisterUserRequestFactory::new(['email' => $email])->create();
 
-    $response = $jsonRequest();
-    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
+    $response = $this->api->post('app_auth_register', $payload);
 
-    $response = $jsonRequest();
-    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
-        ->and($this->api->errorCodes())->toBe(['EMAIL_ALREADY_EXISTS']);
+    expect($response->getStatusCode())->toBe(Response::HTTP_ACCEPTED);
+
+    $accepted = $this->api->deserializeResponse(RegistrationAcceptedResponse::class);
+
+    expect($accepted->status)->toBe('pending')
+        ->and(authTestMailer($this)->count('account_exists', $email))->toBe(1)
+        ->and(authTestMailer($this)->count('verification', $email))->toBe(0);
 });
 
-it('rejects duplicate cpf', function () {
-    $cpf = faker()->cpf();
-
-    $jsonRequest = fn () => $this->api->post(
-        route: 'app_auth_register',
-        payload: RegisterUserRequestFactory::new(['cpf' => $cpf])->create(),
-    );
-
-    $response = $jsonRequest();
-    expect($response->getStatusCode())->toBe(Response::HTTP_CREATED);
-
-    $response = $jsonRequest();
-    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
-        ->and($this->api->errorCodes())->toBe(['USER_CPF_ALREADY_EXISTS']);
-});
-
-it('reports cpf and email conflicts together', function () {
-    $cpf = faker()->cpf();
-    $email = faker()->unique()->safeEmail();
+it('does not create a second account for an existing email', function () {
+    $email = 'no-second-account@example.com';
+    $existing = authTestCreateUser($this, $email);
 
     $this->api->post(
-        route: 'app_auth_register',
-        payload: RegisterUserRequestFactory::new(['cpf' => $cpf, 'email' => $email])->create(),
+        'app_auth_register',
+        RegisterUserRequestFactory::new(['email' => $email])->create(),
     );
 
-    $response = $this->api->post(
-        route: 'app_auth_register',
-        payload: RegisterUserRequestFactory::new(['cpf' => $cpf, 'email' => $email])->create(),
-    );
+    $connection = authTestEntityManager($this)->getConnection();
 
-    expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT)
-        ->and($this->api->errorCodes())->toBe(['USER_CPF_ALREADY_EXISTS', 'EMAIL_ALREADY_EXISTS']);
+    expect((int) $connection->fetchOne(
+        'SELECT COUNT(*) FROM users WHERE email = ?',
+        [mb_strtolower($email)],
+    ))->toBe(1)
+        ->and(authTestUserRepository($this)->findByEmail(Email::fromString($email)->value())?->id()->value())
+        ->toBe($existing->id()->value());
 });
 
-it('rejects cpf that fails domain validation', function (string $cpf) {
-    $response = $this->api->post(
-        route: 'app_auth_register',
-        payload: RegisterUserRequestFactory::new(['cpf' => $cpf])->create(),
-    );
+it('requires email verification before login', function () {
+    $email = 'unverified-login@example.com';
+    authTestCreateUser($this, $email, verified: false);
 
-    expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['INVALID_FORMAT']);
-})->with([
-    'repeated digits' => '11111111111',
-    'invalid check digits' => '52998224726',
-]);
+    $blocked = authTestLogin($this, $email);
+
+    expect($blocked->getStatusCode())->toBe(Response::HTTP_FORBIDDEN)
+        ->and($this->api->errorCodes())->toBe(['EMAIL_NOT_VERIFIED']);
+
+    $user = authTestUserRepository($this)->findByEmail(Email::fromString($email)->value());
+    assert(null !== $user);
+    $user->verifyEmail();
+    authTestUserRepository($this)->save($user);
+
+    expect(authTestLogin($this, $email)->getStatusCode())->toBe(Response::HTTP_OK);
+});
 
 it('rejects invalid registration payload', function (array $overrides, array $expectedCodes) {
     $response = $this->api->post(
@@ -125,15 +96,14 @@ it('rejects invalid registration payload', function (array $overrides, array $ex
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
         ->and($this->api->errorCodes())->toBe($expectedCodes);
 })->with([
-    'invalid cpf' => [fn () => ['cpf' => faker()->numerify()], ['INVALID_FORMAT']],
-    'short password' => [fn () => ['password' => faker()->numerify()], ['STRING_TOO_SHORT']],
+    'invalid email' => [fn () => ['email' => 'not-an-email'], ['INVALID_FORMAT']],
+    'short password' => [fn () => ['password' => 'short'], ['STRING_TOO_SHORT']],
 ]);
 
 it('translates Symfony Validator messages to pt-BR', function () {
     $response = $this->api->post(
         route: 'app_auth_register',
         payload: [
-            'cpf' => faker()->cpf(),
             'email' => faker()->email(),
             'name' => ['invalid type'],
             'password' => 'secret1234',

@@ -29,4 +29,12 @@ interface IdentityMailDispatcherInterface
         Instant $expiresAt,
         OtpChallengeId $challengeId,
     ): void;
+
+    /**
+     * Avisa o dono de uma conta que alguém tentou cadastrar o mesmo e-mail.
+     *
+     * Não leva código nem link de acesso; apenas instruções para entrar ou
+     * recuperar a senha.
+     */
+    public function dispatchAccountExists(Email $to): void;
 }

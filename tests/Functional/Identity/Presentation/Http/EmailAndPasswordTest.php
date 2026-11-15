@@ -39,7 +39,7 @@ it('sends a verification code on registration and verifies the address', functio
         'password' => 'secret123',
     ]);
 
-    expect($register->getStatusCode())->toBe(Response::HTTP_CREATED);
+    expect($register->getStatusCode())->toBe(Response::HTTP_ACCEPTED);
 
     $code = authTestMailer($this)->lastCode('verification', $email);
 
@@ -70,14 +70,11 @@ it('resends the verification and invalidates the previous code', function () {
         'name' => 'Resend Me',
         'password' => 'secret123',
     ]);
-    expect($register->getStatusCode())->toBe(Response::HTTP_CREATED);
+    expect($register->getStatusCode())->toBe(Response::HTTP_ACCEPTED);
 
     $firstCode = authTestMailer($this)->lastCode('verification', $email);
-    $accessToken = authTestAccessToken(authTestLogin($this, $email));
 
-    $resend = $this->api->post('app_auth_email_resend', server: [
-        'HTTP_AUTHORIZATION' => 'Bearer '.$accessToken,
-    ]);
+    $resend = $this->api->post('app_auth_email_resend', ['email' => $email]);
 
     expect($resend->getStatusCode())->toBe(Response::HTTP_NO_CONTENT);
 
@@ -128,7 +125,7 @@ it('invalidates the code after five wrong attempts', function () {
     ]);
 
     expect($fifth->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['EMAIL_VERIFICATION_CODE_ATTEMPTS_EXCEEDED']);
+        ->and($this->api->errorCodes())->toBe(['EMAIL_VERIFICATION_CODE_INVALID']);
 
     $correct = $this->api->post('app_auth_email_verify', [
         'email' => $email,
@@ -164,6 +161,20 @@ it('reports the remaining cooldown without sending a second code', function () {
         ->and((int) $second->headers->get('Retry-After'))->toBeGreaterThan(0)
         ->and((int) $second->headers->get('Retry-After'))->toBeLessThanOrEqual(60)
         ->and(authTestMailer($this)->count('password_reset', $email))->toBe(1);
+});
+
+it('applies the same cooldown to an unknown email', function () {
+    $email = 'forgot-unknown-cooldown@example.com';
+
+    $first = emailTestRequestResetCode($this, $email);
+    $second = emailTestRequestResetCode($this, $email);
+
+    expect($first->getStatusCode())->toBe(Response::HTTP_NO_CONTENT)
+        ->and($first->headers->get('Retry-After'))->toBeNull()
+        ->and($second->getStatusCode())->toBe(Response::HTTP_NO_CONTENT)
+        ->and((int) $second->headers->get('Retry-After'))->toBeGreaterThan(0)
+        ->and((int) $second->headers->get('Retry-After'))->toBeLessThanOrEqual(60)
+        ->and(authTestMailer($this)->count('password_reset', $email))->toBe(0);
 });
 
 it('sends the reset code to the canonical email regardless of the request casing', function () {
@@ -223,7 +234,7 @@ it('resets the password in two steps and revokes every session', function () {
 
 it('verifies an unverified email when the password is reset', function () {
     $email = 'reset-verifies@example.com';
-    $user = authTestCreateUser($this, $email);
+    $user = authTestCreateUser($this, $email, verified: false);
 
     expect($user->isEmailVerified())->toBeFalse();
 
@@ -255,7 +266,7 @@ it('rejects a reset code after too many wrong attempts', function () {
         expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
-    expect($this->api->errorCodes())->toBe(['PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED']);
+    expect($this->api->errorCodes())->toBe(['PASSWORD_RESET_CODE_INVALID']);
 
     $correct = emailTestVerifyResetCode($this, $email, $code);
 
@@ -334,7 +345,7 @@ it('announces the verification expiration in America/Sao_Paulo', function () {
         ->toBeLessThan(960);
 });
 
-it('rejects an expired email verification code', function () {
+it('rejects an expired email verification code with the same public error', function () {
     $email = 'expired-verification@example.com';
 
     $this->api->post('app_auth_register', [
@@ -352,10 +363,10 @@ it('rejects an expired email verification code', function () {
     ]);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['EMAIL_VERIFICATION_CODE_EXPIRED']);
+        ->and($this->api->errorCodes())->toBe(['EMAIL_VERIFICATION_CODE_INVALID']);
 });
 
-it('rejects an expired password reset code', function () {
+it('rejects an expired password reset code with the same public error', function () {
     $email = 'expired-reset@example.com';
     authTestCreateUser($this, $email);
 
@@ -367,7 +378,7 @@ it('rejects an expired password reset code', function () {
     $response = emailTestVerifyResetCode($this, $email, $code);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_UNPROCESSABLE_ENTITY)
-        ->and($this->api->errorCodes())->toBe(['PASSWORD_RESET_CODE_EXPIRED']);
+        ->and($this->api->errorCodes())->toBe(['PASSWORD_RESET_CODE_INVALID']);
 });
 
 it('rejects an expired password reset ticket', function () {
@@ -433,7 +444,7 @@ it('rate limits repeated email verification attempts', function () {
         ->and($this->api->errorCodes())->toBe(['TOO_MANY_REQUESTS']);
 });
 
-it('reports a conflict when resending verification for an already verified email', function () {
+it('does not resend verification for an already verified email', function () {
     $email = 'resend-verified@example.com';
 
     $this->api->post('app_auth_register', [
@@ -445,30 +456,24 @@ it('reports a conflict when resending verification for an already verified email
     $code = (string) authTestMailer($this)->lastCode('verification', $email);
     $this->api->post('app_auth_email_verify', ['email' => $email, 'code' => $code]);
 
-    $accessToken = authTestAccessToken(authTestLogin($this, $email));
-    $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
+    for ($attempt = 0; $attempt < 2; ++$attempt) {
+        $response = $this->api->post('app_auth_email_resend', ['email' => $email]);
 
-    for ($attempt = 0; $attempt < 4; ++$attempt) {
-        $response = $this->api->post('app_auth_email_resend', server: $server);
-
-        expect($response->getStatusCode())->toBe(Response::HTTP_CONFLICT);
+        expect($response->getStatusCode())->toBe(Response::HTTP_NO_CONTENT);
     }
 
-    expect($this->api->errorCodes())->toBe(['EMAIL_ALREADY_VERIFIED'])
-        ->and(authTestMailer($this)->count('verification', $email))->toBe(1);
+    expect(authTestMailer($this)->count('verification', $email))->toBe(1);
 });
 
 it('rate limits repeated email verification resends', function () {
     $email = 'resend-limit@example.com';
-    authTestCreateUser($this, $email);
-    $accessToken = authTestAccessToken(authTestLogin($this, $email));
-    $server = ['HTTP_AUTHORIZATION' => 'Bearer '.$accessToken];
+    authTestCreateUser($this, $email, verified: false);
 
     for ($attempt = 0; $attempt < 3; ++$attempt) {
-        $this->api->post('app_auth_email_resend', server: $server);
+        $this->api->post('app_auth_email_resend', ['email' => $email]);
     }
 
-    $response = $this->api->post('app_auth_email_resend', server: $server);
+    $response = $this->api->post('app_auth_email_resend', ['email' => $email]);
 
     expect($response->getStatusCode())->toBe(Response::HTTP_TOO_MANY_REQUESTS);
 });

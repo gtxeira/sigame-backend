@@ -15,7 +15,7 @@ use App\Shared\Domain\ValueObject\Instant;
 final class RecordingIdentityMailer implements IdentityMailerInterface
 {
     /**
-     * @var list<array{type: string, email: string, code: string, expiresAt: string}>
+     * @var list<array{type: string, email: string, code: ?string, expiresAt: ?string}>
      */
     private array $messages = [];
 
@@ -36,6 +36,16 @@ final class RecordingIdentityMailer implements IdentityMailerInterface
             'email' => $to->value(),
             'code' => $code,
             'expiresAt' => MailDateFormatter::format($expiresAt),
+        ];
+    }
+
+    public function sendAccountExists(Email $to): void
+    {
+        $this->messages[] = [
+            'type' => 'account_exists',
+            'email' => $to->value(),
+            'code' => null,
+            'expiresAt' => null,
         ];
     }
 

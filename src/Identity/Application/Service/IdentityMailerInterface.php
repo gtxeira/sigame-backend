@@ -15,4 +15,6 @@ interface IdentityMailerInterface
     public function sendEmailVerification(Email $to, string $code, Instant $expiresAt): void;
 
     public function sendPasswordReset(Email $to, string $code, Instant $expiresAt): void;
+
+    public function sendAccountExists(Email $to): void;
 }

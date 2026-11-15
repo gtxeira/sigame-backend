@@ -26,6 +26,7 @@ function authTestCreateUser(
     string $password = 'secret123',
     ?string $cpf = null,
     ?string $birthDate = '1990-05-12',
+    bool $verified = true,
 ): User {
     $container = $test->api->getKernelBrowser()->getContainer();
 
@@ -41,10 +42,29 @@ function authTestCreateUser(
         $user->assignBirthDate(BirthDate::fromString($birthDate)->value());
     }
 
+    if ($verified) {
+        $user->verifyEmail();
+    }
+
     /* @phpstan-ignore-next-line */
     $container->get(UserRepositoryInterface::class)->save($user);
 
     return $user;
+}
+
+/**
+ * Confirma o e-mail recém-cadastrado lendo o último código do mailer de teste.
+ */
+function authTestVerifyEmail(FunctionalTestCase $test, string $email): void
+{
+    $code = (string) authTestMailer($test)->lastCode('verification', $email);
+
+    $response = $test->api->post('app_auth_email_verify', [
+        'email' => $email,
+        'code' => $code,
+    ]);
+
+    expect($response->getStatusCode())->toBe(Response::HTTP_NO_CONTENT);
 }
 
 function authTestCreateAdmin(

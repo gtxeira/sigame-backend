@@ -23,28 +23,17 @@ it('builds email already exists error', function () {
         ->and($error->field)->toBe('email');
 });
 
-it('builds email already verified error', function () {
-    $error = IdentityErrors::emailAlreadyVerified();
-
-    expect($error->code)->toBe('EMAIL_ALREADY_VERIFIED')
-        ->and($error->message)->toBe('O e-mail já está verificado.')
-        ->and($error->kind)->toBe(ErrorKind::Conflict)
-        ->and($error->field)->toBeNull();
-});
-
 it('builds otp verification and reset errors', function () {
-    $invalid = IdentityErrors::emailVerificationCodeInvalid();
-    $expired = IdentityErrors::passwordResetCodeExpired();
-    $attempts = IdentityErrors::passwordResetCodeAttemptsExceeded();
+    $invalidEmail = IdentityErrors::emailVerificationCodeInvalid();
+    $invalidReset = IdentityErrors::passwordResetCodeInvalid();
     $ticket = IdentityErrors::passwordResetTicketExpired();
 
-    expect($invalid->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID')
-        ->and($invalid->kind)->toBe(ErrorKind::Validation)
-        ->and($invalid->field)->toBe('code')
-        ->and($expired->code)->toBe('PASSWORD_RESET_CODE_EXPIRED')
-        ->and($expired->kind)->toBe(ErrorKind::Validation)
-        ->and($attempts->code)->toBe('PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED')
-        ->and($attempts->field)->toBe('code')
+    expect($invalidEmail->code)->toBe('EMAIL_VERIFICATION_CODE_INVALID')
+        ->and($invalidEmail->kind)->toBe(ErrorKind::Validation)
+        ->and($invalidEmail->field)->toBe('code')
+        ->and($invalidReset->code)->toBe('PASSWORD_RESET_CODE_INVALID')
+        ->and($invalidReset->message)->toContain('inválido ou expirou')
+        ->and($invalidReset->field)->toBe('code')
         ->and($ticket->code)->toBe('PASSWORD_RESET_TICKET_EXPIRED')
         ->and($ticket->field)->toBe('resetToken');
 });

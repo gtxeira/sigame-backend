@@ -57,6 +57,9 @@ pest()
         $router = $container->get('router');
 
         $container->get('cache.rate_limiter')->clear();
+        // Cooldowns por e-mail compartilham o cache.app; limpar evita que o
+        // estado de um teste vaze para o próximo.
+        $container->get('cache.app')->clear();
 
         $this->api = new ApiClient(
             client: $client,

@@ -7,12 +7,11 @@ namespace App\Identity\Presentation\Http\Controller;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserCommand;
 use App\Identity\Application\UseCase\RegisterUser\RegisterUserHandler;
 use App\Identity\Presentation\Http\Request\RegisterUserRequest;
-use App\Identity\Presentation\Http\Response\RegisterUserResponse;
+use App\Identity\Presentation\Http\Response\RegistrationAcceptedResponse;
+use App\Shared\Domain\Functional\Result;
 use App\Shared\Presentation\Http\OpenApi\ApiErrorExample;
-use App\Shared\Presentation\Http\OpenApi\ApiExample;
 use App\Shared\Presentation\Http\OpenApi\BadRequestResponse;
 use App\Shared\Presentation\Http\OpenApi\InternalErrorResponse;
-use App\Shared\Presentation\Http\OpenApi\ResourceConflictResponse;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
 use App\Shared\Presentation\Http\OpenApi\TooManyRequestsResponse;
 use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
@@ -30,7 +29,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Controller para registro de usuários.
+ * Controller para solicitação de cadastro.
  */
 #[Route('/api/v1')]
 #[OA\Tag(name: 'Autenticação')]
@@ -46,23 +45,19 @@ final class RegistrationController extends AbstractController
     }
 
     /**
-     * Cadastrar usuário
+     * Solicitar cadastro
      *
-     * Cria uma conta local com e-mail e senha. O CPF é opcional e, quando
-     * informado, pode vir formatado. A operação não autentica o usuário; o
-     * login deve ser feito em seguida pelo endpoint de autenticação.
+     * Sempre responde `202` com o mesmo corpo, exista ou não conta com o
+     * e-mail, para não permitir enumeração. Se o e-mail for novo, uma conta é
+     * criada e recebe o código de confirmação. Se já existir, nenhuma conta é
+     * criada e o dono recebe um aviso com instruções para entrar ou recuperar
+     * a senha.
      */
     #[Route('/auth/register', name: 'app_auth_register', methods: ['POST'], priority: 10)]
     #[SuccessResponse(
-        dataModel: RegisterUserResponse::class,
-        response: Response::HTTP_CREATED,
-        description: 'Usuário cadastrado com sucesso.',
-        examples: [
-            'USUARIO_CADASTRADO' => new ApiExample(
-                summary: 'Usuário cadastrado',
-                description: 'Cadastro concluído; os dados do usuário são retornados em `data`.',
-            ),
-        ],
+        dataModel: RegistrationAcceptedResponse::class,
+        response: Response::HTTP_ACCEPTED,
+        description: 'Solicitação aceita; o resultado não revela se o e-mail já tinha conta.',
     )]
     #[ValidationErrorResponse(
         examples: [
@@ -73,44 +68,16 @@ final class RegistrationController extends AbstractController
                 description: 'Um ou mais campos do payload contêm dados inválidos.',
             ),
             'INVALID_FORMAT' => new ApiErrorExample(
-                message: 'O CPF possui dígitos verificadores inválidos.',
-                field: 'cpf',
-                additional: [
-                    [
-                        'code' => 'INVALID_FORMAT',
-                        'field' => 'email',
-                        'message' => 'O e-mail informado é inválido.',
-                    ],
-                ],
+                message: 'O e-mail informado é inválido.',
+                field: 'email',
                 summary: 'Formato inválido',
-                description: 'O CPF ou o e-mail não passaram na validação de formato.',
+                description: 'O e-mail não passou na validação de formato.',
             ),
         ],
         fields: [
-            'cpf' => 'CPF do usuário.',
             'email' => 'E-mail do usuário.',
             'name' => 'Nome completo do usuário.',
             'password' => 'Senha do usuário.',
-        ],
-    )]
-    #[ResourceConflictResponse(
-        examples: [
-            'USER_CPF_ALREADY_EXISTS' => new ApiErrorExample(
-                message: 'Já existe um usuário com este CPF.',
-                field: 'cpf',
-                summary: 'CPF já cadastrado',
-                description: 'Já existe um usuário com o CPF informado.',
-            ),
-            'EMAIL_ALREADY_EXISTS' => new ApiErrorExample(
-                message: 'Já existe um usuário com este e-mail.',
-                field: 'email',
-                summary: 'E-mail já cadastrado',
-                description: 'Já existe um usuário com o e-mail informado.',
-            ),
-        ],
-        fields: [
-            'cpf' => 'CPF do usuário.',
-            'email' => 'E-mail do usuário.',
         ],
     )]
     #[TooManyRequestsResponse]
@@ -128,7 +95,6 @@ final class RegistrationController extends AbstractController
         );
 
         $command = new RegisterUserCommand(
-            cpf: $request->cpf,
             email: $request->email,
             name: $request->name,
             password: $request->password,
@@ -141,8 +107,8 @@ final class RegistrationController extends AbstractController
         }
 
         return $this->resultResponder->success(
-            $result->map(fn ($user) => RegisterUserResponse::fromEntity($user)),
-            Response::HTTP_CREATED,
+            Result::success(RegistrationAcceptedResponse::pending()),
+            Response::HTTP_ACCEPTED,
         );
     }
 }

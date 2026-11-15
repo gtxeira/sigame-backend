@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Identity\Presentation\Http\Response\RegisterUserResponse;
+use App\Identity\Presentation\Http\Response\RegistrationAcceptedResponse;
 use App\Shared\Presentation\Http\OpenApi\ApiExample;
 use App\Shared\Presentation\Http\OpenApi\ApiMeta;
 use App\Shared\Presentation\Http\OpenApi\SuccessResponse;
@@ -17,7 +17,7 @@ it('attaches named examples with title and description', function () {
     ];
 
     $response = new SuccessResponse(
-        dataModel: RegisterUserResponse::class,
+        dataModel: RegistrationAcceptedResponse::class,
         response: Response::HTTP_CREATED,
         description: 'Usuário cadastrado com sucesso.',
         examples: [
@@ -91,7 +91,7 @@ it('adds custom meta properties to the success schema', function () {
 
 it('rejects combining a data model with inline properties', function () {
     expect(fn () => new SuccessResponse(
-        dataModel: RegisterUserResponse::class,
+        dataModel: RegistrationAcceptedResponse::class,
         dataProperties: [
             new OA\Property(property: 'status', type: 'string'),
         ],

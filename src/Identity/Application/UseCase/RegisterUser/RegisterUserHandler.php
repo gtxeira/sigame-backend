@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Identity\Application\UseCase\RegisterUser;
 
+use App\Identity\Application\Service\AccountExistsNoticeThrottleInterface;
+use App\Identity\Application\Service\IdentityMailDispatcherInterface;
 use App\Identity\Application\Service\PasswordHasherInterface;
-use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Event\UserRegistered;
-use App\Identity\Domain\User\Exception\CpfAlreadyExistsException;
 use App\Identity\Domain\User\Exception\EmailAlreadyExistsException;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\PlainPassword;
@@ -16,67 +16,56 @@ use App\Identity\Domain\User\ValueObject\ProfileName;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\Functional\ValidationResult;
-use App\Shared\Domain\ValueObject\Cpf;
 use App\Shared\Domain\ValueObject\Email;
 
 /**
- * Handler do caso de uso de registro de usuário.
+ * Handler da solicitação de cadastro.
  *
- * Orquestra: validação de entrada → validação de unicidade → hash senha → persiste → publica evento.
+ * O resultado observável é o mesmo exista ou não conta: o e-mail novo cria a
+ * conta e envia o código; o existente recebe apenas um aviso com instruções.
+ * A senha é sempre hasheada, para o tempo não revelar qual caminho foi seguido.
  */
 final readonly class RegisterUserHandler
 {
     public function __construct(
         private UserRepositoryInterface $userRepository,
         private PasswordHasherInterface $passwordHasher,
+        private IdentityMailDispatcherInterface $mailDispatcher,
+        private AccountExistsNoticeThrottleInterface $accountExistsNoticeThrottle,
         private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
     /**
-     * @return Result<User>
+     * @return Result<bool> true quando uma conta nova foi criada
      */
     public function __invoke(RegisterUserCommand $command): Result
     {
-        $cpfInput = $command->cpf();
-        $cpfResult = null === $cpfInput || '' === trim($cpfInput)
-            ? ValidationResult::valid(null)
-            : Cpf::fromString($cpfInput);
-
         $validation = ValidationResult::combine(
             Email::fromString($command->email()),
             ProfileName::fromString($command->name()),
             PlainPassword::fromString($command->password()),
-            $cpfResult,
         );
 
         if ($validation->isInvalid()) {
             return Result::failure($validation->errors());
         }
 
-        [$email, $name, $password, $cpf] = $validation->value();
+        /** @var array{0: Email, 1: ProfileName, 2: PlainPassword} $values */
+        $values = $validation->value();
+        [$email, $name, $password] = $values;
 
-        $conflicts = [];
-
-        // RN01.1: CPF, quando informado, é único.
-        if (null !== $cpf && null !== $this->userRepository->findByCpf($cpf)) {
-            $conflicts[] = IdentityErrors::cpfAlreadyExists();
-        }
-
-        // RN01.2: Email único.
-        if (null !== $this->userRepository->findByEmail($email)) {
-            $conflicts[] = IdentityErrors::emailAlreadyExists();
-        }
-
-        if ([] !== $conflicts) {
-            return Result::failure($conflicts);
-        }
-
-        // RN01.4: Senha nunca em texto puro.
+        // A KDF roda antes da busca: e-mail existente e novo têm o mesmo custo.
         $hashedPassword = $this->passwordHasher->hash($password->value());
 
+        if (null !== $this->userRepository->findByEmail($email)) {
+            $this->notifyAccountExists($email);
+
+            return Result::success(false);
+        }
+
         $user = User::register(
-            cpf: $cpf,
+            cpf: null,
             email: $email,
             password: $hashedPassword,
             name: $name->value(),
@@ -85,22 +74,27 @@ final readonly class RegisterUserHandler
         try {
             $this->userRepository->save($user);
         } catch (EmailAlreadyExistsException) {
-            return Result::failure([
-                IdentityErrors::emailAlreadyExists(),
-            ]);
-        } catch (CpfAlreadyExistsException) {
-            return Result::failure([
-                IdentityErrors::cpfAlreadyExists(),
-            ]);
+            // Corrida entre a busca e o INSERT: o e-mail passou a existir.
+            $this->notifyAccountExists($email);
+
+            return Result::success(false);
         }
 
-        // Publica evento de domínio
         $this->eventDispatcher->dispatch(UserRegistered::now(
             userId: $user->id()->value(),
             email: $email->value(),
-            cpf: $cpf?->value(),
+            cpf: null,
         ));
 
-        return Result::success($user);
+        return Result::success(true);
+    }
+
+    private function notifyAccountExists(Email $email): void
+    {
+        if (!$this->accountExistsNoticeThrottle->reserve($email)) {
+            return;
+        }
+
+        $this->mailDispatcher->dispatchAccountExists($email);
     }
 }

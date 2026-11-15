@@ -31,6 +31,7 @@ enum IdentityErrorCode: string
 
     case InvalidCredentials = 'INVALID_CREDENTIALS';
     case AccountSuspended = 'ACCOUNT_SUSPENDED';
+    case EmailNotVerified = 'EMAIL_NOT_VERIFIED';
     case RefreshTokenInvalid = 'REFRESH_TOKEN_INVALID';
     case RefreshTokenExpired = 'REFRESH_TOKEN_EXPIRED';
     case RefreshTokenReused = 'REFRESH_TOKEN_REUSED';
@@ -46,13 +47,8 @@ enum IdentityErrorCode: string
     case SocialLinkTokenInvalid = 'SOCIAL_LINK_TOKEN_INVALID';
     case SocialFlowInvalid = 'SOCIAL_FLOW_INVALID';
     case SocialClientUnsupported = 'SOCIAL_CLIENT_UNSUPPORTED';
-    case EmailAlreadyVerified = 'EMAIL_ALREADY_VERIFIED';
     case EmailVerificationCodeInvalid = 'EMAIL_VERIFICATION_CODE_INVALID';
-    case EmailVerificationCodeExpired = 'EMAIL_VERIFICATION_CODE_EXPIRED';
-    case EmailVerificationCodeAttemptsExceeded = 'EMAIL_VERIFICATION_CODE_ATTEMPTS_EXCEEDED';
     case PasswordResetCodeInvalid = 'PASSWORD_RESET_CODE_INVALID';
-    case PasswordResetCodeExpired = 'PASSWORD_RESET_CODE_EXPIRED';
-    case PasswordResetCodeAttemptsExceeded = 'PASSWORD_RESET_CODE_ATTEMPTS_EXCEEDED';
     case PasswordResetTicketInvalid = 'PASSWORD_RESET_TICKET_INVALID';
     case PasswordResetTicketExpired = 'PASSWORD_RESET_TICKET_EXPIRED';
     case PasswordCurrentInvalid = 'PASSWORD_CURRENT_INVALID';
@@ -66,7 +62,6 @@ enum IdentityErrorCode: string
             self::EmailAlreadyExists,
             self::OnboardingAlreadyCompleted,
             self::OnboardingNotCompleted,
-            self::EmailAlreadyVerified,
             self::RefreshInProgress,
             self::SocialAccountLinkRequired,
             self::SocialIdentityAlreadyLinked,
@@ -84,11 +79,7 @@ enum IdentityErrorCode: string
             self::SocialFlowInvalid,
             self::SocialClientUnsupported,
             self::EmailVerificationCodeInvalid,
-            self::EmailVerificationCodeExpired,
-            self::EmailVerificationCodeAttemptsExceeded,
             self::PasswordResetCodeInvalid,
-            self::PasswordResetCodeExpired,
-            self::PasswordResetCodeAttemptsExceeded,
             self::PasswordResetTicketInvalid,
             self::PasswordResetTicketExpired,
             self::PasswordCurrentInvalid => ErrorKind::Validation,
@@ -103,6 +94,7 @@ enum IdentityErrorCode: string
             self::UserNotFound => ErrorKind::NotFound,
 
             self::AccountSuspended,
+            self::EmailNotVerified,
             self::CannotSuspendAdmin,
             self::UserProfileIncomplete => ErrorKind::Forbidden,
         };

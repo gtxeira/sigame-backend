@@ -347,7 +347,7 @@ O vínculo automático por e-mail permitia um ataque de pré-cadastro: um atacan
 - A migration de `users.email` aborta se houver duplicatas, exigindo correção manual.
 - O cadastro local passa a enviar verificação de e-mail.
 - `GET /api/v1/users/me` expõe `emailVerified`.
-- A falha de unicidade de e-mail no banco é traduzida para `EMAIL_ALREADY_EXISTS`, sem 500.
+- A falha de unicidade de e-mail no banco é tratada como conta existente (aviso ao dono), sem 500 e sem revelar o conflito na resposta do cadastro.
 
 ---
 
@@ -389,7 +389,9 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 - Persistir códigos OTP de 6 dígitos em `identity_otp_challenges` apenas como hash bcrypt/Argon2id, com `purpose`, `attempts`, `expires_at` e `consumed_at`.
 - Verificação de e-mail: 15 minutos, enviada no cadastro e reenviável autenticado.
 - Reset de senha: 10 minutos, solicitação sempre responde `204` (sem enumeração); a validação do código devolve um ticket de 5 minutos em `identity_password_reset_tickets`, persistido como SHA-256.
-- Cinco tentativas erradas invalidam o código; um novo código invalida o anterior.
+- O cooldown do reset é aplicado por hash de e-mail no cache (`cache.password_reset_throttle`), exista conta ou não, para o `Retry-After` não distinguir endereços cadastrados.
+- Cinco tentativas erradas invalidam o código; um novo código invalida o anterior. O público vê apenas `*_CODE_INVALID` para código errado, expirado, consumido ou sem tentativas, e a KDF é sempre executada (hash dummy quando o desafio não está disponível) para reduzir enumeração por tempo.
+- **Emenda (2026-11-15):** o cadastro público passou a responder sempre `202` com corpo fixo e sem CPF; e-mail já existente recebe um aviso com instruções (sem link), e o login exige e-mail verificado (`EMAIL_NOT_VERIFIED`). O reenvio de verificação virou público e sempre `204`. Contas anteriores foram marcadas como verificadas na migration `Version20261115120000`.
 - Pedidos repetidos para a mesma conta respeitam um cooldown (`PASSWORD_RESET_COOLDOWN`/`EMAIL_VERIFICATION_COOLDOWN`, 60s); falha no envio consome o código de reset recém-criado para não deixar credencial válida sem entrega.
 - O consumo e o contador de tentativas são atômicos (`UPDATE ... WHERE consumed_at IS NULL`); reset e troca revogam todas as famílias de refresh tokens.
 - O envio fica atrás de `IdentityMailerInterface`, com adapter Symfony Mailer e Mailpit em desenvolvimento.
@@ -405,7 +407,7 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 
 > **Emenda (2026-11-06):** a rota de reenvio passou de `POST /users/me/email/resend` para `POST /auth/email/verification/resend`, mantendo a exigência de Bearer. O par de verificação ficou sob `/auth/email`.
 
-> **Emenda (2026-11-07):** o reenvio passou a responder `409 EMAIL_ALREADY_VERIFIED` quando o e-mail já está verificado, em vez de `204`. Como a rota é autenticada, informar o estado não vaza a existência de contas; a checagem ocorre antes do rate limit e o cliente deixa de depender de `GET /users/me` para saber se ainda deve esperar a confirmação.
+> **Emenda (2026-11-15):** com a verificação obrigatória para entrar, o reenvio passou a ser público, recebe `{ email }` e responde sempre `204`. Ele só envia quando a conta existe e ainda não foi verificada; assim não vaza a existência nem o estado da conta. O cooldown por e-mail e o rate limit continuam valendo.
 - Contas só sociais podem ganhar uma credencial local via reset (o e-mail já foi verificado pelo provedor).
 - O envio é síncrono; a migração para Messenger fica registrada como evolução.
 
@@ -1187,6 +1189,8 @@ O CPF era originalmente obrigatório e editável na especificação inicial.
 ### Decisão
 
 O CPF passa a ser opcional no cadastro, único quando informado e write-once. É exigido apenas para recompensas/vouchers externos.
+
+> **Emenda (2026-11-15):** o CPF deixou de fazer parte do cadastro público para não expor a existência de documentos. Ele continua opcional, único e write-once, mas passa a ser informado autenticado no perfil.
 
 ### Consequências
 

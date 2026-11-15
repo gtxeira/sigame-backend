@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Identity\Application\UseCase\Password;
 
 use App\Identity\Application\DTO\IssuedPasswordResetTicket;
+use App\Identity\Application\Service\DummyPasswordHash;
 use App\Identity\Application\Service\PasswordHasherInterface;
 use App\Identity\Domain\Error\IdentityErrors;
 use App\Identity\Domain\Otp\Repository\OtpChallengeRepositoryInterface;
@@ -12,7 +13,6 @@ use App\Identity\Domain\Otp\ValueObject\OtpCode;
 use App\Identity\Domain\Otp\ValueObject\OtpPurpose;
 use App\Identity\Domain\PasswordReset\Entity\PasswordResetTicket;
 use App\Identity\Domain\PasswordReset\Repository\PasswordResetTicketRepositoryInterface;
-use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Shared\Domain\Functional\Result;
@@ -62,50 +62,45 @@ final readonly class VerifyPasswordResetOtpHandler
         $codeValue = $codeResult->value();
 
         $user = $this->userRepository->findByEmail($emailValue);
-
-        if (null === $user) {
-            return Result::failure([IdentityErrors::passwordResetCodeInvalid()]);
-        }
-
-        if (!$user->isActive()) {
-            return Result::failure([IdentityErrors::accountSuspended()]);
-        }
-
-        $challenge = $this->challengeRepository->findActive($user, OtpPurpose::PasswordReset);
-
-        if (null === $challenge || $challenge->isConsumed()) {
-            return Result::failure([IdentityErrors::passwordResetCodeInvalid()]);
-        }
+        $challenge = null === $user
+            ? null
+            : $this->challengeRepository->findActive($user, OtpPurpose::PasswordReset);
 
         $now = Instant::fromDateTime($this->clock->now());
+        $usable = null !== $challenge
+            && !$challenge->isConsumed()
+            && !$challenge->isExpiredAt($now)
+            && !$challenge->hasReachedAttemptLimit($this->maxAttempts);
 
-        if ($challenge->isExpiredAt($now)) {
-            return Result::failure([IdentityErrors::passwordResetCodeExpired()]);
-        }
-
-        if ($challenge->hasReachedAttemptLimit($this->maxAttempts)) {
-            return Result::failure([IdentityErrors::passwordResetCodeAttemptsExceeded()]);
-        }
-
-        if (!$this->passwordHasher->verify(
+        // Sempre uma verificação: sem desafio utilizável, usa o hash dummy para
+        // que o tempo de resposta não revele o estado da conta.
+        $matches = $this->passwordHasher->verify(
             $codeValue->value(),
-            HashedPassword::fromHash($challenge->codeHash()),
-        )) {
-            $attempts = $this->challengeRepository->recordFailedAttempt($challenge, $this->maxAttempts);
+            HashedPassword::fromHash($usable ? $challenge->codeHash() : DummyPasswordHash::VALUE),
+        );
 
-            return Result::failure([
-                $attempts >= $this->maxAttempts
-                    ? IdentityErrors::passwordResetCodeAttemptsExceeded()
-                    : IdentityErrors::passwordResetCodeInvalid(),
-            ]);
+        if (!$matches) {
+            if ($usable) {
+                $this->challengeRepository->recordFailedAttempt($challenge, $this->maxAttempts);
+            }
+
+            return Result::failure([IdentityErrors::passwordResetCodeInvalid()]);
+        }
+
+        if (!$usable) {
+            return Result::failure([IdentityErrors::passwordResetCodeInvalid()]);
+        }
+
+        $user = $challenge->user();
+
+        // A suspensão só é revelada depois de provar a posse do código.
+        if (!$user->isActive()) {
+            return Result::failure([IdentityErrors::accountSuspended()]);
         }
 
         if (!$this->challengeRepository->markConsumed($challenge)) {
             return Result::failure([IdentityErrors::passwordResetCodeInvalid()]);
         }
-
-        /** @var User $user */
-        $user = $challenge->user();
 
         $rawTicket = bin2hex(random_bytes(32));
 

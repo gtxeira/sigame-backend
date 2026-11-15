@@ -23,7 +23,6 @@ final class RegisterUserRequestFactory extends ObjectFactory
     protected function defaults(): array|callable
     {
         return [
-            'cpf' => self::faker()->cpf(), // 11 dígitos numéricos
             'email' => self::faker()->unique()->safeEmail(),
             'name' => self::faker()->name(),
             'password' => 'secret1234', // Senha padrão para testes

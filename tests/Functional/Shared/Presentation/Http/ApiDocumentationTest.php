@@ -332,22 +332,16 @@ it('documents every public api operation', function () {
         ]);
 });
 
-it('documents the register success with a named example', function () {
+it('documents the accepted registration response', function () {
     $doc = readApiDoc($this);
 
-    $example = apiDocValue(
+    $schema = apiDocValue(
         $doc,
         'paths', '/api/v1/auth/register', 'post', 'responses',
-        '201', 'content', 'application/json', 'examples', 'USUARIO_CADASTRADO',
+        '202', 'content', 'application/json', 'schema',
     );
 
-    expect($example['summary'])->toBe('Usuário cadastrado')
-        ->and($example['description'])->not->toBeEmpty()
-        ->and(array_keys($example['value']))->toBe(['data', 'meta'])
-        ->and($example['value']['data'])->toHaveKeys([
-            'id', 'cpf', 'email', 'name', 'level', 'status', 'createdAt',
-        ])
-        ->and($example['value']['meta'])->toHaveKey('timestamp');
+    expect(json_encode($schema, JSON_THROW_ON_ERROR))->toContain('RegistrationAcceptedResponse');
 });
 
 it('derives the health example values from the response schema', function () {
@@ -512,7 +506,7 @@ it('keeps every error example in the api error shape', function () {
     expect($problems)->toBe([]);
 });
 
-it('documents the register error codes with named examples', function () {
+it('documents the register responses with named examples', function () {
     $doc = readApiDoc($this);
 
     $responseStatuses = [];
@@ -525,9 +519,8 @@ it('documents the register error codes with named examples', function () {
     $responseStatuses = array_keys($responses);
 
     expect($responseStatuses)->toEqualCanonicalizing([
-        '201',
+        '202',
         '400',
-        '409',
         '415',
         '422',
         '429',
@@ -551,17 +544,7 @@ it('documents the register error codes with named examples', function () {
     expect(array_keys($validationError['value']))->toBe(['errors', 'meta'])
         ->and($validationError['value']['meta']['timestamp'])->toBe('2026-09-21T10:00:00.000+00:00');
 
-    $conflictCodes = apiDocValue(
-        $responses,
-        '409', 'content', 'application/json', 'schema', 'allOf', 1,
-        'properties', 'errors', 'items', 'properties', 'code', 'enum',
-    );
-
-    expect($conflictCodes)->toBe(['USER_CPF_ALREADY_EXISTS', 'EMAIL_ALREADY_EXISTS']);
-
-    expect(array_keys(apiDocValue($responses, '409', 'content', 'application/json', 'examples')))
-        ->toBe(['USER_CPF_ALREADY_EXISTS', 'EMAIL_ALREADY_EXISTS'])
-        ->and(array_keys(apiDocValue($responses, '400', 'content', 'application/json', 'examples')))
+    expect(array_keys(apiDocValue($responses, '400', 'content', 'application/json', 'examples')))
         ->toBe(['BAD_REQUEST'])
         ->and(array_keys(apiDocValue($responses, '415', 'content', 'application/json', 'examples')))
         ->toBe(['UNSUPPORTED_MEDIA_TYPE']);
@@ -609,20 +592,7 @@ it('keeps the documented validation fields in sync with the register contract', 
         'properties', 'errors', 'items', 'properties', 'field', 'enum',
     );
 
-    expect($documentedFields)->toEqualCanonicalizing(['cpf', 'email', 'name', 'password']);
-});
-
-it('keeps the documented conflict fields in sync with the register rules', function () {
-    $doc = readApiDoc($this);
-
-    $documentedFields = apiDocValue(
-        $doc,
-        'paths', '/api/v1/auth/register', 'post', 'responses',
-        '409', 'content', 'application/json', 'schema', 'allOf', 1,
-        'properties', 'errors', 'items', 'properties', 'field', 'enum',
-    );
-
-    expect($documentedFields)->toEqualCanonicalizing(['cpf', 'email']);
+    expect($documentedFields)->toEqualCanonicalizing(['email', 'name', 'password']);
 });
 
 it('documents the social callback link ticket meta', function () {
@@ -652,16 +622,15 @@ it('documents the social callback link ticket meta', function () {
         ->and($metaSchema['allOf'][1]['required'])->toBe(['link']);
 });
 
-it('does not leak the link meta into other conflicts', function () {
+it('does not document a conflict on registration', function () {
     $doc = readApiDoc($this);
 
-    $example = apiDocValue(
+    $responses = apiDocValue(
         $doc,
         'paths', '/api/v1/auth/register', 'post', 'responses',
-        '409', 'content', 'application/json', 'examples', 'EMAIL_ALREADY_EXISTS',
     );
 
-    expect($example['value']['meta'])->not->toHaveKey('link');
+    expect($responses)->not->toHaveKey('409');
 });
 
 it('documents the achievement endpoints', function () {

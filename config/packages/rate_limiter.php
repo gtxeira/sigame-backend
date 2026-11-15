@@ -47,6 +47,11 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:AUTH_EMAIL_RESEND_RATE_LIMIT)%',
                 'interval' => '15 minutes',
             ],
+            'auth_email_resend_ip' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:AUTH_EMAIL_RESEND_IP_RATE_LIMIT)%',
+                'interval' => '15 minutes',
+            ],
             'auth_password_forgot' => [
                 'policy' => 'sliding_window',
                 'limit' => '%env(int:AUTH_PASSWORD_FORGOT_RATE_LIMIT)%',
