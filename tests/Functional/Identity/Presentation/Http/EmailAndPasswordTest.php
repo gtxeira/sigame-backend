@@ -151,6 +151,21 @@ it('does not reveal whether an email exists when requesting a password reset', f
         ->and(authTestMailer($this)->count('password_reset', 'unknown@example.com'))->toBe(0);
 });
 
+it('reports the remaining cooldown without sending a second code', function () {
+    $email = 'forgot-cooldown@example.com';
+    authTestCreateUser($this, $email);
+
+    $first = emailTestRequestResetCode($this, $email);
+    $second = emailTestRequestResetCode($this, $email);
+
+    expect($first->getStatusCode())->toBe(Response::HTTP_NO_CONTENT)
+        ->and($first->headers->get('Retry-After'))->toBeNull()
+        ->and($second->getStatusCode())->toBe(Response::HTTP_NO_CONTENT)
+        ->and((int) $second->headers->get('Retry-After'))->toBeGreaterThan(0)
+        ->and((int) $second->headers->get('Retry-After'))->toBeLessThanOrEqual(60)
+        ->and(authTestMailer($this)->count('password_reset', $email))->toBe(1);
+});
+
 it('sends the reset code to the canonical email regardless of the request casing', function () {
     $email = 'canonical-reset@example.com';
     authTestCreateUser($this, $email);

@@ -48,4 +48,9 @@ interface OtpChallengeRepositoryInterface
         OtpPurpose $purpose,
         Instant $since,
     ): bool;
+
+    /**
+     * Retorna o instante de criação do desafio ativo mais recente do propósito.
+     */
+    public function findActiveCreatedAt(User $user, OtpPurpose $purpose): ?Instant;
 }

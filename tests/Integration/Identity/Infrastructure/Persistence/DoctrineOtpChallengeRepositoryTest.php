@@ -134,3 +134,25 @@ it('reports whether an active challenge was created after a given instant', func
             Instant::fromDateTime(new DateTimeImmutable('+1 minute')),
         ))->toBeFalse();
 });
+
+it('returns the creation instant of the active challenge and clears it after consumption', function () {
+    $repository = $this->service(OtpChallengeRepositoryInterface::class);
+    $em = $this->service(EntityManagerInterface::class);
+    $user = otpRepositoryUser($this, 'otp-created-at@example.com');
+    $challenge = otpRepositoryChallenge($user);
+
+    $repository->save($challenge);
+    $em->clear();
+
+    $createdAt = $repository->findActiveCreatedAt($user, OtpPurpose::EmailVerification);
+
+    assert($createdAt instanceof Instant);
+
+    expect($createdAt->equals($challenge->createdAt()))->toBeTrue();
+
+    $found = $repository->findActive($user, OtpPurpose::EmailVerification);
+    assert($found instanceof OtpChallenge);
+    $repository->markConsumed($found);
+
+    expect($repository->findActiveCreatedAt($user, OtpPurpose::EmailVerification))->toBeNull();
+});

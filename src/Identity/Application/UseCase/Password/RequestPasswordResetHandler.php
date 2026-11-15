@@ -41,30 +41,36 @@ final readonly class RequestPasswordResetHandler
     ) {
     }
 
-    public function __invoke(string $email): void
+    public function __invoke(string $email): PasswordResetRequestOutcome
     {
         $emailResult = Email::fromString($email);
 
         if ($emailResult->isInvalid()) {
-            return;
+            return PasswordResetRequestOutcome::requested();
         }
 
         $user = $this->userRepository->findByEmail($emailResult->value());
 
         if (null === $user || !$user->isActive()) {
-            return;
+            return PasswordResetRequestOutcome::requested();
         }
 
         $now = $this->clock->now();
 
-        if ($this->cooldownSeconds > 0 && $this->challengeRepository->hasActiveCreatedAfter(
-            $user,
-            OtpPurpose::PasswordReset,
-            sprintf('-%d seconds', $this->cooldownSeconds)
-                |> $now->modify(...)
-                |> Instant::fromDateTime(...),
-        )) {
-            return;
+        if ($this->cooldownSeconds > 0) {
+            $lastRequestAt = $this->challengeRepository->findActiveCreatedAt(
+                $user,
+                OtpPurpose::PasswordReset,
+            );
+
+            if (null !== $lastRequestAt) {
+                $elapsed = $now->getTimestamp() - $lastRequestAt->timestamp();
+                $remaining = $this->cooldownSeconds - $elapsed;
+
+                if ($remaining > 0) {
+                    return PasswordResetRequestOutcome::throttled($remaining);
+                }
+            }
         }
 
         $this->challengeRepository->invalidateActive($user, OtpPurpose::PasswordReset);
@@ -98,6 +104,8 @@ final readonly class RequestPasswordResetHandler
                 'reason' => $exception->getMessage(),
             ]);
         }
+
+        return PasswordResetRequestOutcome::requested();
     }
 
     /**

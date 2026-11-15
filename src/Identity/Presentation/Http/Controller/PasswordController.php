@@ -68,7 +68,17 @@ final class PasswordController extends AbstractController
      * geram novo e-mail.
      */
     #[Route('/auth/password/forgot', name: 'app_auth_password_forgot', methods: ['POST'])]
-    #[OA\Response(response: Response::HTTP_NO_CONTENT, description: 'Solicitação processada.')]
+    #[OA\Response(
+        response: Response::HTTP_NO_CONTENT,
+        description: 'Solicitação processada. Pedidos dentro do cooldown não geram novo e-mail.',
+        headers: [
+            new OA\Header(
+                header: 'Retry-After',
+                description: 'Segundos restantes do cooldown da conta; presente apenas quando nenhum novo código foi enviado.',
+                schema: new OA\Schema(type: 'integer', example: 42),
+            ),
+        ],
+    )]
     #[ValidationErrorResponse(
         fields: ['email' => 'E-mail da conta.'],
     )]
@@ -88,9 +98,17 @@ final class PasswordController extends AbstractController
         );
         $this->rateLimitGuard->assertWithin($this->forgotIpLimiter, $clientIp);
 
-        ($this->requestPasswordResetHandler)($request->email);
+        $outcome = ($this->requestPasswordResetHandler)($request->email);
 
-        return new Response(null, Response::HTTP_NO_CONTENT);
+        $response = new Response(null, Response::HTTP_NO_CONTENT);
+
+        // A tela usa o cabeçalho para restaurar o cooldown sem afirmar que um
+        // novo código foi enviado quando o pedido foi apenas ignorado.
+        if (null !== $outcome->retryAfterSeconds) {
+            $response->headers->set('Retry-After', (string) $outcome->retryAfterSeconds);
+        }
+
+        return $response;
     }
 
     /**

@@ -121,4 +121,18 @@ final class DoctrineOtpChallengeRepository extends AbstractRepository implements
 
         return (int) $count > 0;
     }
+
+    public function findActiveCreatedAt(User $user, OtpPurpose $purpose): ?Instant
+    {
+        $challenge = $this->findOneBy(
+            [
+                'user' => $user,
+                'purpose' => $purpose,
+                'consumedAt' => null,
+            ],
+            ['createdAt' => 'DESC'],
+        );
+
+        return $challenge?->createdAt();
+    }
 }

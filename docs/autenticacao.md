@@ -621,7 +621,7 @@ O reset acontece em **duas etapas**: validar o código devolve um ticket tempor�
 { "email": "user@example.com" }
 ```
 
-Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um código de 6 dígitos válido por 10 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo código nem novo e-mail. Limite: 3 pedidos por 15 minutos por e-mail + IP e 10 por hora por IP.
+Sempre retorna `204`, exista ou não a conta, para não revelar e-mails cadastrados. Se a conta existir e estiver ativa, um código de 6 dígitos válido por 10 minutos é enviado ao e-mail canônico, com o prazo formatado em `America/Sao_Paulo`. Pedidos repetidos para a mesma conta dentro de `PASSWORD_RESET_COOLDOWN` segundos (padrão 60) não geram novo código nem novo e-mail; nesse caso a resposta continua `204` e inclui `Retry-After` com os segundos restantes do cooldown. Limite: 3 pedidos por 15 minutos por e-mail + IP e 10 por hora por IP.
 
 ### 5.1.1 Validar o código
 
