@@ -1,0 +1,48 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Patrocínio e vouchers (roadmap) — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administração SIGAME" as Ator_admin_sigame
+actor "Patrocinador" as Ator_patrocinador
+
+rectangle "SIGAME" {
+  usecase "Cadastrar patrocinador\n«roadmap»" as UC_19_1 #F3F4F6
+  usecase "Analisar proposta de benefício\n«roadmap»" as UC_19_2 #F3F4F6
+  usecase "Vincular benefício a grupo\n«roadmap»" as UC_19_3 #F3F4F6
+  usecase "Gerar voucher\n«roadmap»" as UC_20_1 #F3F4F6
+  usecase "Resgatar voucher\n«roadmap»" as UC_20_2 #F3F4F6
+}
+
+Ator_admin_sigame -- UC_19_1
+Ator_admin_sigame -- UC_19_2
+Ator_patrocinador -- UC_19_2
+Ator_admin_sigame -- UC_19_3
+Ator_admin_sigame -- UC_20_1
+Ator_usuario -- UC_20_2
+
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

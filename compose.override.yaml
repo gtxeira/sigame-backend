@@ -155,6 +155,15 @@ services:
       postgres:
         condition: service_started
 
+  # Renderiza os diagramas de caso de uso em SVG (ver `just docs-usecases`).
+  plantuml:
+    image: plantuml/plantuml:1.2026.10
+    profiles: ["docs"]
+    restart: "no"
+    working_dir: /data
+    volumes:
+      - ./:/data
+
 ###> symfony/mailer ###
   mailer:
     image: axllent/mailpit

@@ -1,0 +1,41 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Contas (administração) — SIGAME
+
+actor "Administração SIGAME" as Ator_admin_sigame
+
+rectangle "SIGAME" {
+  usecase "Suspender conta" as UC_18_1
+  usecase "Reativar conta" as UC_18_2
+  usecase "Consultar histórico de status" as UC_18_3
+}
+
+Ator_admin_sigame -- UC_18_1
+Ator_admin_sigame -- UC_18_2
+Ator_admin_sigame -- UC_18_3
+
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

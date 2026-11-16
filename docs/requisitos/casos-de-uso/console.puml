@@ -1,0 +1,53 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Console administrativo — SIGAME
+
+actor "Administração SIGAME" as Ator_admin_sigame
+
+rectangle "SIGAME" {
+  usecase "Consultar visão geral" as UC_23_1
+  usecase "Consultar contas" as UC_23_2
+  usecase "Exportar contas" as UC_23_3
+  usecase "Consultar atividades" as UC_23_4
+  usecase "Exportar atividades" as UC_23_5
+  usecase "Moderar atividades" as UC_23_6
+  usecase "Consultar e exportar grupos" as UC_23_7
+  usecase "Moderar grupos" as UC_23_8
+  usecase "Consultar auditoria" as UC_23_9
+}
+
+Ator_admin_sigame -- UC_23_1
+Ator_admin_sigame -- UC_23_2
+Ator_admin_sigame -- UC_23_3
+Ator_admin_sigame -- UC_23_4
+Ator_admin_sigame -- UC_23_5
+Ator_admin_sigame -- UC_23_6
+Ator_admin_sigame -- UC_23_7
+Ator_admin_sigame -- UC_23_8
+Ator_admin_sigame -- UC_23_9
+
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

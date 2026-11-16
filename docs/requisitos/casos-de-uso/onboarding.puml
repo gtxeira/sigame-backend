@@ -1,0 +1,40 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Onboarding e modalidades — SIGAME
+
+actor "Usuário" as Ator_usuario
+
+rectangle "SIGAME" {
+  usecase "Concluir onboarding" as UC_03_1
+  usecase "Gerenciar modalidades" as UC_03_2
+}
+
+Ator_usuario -- UC_03_1
+Ator_usuario -- UC_03_2
+
+UC_03_1 ..> UC_03_2 : <<include>>
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

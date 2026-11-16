@@ -1,0 +1,925 @@
+# Catálogo de casos de uso do SIGAME.
+#
+# Esta é a fonte única dos diagramas de caso de uso e da matriz de
+# rastreabilidade. `just docs-usecases` valida este arquivo contra:
+#   - os requisitos funcionais de docs/requisitos/levantamento-de-requisitos.md;
+#   - a tabela de atores da seção 3.1 do mesmo documento;
+#   - as rotas /api/v1 registradas no Router.
+#
+# Regras aplicadas pelo comando `app:docs:usecases`:
+#   - todo RF precisa de pelo menos um caso de uso;
+#   - todo caso de uso aponta para um RF existente e atores existentes;
+#   - toda rota /api/v1 precisa estar em pelo menos um caso implementado;
+#   - caso implementado com `api: true` precisa de rota;
+#   - caso com `api: false` precisa de `motivo_sem_api`;
+#   - caso roadmap/adiado não pode ter rota;
+#   - `inclui`/`estende` precisam existir e ficar no mesmo diagrama, sem ciclos.
+#
+# Status: `implementado`, `roadmap` (planejado) ou `adiado` (fora da V1).
+# O bloco `api` indica se o caso é exposto por endpoint HTTP.
+
+versao: 1
+
+sistema:
+  id: sigame
+  nome: SIGAME
+  descricao: Plataforma de atividades físicas em grupo.
+
+atores:
+  usuario:
+    nome: Usuário
+    descricao: Pessoa cadastrada que participa do SIGAME.
+  admin_grupo:
+    nome: Administrador de grupo
+    descricao: Criador ou responsável pela gestão de um grupo específico.
+  supervisor:
+    nome: Supervisor
+    descricao: Membro aprovado designado para operar atividades no dia.
+  admin_sigame:
+    nome: Administração SIGAME
+    descricao: Administração global da plataforma.
+  patrocinador:
+    nome: Patrocinador
+    descricao: Entidade responsável por proposta de benefício, prevista para o roadmap.
+  sistema:
+    nome: Sistema (agendador)
+    descricao: Rotina automática ou worker, sem interação humana.
+    sintetico: true
+
+# Título e ordem dos diagramas detalhados. O diagrama `geral` é gerado à parte,
+# com um caso de uso por RF.
+diagramas:
+  conta: Conta e cadastro
+  autenticacao: Autenticação e sessão
+  onboarding: Onboarding e modalidades
+  grupos: Grupos e comunicação
+  participacao: Participação e papéis
+  atividades: Atividades
+  presenca: Inscrição e presença
+  gamificacao: Gamificação e progressão
+  notificacoes: Notificações
+  contas: Contas (administração)
+  console: Console administrativo
+  moderacao: Moderação (adiada)
+  patrocinio: Patrocínio e vouchers (roadmap)
+  relatorios: Relatórios (roadmap)
+
+casos:
+  # ── RF01 — Cadastrar usuário ───────────────────────────────────────────────
+  - id: UC-01.1
+    nome: Cadastrar usuário
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Criar a conta com e-mail, senha e dados cadastrais mínimos.
+    precondicoes:
+      - E-mail ainda não cadastrado e usuário maior de 18 anos.
+    status: implementado
+    api: true
+    rotas: [app_auth_register]
+    inclui: [UC-01.2]
+
+  - id: UC-01.2
+    nome: Verificar e-mail
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Confirmar o e-mail por código OTP e permitir o reenvio.
+    status: implementado
+    api: true
+    rotas: [app_auth_email_verify, app_auth_email_resend]
+
+  - id: UC-01.3
+    nome: Recuperar senha
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Solicitar código, validar o OTP e definir uma nova senha.
+    status: implementado
+    api: true
+    rotas: [app_auth_password_forgot, app_auth_password_otp_verify, app_auth_password_reset]
+
+  - id: UC-01.4
+    nome: Gerenciar perfil
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Consultar e editar perfil, foto e CPF do próprio usuário.
+    status: implementado
+    api: true
+    rotas: [app_me, app_me_profile_update, app_me_photo_update, app_me_photo_remove, app_me_cpf]
+
+  - id: UC-01.5
+    nome: Alterar senha
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Trocar a senha da conta autenticada.
+    status: implementado
+    api: true
+    rotas: [app_me_password_change]
+
+  - id: UC-01.6
+    nome: Vincular identidade social
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Vincular uma identidade Google a uma conta existente.
+    status: implementado
+    api: true
+    rotas: [app_me_identity_link, app_auth_social_link]
+
+  - id: UC-01.7
+    nome: Informar data de nascimento
+    rf: RF01
+    modulo: Identity
+    diagrama: conta
+    atores: [usuario]
+    objetivo: Definir a data de nascimento write-once, pré-requisito do onboarding.
+    status: implementado
+    api: true
+    rotas: [app_me_birth_date]
+
+  # ── RF02 — Autenticar usuário ──────────────────────────────────────────────
+  - id: UC-02.1
+    nome: Autenticar com e-mail e senha
+    rf: RF02
+    modulo: Identity
+    diagrama: autenticacao
+    atores: [usuario]
+    objetivo: Iniciar a sessão e receber access token e refresh token em cookie.
+    status: implementado
+    api: true
+    rotas: [app_auth_login]
+
+  - id: UC-02.2
+    nome: Renovar sessão
+    rf: RF02
+    modulo: Identity
+    diagrama: autenticacao
+    atores: [usuario]
+    objetivo: Rotacionar o refresh token e renovar o access token.
+    status: implementado
+    api: true
+    rotas: [app_auth_refresh]
+
+  - id: UC-02.3
+    nome: Encerrar sessão
+    rf: RF02
+    modulo: Identity
+    diagrama: autenticacao
+    atores: [usuario]
+    objetivo: Revogar a sessão atual ou todas as famílias de refresh tokens.
+    status: implementado
+    api: true
+    rotas: [app_auth_logout, app_auth_logout_all]
+
+  - id: UC-02.4
+    nome: Autenticar com provedor social
+    rf: RF02
+    modulo: Identity
+    diagrama: autenticacao
+    atores: [usuario]
+    objetivo: Iniciar e concluir o fluxo OAuth do Google.
+    status: implementado
+    api: true
+    rotas: [app_auth_social_start, app_auth_social_callback]
+
+  # ── RF03 — Concluir onboarding ─────────────────────────────────────────────
+  - id: UC-03.1
+    nome: Concluir onboarding
+    rf: RF03
+    modulo: Identity
+    diagrama: onboarding
+    atores: [usuario]
+    objetivo: Validar os dados mínimos, conceder nível 2 e 100 XP uma única vez.
+    precondicoes:
+      - Data de nascimento definida e ao menos uma modalidade ativa.
+    status: implementado
+    api: true
+    rotas: [app_me_onboarding]
+    inclui: [UC-03.2]
+
+  - id: UC-03.2
+    nome: Gerenciar modalidades
+    rf: RF03
+    modulo: Identity
+    diagrama: onboarding
+    atores: [usuario]
+    objetivo: Selecionar modalidades ativas e a principal, preservando o histórico.
+    status: implementado
+    api: true
+    rotas: [app_me_modalities_update]
+
+  # ── RF04 — Criar grupo / RF08 — Comunicação externa ────────────────────────
+  - id: UC-04.1
+    nome: Criar grupo
+    rf: RF04
+    modulo: Groups
+    diagrama: grupos
+    atores: [usuario]
+    objetivo: Criar um grupo esportivo e assumir como administrador.
+    precondicoes:
+      - Nível 2 e limite de grupos não excedido.
+    status: implementado
+    api: true
+    rotas: [app_group_create]
+
+  - id: UC-04.2
+    nome: Consultar grupos e membros
+    rf: RF04
+    modulo: Groups
+    diagrama: grupos
+    atores: [usuario]
+    objetivo: Listar grupos, detalhar um grupo e consultar seus membros.
+    status: implementado
+    api: true
+    rotas: [app_group_list, app_group_show, app_group_members, app_me_groups]
+
+  - id: UC-04.3
+    nome: Editar grupo
+    rf: RF04
+    modulo: Groups
+    diagrama: grupos
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Atualizar nome, descrição, modalidade, limite e link de comunicação.
+    status: implementado
+    api: true
+    rotas: [app_group_update]
+
+  - id: UC-08.1
+    nome: Configurar link de comunicação
+    rf: RF08
+    modulo: Groups
+    diagrama: grupos
+    atores: [admin_grupo]
+    objetivo: Cadastrar, alterar ou remover o link externo visível a membros aprovados.
+    status: implementado
+    api: true
+    rotas: [app_group_update]
+    estende: [UC-04.3]
+
+  # ── RF05 — Solicitar entrada / RF06 — Membros / RF07 — Supervisor ─────────
+  - id: UC-05.1
+    nome: Solicitar entrada
+    rf: RF05
+    modulo: Groups
+    diagrama: participacao
+    atores: [usuario]
+    objetivo: Solicitar entrada em um grupo e aguardar a aprovação.
+    precondicoes:
+      - Nível 2, conta ativa e sem solicitação pendente para o grupo.
+    status: implementado
+    api: true
+    rotas: [app_group_membership_request]
+
+  - id: UC-05.2
+    nome: Cancelar solicitação ou sair do grupo
+    rf: RF05
+    modulo: Groups
+    diagrama: participacao
+    atores: [usuario]
+    objetivo: Cancelar a pendência ou encerrar a própria participação.
+    status: implementado
+    api: true
+    rotas: [app_group_membership_leave]
+
+  - id: UC-05.3
+    nome: Consultar próprias solicitações
+    rf: RF05
+    modulo: Groups
+    diagrama: participacao
+    atores: [usuario]
+    objetivo: Listar solicitações e participações do próprio usuário.
+    status: implementado
+    api: true
+    rotas: [app_me_membership_requests]
+
+  - id: UC-06.1
+    nome: Aprovar ou rejeitar solicitação
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo]
+    objetivo: Decidir solicitações respeitando limites e o estado do grupo.
+    status: implementado
+    api: true
+    rotas: [app_group_membership_approve, app_group_membership_reject]
+
+  - id: UC-06.2
+    nome: Remover membro
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo]
+    objetivo: Remover um membro registrando autor, data e motivo.
+    status: implementado
+    api: true
+    rotas: [app_group_membership_remove]
+
+  - id: UC-06.3
+    nome: Promover ou rebaixar administrador
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo]
+    objetivo: Alterar papéis mantendo ao menos um administrador aprovado.
+    status: implementado
+    api: true
+    rotas: [app_group_membership_role]
+
+  - id: UC-06.4
+    nome: Consultar participações
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Listar as participações do grupo por situação.
+    status: implementado
+    api: true
+    rotas: [app_group_membership_list]
+
+  - id: UC-06.5
+    nome: Arquivar ou desarquivar grupo
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Colocar o grupo em somente leitura e reverter a operação.
+    status: implementado
+    api: true
+    rotas: [app_group_archive, app_group_unarchive]
+
+  - id: UC-06.6
+    nome: Excluir grupo
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Excluir logicamente o grupo de forma terminal e auditada.
+    precondicoes:
+      - Solicitante é o responsável, salvo a exceção da administração SIGAME.
+    status: implementado
+    api: true
+    rotas: [app_group_delete]
+
+  - id: UC-06.7
+    nome: Transferir responsabilidade
+    rf: RF06
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo]
+    objetivo: Transferir ownerId para um membro aprovado e ativo.
+    status: implementado
+    api: true
+    rotas: [app_group_ownership_transfer]
+
+  - id: UC-07.1
+    nome: Designar supervisor
+    rf: RF07
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo]
+    objetivo: Designar um membro aprovado como supervisor do grupo.
+    status: implementado
+    api: true
+    rotas: [app_group_supervisor_designate]
+
+  - id: UC-07.2
+    nome: Remover supervisor
+    rf: RF07
+    modulo: Groups
+    diagrama: participacao
+    atores: [admin_grupo]
+    objetivo: Limpar a designação de supervisor do grupo.
+    status: implementado
+    api: true
+    rotas: [app_group_supervisor_clear]
+
+  # ── RF09 — Criar e manter atividade ────────────────────────────────────────
+  - id: UC-09.1
+    nome: Criar atividade
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Criar uma atividade em grupo ativo com janela, local e trajeto.
+    status: implementado
+    api: true
+    rotas: [app_activity_create]
+
+  - id: UC-09.2
+    nome: Consultar atividades
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [usuario, admin_grupo, supervisor]
+    objetivo: Listar e detalhar atividades e o histórico de remarcações.
+    status: implementado
+    api: true
+    rotas: [app_activity_list, app_activity_show, app_my_activity_list, app_activity_reschedule_list]
+
+  - id: UC-09.3
+    nome: Editar ou remarcar atividade
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Alterar dados e janela preservando a remarcação anterior.
+    status: implementado
+    api: true
+    rotas: [app_activity_update]
+
+  - id: UC-09.4
+    nome: Cancelar atividade
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Cancelar a atividade com motivo e impedir novas operações.
+    status: implementado
+    api: true
+    rotas: [app_activity_cancel]
+
+  - id: UC-09.5
+    nome: Iniciar atividade
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [admin_grupo, supervisor, admin_sigame]
+    objetivo: Iniciar a atividade dentro da janela operacional.
+    status: implementado
+    api: true
+    rotas: [app_activity_start]
+
+  - id: UC-09.6
+    nome: Finalizar atividade
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [admin_grupo, supervisor, admin_sigame]
+    objetivo: Finalizar a atividade dentro do prazo e disparar a apuração de XP.
+    status: implementado
+    api: true
+    rotas: [app_activity_finish]
+
+  - id: UC-09.7
+    nome: Invalidar atividade
+    rf: RF09
+    modulo: Activities
+    diagrama: atividades
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Invalidar a atividade com motivo e estornar o XP concedido.
+    status: implementado
+    api: true
+    rotas: [app_activity_invalidate]
+
+  # ── RF10 — Presença / RF11 — Conflito de horário ───────────────────────────
+  - id: UC-10.1
+    nome: Inscrever-se em atividade
+    rf: RF10
+    modulo: Activities
+    diagrama: presenca
+    atores: [usuario, supervisor, admin_grupo]
+    objetivo: Inscrever-se respeitando vínculo aprovado e conflito de horário.
+    precondicoes:
+      - Membro aprovado do grupo e sem outra atividade no mesmo horário.
+    status: implementado
+    api: true
+    rotas: [app_activity_enroll]
+    inclui: [UC-11.1]
+
+  - id: UC-10.2
+    nome: Cancelar inscrição
+    rf: RF10
+    modulo: Activities
+    diagrama: presenca
+    atores: [usuario]
+    objetivo: Cancelar a própria inscrição na atividade.
+    status: implementado
+    api: true
+    rotas: [app_activity_enrollment_cancel]
+
+  - id: UC-10.3
+    nome: Fazer check-in
+    rf: RF10
+    modulo: Activities
+    diagrama: presenca
+    atores: [usuario, supervisor, admin_grupo]
+    objetivo: Registrar a presença no período de check-in.
+    status: implementado
+    api: true
+    rotas: [app_activity_check_in]
+
+  - id: UC-10.4
+    nome: Listar presenças
+    rf: RF10
+    modulo: Activities
+    diagrama: presenca
+    atores: [admin_grupo, supervisor, admin_sigame]
+    objetivo: Listar inscrições, check-ins e validações da atividade.
+    status: implementado
+    api: true
+    rotas: [app_activity_attendance_list]
+
+  - id: UC-10.5
+    nome: Validar presença
+    rf: RF10
+    modulo: Activities
+    diagrama: presenca
+    atores: [admin_grupo, supervisor, admin_sigame]
+    objetivo: Validar presenças e liberar o XP elegível.
+    status: implementado
+    api: true
+    rotas: [app_activity_attendance_validate]
+
+  - id: UC-11.1
+    nome: Validar conflito de horário
+    rf: RF11
+    modulo: Activities
+    diagrama: presenca
+    atores: [sistema]
+    objetivo: Recusar inscrição sobreposta a outra atividade do mesmo usuário.
+    status: implementado
+    api: false
+    motivo_sem_api: Regra interna executada no caso de uso de inscrição.
+    rotas: []
+
+  # ── RF12 — XP e níveis / RF13 — Deleveling / RF14 — Recompensas ───────────
+  - id: UC-12.1
+    nome: Consultar progresso
+    rf: RF12
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [usuario]
+    objetivo: Consultar XP, nível, barra de progresso e ofensiva semanal.
+    status: implementado
+    api: true
+    rotas: [app_my_progress]
+
+  - id: UC-12.2
+    nome: Consultar extrato de XP
+    rf: RF12
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [usuario]
+    objetivo: Listar lançamentos de XP, estornos e períodos de apuração.
+    status: implementado
+    api: true
+    rotas: [app_my_xp_history]
+
+  - id: UC-12.3
+    nome: Consultar regras de gamificação
+    rf: RF12
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [usuario]
+    objetivo: Consultar curva de níveis, fontes de XP e versão da regra vigente.
+    status: implementado
+    api: true
+    rotas: [app_gamification_rules]
+
+  - id: UC-12.4
+    nome: Consultar e celebrar conquistas
+    rf: RF12
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [usuario]
+    objetivo: Listar conquistas desbloqueadas e marcar a celebração (ADR-047).
+    status: implementado
+    api: true
+    rotas: [app_my_achievements, app_my_achievement_celebrated]
+
+  - id: UC-13.1
+    nome: Aplicar perda por inatividade
+    rf: RF13
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [sistema]
+    objetivo: Aplicar o decay de XP e nível após o período de tolerância.
+    status: implementado
+    api: false
+    motivo_sem_api: Executado pelo scheduler de gamificação e exposto pelo extrato de XP.
+    rotas: []
+
+  - id: UC-14.1
+    nome: Consultar recompensas de marco
+    rf: RF14
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [usuario]
+    objetivo: Consultar recompensas elegíveis nos marcos de nível 5, 8 e 10.
+    status: roadmap
+    api: false
+    rotas: []
+
+  - id: UC-14.2
+    nome: Cadastrar recompensa interna
+    rf: RF14
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [admin_grupo, admin_sigame]
+    objetivo: Cadastrar uma recompensa interna para uma atividade do grupo.
+    status: roadmap
+    api: false
+    rotas: []
+
+  - id: UC-14.3
+    nome: Resgatar recompensa
+    rf: RF14
+    modulo: Gamification
+    diagrama: gamificacao
+    atores: [usuario]
+    objetivo: Resgatar uma recompensa elegível sem perdê-la em deleveling.
+    status: roadmap
+    api: false
+    rotas: []
+    estende: [UC-14.1]
+
+  # ── RF15 — Notificações ────────────────────────────────────────────────────
+  - id: UC-15.1
+    nome: Consultar inbox
+    rf: RF15
+    modulo: Notifications
+    diagrama: notificacoes
+    atores: [usuario]
+    objetivo: Listar notificações com filtros e consultar a contagem de não lidas.
+    status: implementado
+    api: true
+    rotas: [app_notifications_list, app_notifications_unread_count]
+
+  - id: UC-15.2
+    nome: Marcar notificação como lida
+    rf: RF15
+    modulo: Notifications
+    diagrama: notificacoes
+    atores: [usuario]
+    objetivo: Marcar uma notificação como lida de forma idempotente.
+    status: implementado
+    api: true
+    rotas: [app_notifications_read]
+
+  - id: UC-15.3
+    nome: Marcar todas como lidas
+    rf: RF15
+    modulo: Notifications
+    diagrama: notificacoes
+    atores: [usuario]
+    objetivo: Marcar todas as notificações do próprio usuário como lidas.
+    status: implementado
+    api: true
+    rotas: [app_notifications_read_all]
+
+  - id: UC-15.4
+    nome: Assinar notificações em tempo real
+    rf: RF15
+    modulo: Notifications
+    diagrama: notificacoes
+    atores: [usuario]
+    objetivo: Obter URL e token Mercure restritos ao tópico do próprio usuário.
+    status: implementado
+    api: true
+    rotas: [app_notifications_realtime]
+
+  - id: UC-15.5
+    nome: Entregar por canal externo
+    rf: RF15
+    modulo: Notifications
+    diagrama: notificacoes
+    atores: [sistema]
+    objetivo: Entregar e-mail ou push por adaptador sem substituir o inbox canônico.
+    status: implementado
+    api: false
+    motivo_sem_api: Executado pelo worker de notificações.
+    rotas: []
+
+  # ── RF18 — Suspender e reativar conta ──────────────────────────────────────
+  - id: UC-18.1
+    nome: Suspender conta
+    rf: RF18
+    modulo: Administration
+    diagrama: contas
+    atores: [admin_sigame]
+    objetivo: Suspender globalmente a conta com motivo, revogando as sessões.
+    status: implementado
+    api: true
+    rotas: [app_admin_user_suspend]
+
+  - id: UC-18.2
+    nome: Reativar conta
+    rf: RF18
+    modulo: Administration
+    diagrama: contas
+    atores: [admin_sigame]
+    objetivo: Reativar a conta e registrar o histórico append-only.
+    status: implementado
+    api: true
+    rotas: [app_admin_user_reactivate]
+
+  - id: UC-18.3
+    nome: Consultar histórico de status
+    rf: RF18
+    modulo: Administration
+    diagrama: contas
+    atores: [admin_sigame]
+    objetivo: Listar suspensões e reativações da conta.
+    status: implementado
+    api: true
+    rotas: [app_admin_user_status_history]
+
+  # ── RF23 — Console administrativo e auditoria ─────────────────────────────
+  - id: UC-23.1
+    nome: Consultar visão geral
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Consolidar contas, grupos, atividades e check-ins recentes.
+    status: implementado
+    api: true
+    rotas: [app_admin_overview]
+
+  - id: UC-23.2
+    nome: Consultar contas
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Listar e detalhar contas com filtros e paginação.
+    status: implementado
+    api: true
+    rotas: [app_admin_user_list, app_admin_user_show]
+
+  - id: UC-23.3
+    nome: Exportar contas
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Exportar CSV de contas sem dados sensíveis de perfil.
+    status: implementado
+    api: true
+    rotas: [app_admin_user_export]
+
+  - id: UC-23.4
+    nome: Consultar atividades
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Listar atividades de qualquer grupo com filtros.
+    status: implementado
+    api: true
+    rotas: [app_admin_activity_list]
+
+  - id: UC-23.5
+    nome: Exportar atividades
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Exportar CSV de atividades usando os mesmos filtros da listagem.
+    status: implementado
+    api: true
+    rotas: [app_admin_activity_export]
+
+  - id: UC-23.6
+    nome: Moderar atividades
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Cancelar ou invalidar atividades de qualquer grupo com auditoria.
+    status: implementado
+    api: true
+    rotas: [app_activity_cancel, app_activity_invalidate]
+
+  - id: UC-23.7
+    nome: Consultar e exportar grupos
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Listar, detalhar, consultar membros e exportar qualquer grupo.
+    status: implementado
+    api: true
+    rotas: [app_admin_group_list, app_admin_group_show, app_admin_group_members, app_admin_group_export]
+
+  - id: UC-23.8
+    nome: Moderar grupos
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Arquivar, desarquivar e excluir qualquer grupo com auditoria.
+    status: implementado
+    api: true
+    rotas: [app_group_archive, app_group_unarchive, app_group_delete]
+
+  - id: UC-23.9
+    nome: Consultar auditoria
+    rf: RF23
+    modulo: Administration
+    diagrama: console
+    atores: [admin_sigame]
+    objetivo: Consultar a trilha append-only com filtros por ação, alvo e período.
+    status: implementado
+    api: true
+    rotas: [app_admin_audit_list]
+
+  # ── RF16/RF17 — Moderação adiada ───────────────────────────────────────────
+  - id: UC-16.1
+    nome: Denunciar usuário
+    rf: RF16
+    modulo: Identity
+    diagrama: moderacao
+    atores: [usuario]
+    objetivo: Registrar uma denúncia para moderação futura.
+    status: adiado
+    api: false
+    rotas: []
+
+  - id: UC-17.1
+    nome: Bloquear usuário
+    rf: RF17
+    modulo: Identity
+    diagrama: moderacao
+    atores: [usuario]
+    objetivo: Bloquear interações com outro usuário.
+    status: adiado
+    api: false
+    rotas: []
+
+  # ── RF19/RF20 — Patrocínio e vouchers (roadmap) ────────────────────────────
+  - id: UC-19.1
+    nome: Cadastrar patrocinador
+    rf: RF19
+    modulo: Sponsorship
+    diagrama: patrocinio
+    atores: [admin_sigame]
+    objetivo: Cadastrar patrocinador e seus dados de contato.
+    status: roadmap
+    api: false
+    rotas: []
+
+  - id: UC-19.2
+    nome: Analisar proposta de benefício
+    rf: RF19
+    modulo: Sponsorship
+    diagrama: patrocinio
+    atores: [admin_sigame, patrocinador]
+    objetivo: Aprovar ou recusar uma proposta de benefício.
+    status: roadmap
+    api: false
+    rotas: []
+
+  - id: UC-19.3
+    nome: Vincular benefício a grupo
+    rf: RF19
+    modulo: Sponsorship
+    diagrama: patrocinio
+    atores: [admin_sigame]
+    objetivo: Vincular um benefício aprovado a um grupo.
+    status: roadmap
+    api: false
+    rotas: []
+
+  - id: UC-20.1
+    nome: Gerar voucher
+    rf: RF20
+    modulo: Sponsorship
+    diagrama: patrocinio
+    atores: [admin_sigame]
+    objetivo: Gerar um voucher individual com código único.
+    status: roadmap
+    api: false
+    rotas: []
+
+  - id: UC-20.2
+    nome: Resgatar voucher
+    rf: RF20
+    modulo: Sponsorship
+    diagrama: patrocinio
+    atores: [usuario]
+    objetivo: Resgatar um voucher uma única vez, com proteção de concorrência.
+    status: roadmap
+    api: false
+    rotas: []
+
+  # ── RF21 — Desempenho mensal (roadmap) ─────────────────────────────────────
+  - id: UC-21.1
+    nome: Calcular desempenho mensal do grupo
+    rf: RF21
+    modulo: Reports
+    diagrama: relatorios
+    atores: [sistema]
+    objetivo: Calcular e persistir o indicador interno mensal por grupo.
+    status: roadmap
+    api: false
+    rotas: []

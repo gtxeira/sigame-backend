@@ -1,0 +1,56 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Gamificação e progressão — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administrador de grupo" as Ator_admin_grupo
+actor "Administração SIGAME" as Ator_admin_sigame
+actor "Sistema (agendador)" as Ator_sistema
+
+rectangle "SIGAME" {
+  usecase "Consultar progresso" as UC_12_1
+  usecase "Consultar extrato de XP" as UC_12_2
+  usecase "Consultar regras de gamificação" as UC_12_3
+  usecase "Consultar e celebrar conquistas" as UC_12_4
+  usecase "Aplicar perda por inatividade" as UC_13_1
+  usecase "Consultar recompensas de marco\n«roadmap»" as UC_14_1 #F3F4F6
+  usecase "Cadastrar recompensa interna\n«roadmap»" as UC_14_2 #F3F4F6
+  usecase "Resgatar recompensa\n«roadmap»" as UC_14_3 #F3F4F6
+}
+
+Ator_usuario -- UC_12_1
+Ator_usuario -- UC_12_2
+Ator_usuario -- UC_12_3
+Ator_usuario -- UC_12_4
+Ator_sistema -- UC_13_1
+Ator_usuario -- UC_14_1
+Ator_admin_grupo -- UC_14_2
+Ator_admin_sigame -- UC_14_2
+Ator_usuario -- UC_14_3
+
+UC_14_3 ..> UC_14_1 : <<extend>>
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

@@ -15,6 +15,9 @@ composer.lock text eol=lf merge=ours
 
 # Documentação do banco gerada por `just docs-erd` (tbls): o GitHub recolhe o diff.
 docs/db/** linguist-generated=true
+# Casos de uso gerados por `just docs-usecases`.
+docs/requisitos/casos-de-uso.md linguist-generated=true
+docs/requisitos/casos-de-uso/** linguist-generated=true
 
 *.ico binary
 *.png binary

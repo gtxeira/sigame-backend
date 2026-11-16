@@ -1,0 +1,62 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Atividades — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administrador de grupo" as Ator_admin_grupo
+actor "Supervisor" as Ator_supervisor
+actor "Administração SIGAME" as Ator_admin_sigame
+
+rectangle "SIGAME" {
+  usecase "Criar atividade" as UC_09_1
+  usecase "Consultar atividades" as UC_09_2
+  usecase "Editar ou remarcar atividade" as UC_09_3
+  usecase "Cancelar atividade" as UC_09_4
+  usecase "Iniciar atividade" as UC_09_5
+  usecase "Finalizar atividade" as UC_09_6
+  usecase "Invalidar atividade" as UC_09_7
+}
+
+Ator_admin_grupo -- UC_09_1
+Ator_admin_sigame -- UC_09_1
+Ator_usuario -- UC_09_2
+Ator_admin_grupo -- UC_09_2
+Ator_supervisor -- UC_09_2
+Ator_admin_grupo -- UC_09_3
+Ator_admin_sigame -- UC_09_3
+Ator_admin_grupo -- UC_09_4
+Ator_admin_sigame -- UC_09_4
+Ator_admin_grupo -- UC_09_5
+Ator_supervisor -- UC_09_5
+Ator_admin_sigame -- UC_09_5
+Ator_admin_grupo -- UC_09_6
+Ator_supervisor -- UC_09_6
+Ator_admin_sigame -- UC_09_6
+Ator_admin_grupo -- UC_09_7
+Ator_admin_sigame -- UC_09_7
+
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

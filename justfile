@@ -9,6 +9,7 @@ _storage_bucket := "profile-images"
 _uid      := `id -u`
 _gid      := `id -g`
 _docs     := _compose + " run --rm -T --user " + _uid + ":" + _gid + " docs"
+_plantuml := _compose + " run --rm -T --user " + _uid + ":" + _gid + " plantuml"
 
 # ── Docker 🐳 ────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,18 @@ docs-erd:
 [group('Documentação')]
 docs-erd-check:
     @{{ _docs }} diff
+
+# Valida os casos de uso, gera o Markdown e renderiza os diagramas PlantUML
+[group('Documentação')]
+docs-usecases:
+    @{{ _php }} php bin/console app:docs:usecases
+    @{{ _php }} chown -R {{ _uid }}:{{ _gid }} docs/requisitos/casos-de-uso docs/requisitos/casos-de-uso.md
+    @{{ _plantuml }} -failfast2 -tsvg docs/requisitos/casos-de-uso/*.puml
+
+# Valida o catálogo de casos de uso e os artefatos, sem escrever
+[group('Documentação')]
+docs-usecases-check:
+    @{{ _php }} php bin/console app:docs:usecases --check
 
 # ── Qualidade de código 🧹 ───────────────────────────────────────────────────
 

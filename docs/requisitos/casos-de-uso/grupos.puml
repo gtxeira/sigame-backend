@@ -1,0 +1,47 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Grupos e comunicação — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administrador de grupo" as Ator_admin_grupo
+actor "Administração SIGAME" as Ator_admin_sigame
+
+rectangle "SIGAME" {
+  usecase "Criar grupo" as UC_04_1
+  usecase "Consultar grupos e membros" as UC_04_2
+  usecase "Editar grupo" as UC_04_3
+  usecase "Configurar link de comunicação" as UC_08_1
+}
+
+Ator_usuario -- UC_04_1
+Ator_usuario -- UC_04_2
+Ator_admin_grupo -- UC_04_3
+Ator_admin_sigame -- UC_04_3
+Ator_admin_grupo -- UC_08_1
+
+UC_08_1 ..> UC_04_3 : <<extend>>
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

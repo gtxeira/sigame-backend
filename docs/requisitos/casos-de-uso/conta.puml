@@ -1,0 +1,50 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Conta e cadastro — SIGAME
+
+actor "Usuário" as Ator_usuario
+
+rectangle "SIGAME" {
+  usecase "Cadastrar usuário" as UC_01_1
+  usecase "Verificar e-mail" as UC_01_2
+  usecase "Recuperar senha" as UC_01_3
+  usecase "Gerenciar perfil" as UC_01_4
+  usecase "Alterar senha" as UC_01_5
+  usecase "Vincular identidade social" as UC_01_6
+  usecase "Informar data de nascimento" as UC_01_7
+}
+
+Ator_usuario -- UC_01_1
+Ator_usuario -- UC_01_2
+Ator_usuario -- UC_01_3
+Ator_usuario -- UC_01_4
+Ator_usuario -- UC_01_5
+Ator_usuario -- UC_01_6
+Ator_usuario -- UC_01_7
+
+UC_01_1 ..> UC_01_2 : <<include>>
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

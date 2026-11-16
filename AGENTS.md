@@ -43,6 +43,52 @@ assumption; don't scaffold a full stack unprompted.
   `just test tests/Functional/Identity/Presentation/Http/RegistrationTest.php`.
 - `just test` creates the `_test` database first; `just test-unit` and a direct
   `vendor/bin/pest` invocation do not.
+- Documentation gate (not part of `just composer quality`): `just docs-erd-check` for the
+  database documentation and `just docs-usecases-check` for the use case catalog. Both must
+  be green before declaring the task done.
+
+## Use case catalog (required)
+
+The use case catalog is part of the change, not optional documentation. The source of truth is
+`docs/requisitos/casos-de-uso.yaml`; the generated files (`docs/requisitos/casos-de-uso.md` and
+`docs/requisitos/casos-de-uso/*.puml|svg`) are never edited by hand.
+
+When you implement or change a feature:
+
+- **New feature or endpoint:** add the use case to the YAML in the same change. If the behavior
+  has no RF yet, add the RF to `docs/requisitos/levantamento-de-requisitos.md` first; the command
+  requires every RF to have at least one use case and every use case to point to an existing RF.
+- **Changed behavior:** update the existing use case (`nome`, `objetivo`, `atores`, `rf`,
+  `diagrama`, `inclui`/`estende`, `status` and `rotas`). Do not create a duplicate.
+- **Removed endpoint:** remove the route from the catalog; the check fails while a public route
+  has no use case.
+- **Roadmap or deferred feature:** use `status: roadmap` or `status: adiado`, `api: false` and
+  `rotas: []`.
+- **Routine without an endpoint** (scheduler, worker, internal rule): `status: implementado`,
+  `api: false`, `rotas: []` and `motivo_sem_api`.
+
+Catalog rules:
+
+- `rotas` uses Symfony route names (`app_...`), never paths.
+- An implemented use case with `api: true` needs at least one route, and every `/api/v1` route
+  must belong to an implemented use case. A route may appear in more than one use case (for
+  example, administration moderation reuses group and activity lifecycle routes).
+- `id` follows `UC-XX.Y` (`XX` is the RF number); actors use the keys under `atores`; `modulo` is
+  one of the project modules.
+- `inclui`/`estende` may only point to use cases in the same `diagrama` and must not form a cycle.
+- The overview diagram has one use case per RF; the detailed diagrams have one per `diagrama`.
+
+Agent workflow:
+
+1. Find the RF and the existing use case, or create both.
+2. Edit `docs/requisitos/casos-de-uso.yaml`.
+3. Run `just docs-usecases` (validates, writes the Markdown and renders the SVGs).
+4. Run `just docs-usecases-check` and confirm 100% route coverage.
+5. If the schema changed, run `just docs-erd` as well.
+6. Commit the YAML together with the generated artifacts.
+7. Never hand-edit the generated `.md`, `.puml` or `.svg` files.
+
+See `docs/diagramas.md` for the full workflow.
 
 ## Architecture rules (enforced by tests)
 

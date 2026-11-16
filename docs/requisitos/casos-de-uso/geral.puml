@@ -1,0 +1,97 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Visão geral dos requisitos — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administrador de grupo" as Ator_admin_grupo
+actor "Administração SIGAME" as Ator_admin_sigame
+actor "Sistema (agendador)" as Ator_sistema
+
+rectangle "SIGAME" {
+  package "Identity" {
+    usecase "RF01 — Cadastrar usuário" as RF01
+    usecase "RF02 — Autenticar usuário" as RF02
+    usecase "RF03 — Concluir onboarding" as RF03
+    usecase "RF16 — Denunciar usuário\n«adiado»" as RF16 #FEE2E2
+    usecase "RF17 — Bloquear usuário\n«adiado»" as RF17 #FEE2E2
+  }
+  package "Groups" {
+    usecase "RF04 — Criar grupo" as RF04
+    usecase "RF05 — Solicitar entrada em grupo" as RF05
+    usecase "RF06 — Administrar membros do grupo" as RF06
+    usecase "RF07 — Designar supervisor" as RF07
+    usecase "RF08 — Comunicação externa do grupo" as RF08
+  }
+  package "Activities" {
+    usecase "RF09 — Criar e manter atividade" as RF09
+    usecase "RF10 — Inscrever-se, fazer check-in e validar presença" as RF10
+    usecase "RF11 — Impedir conflitos de horário" as RF11
+  }
+  package "Gamification" {
+    usecase "RF12 — Progressão de XP e níveis" as RF12
+    usecase "RF13 — Deleveling por inatividade" as RF13
+    usecase "RF14 — Recompensas\n«roadmap»" as RF14 #F3F4F6
+  }
+  package "Notifications" {
+    usecase "RF15 — Notificar eventos relevantes" as RF15
+  }
+  package "Administration" {
+    usecase "RF18 — Suspender e reativar conta globalmente" as RF18
+    usecase "RF23 — Console administrativo global e auditoria" as RF23
+  }
+  package "Sponsorship" {
+    usecase "RF19 — Gerenciar patrocinadores e benefícios\n«roadmap»" as RF19 #F3F4F6
+    usecase "RF20 — Gerar e resgatar vouchers\n«roadmap»" as RF20 #F3F4F6
+  }
+  package "Reports" {
+    usecase "RF21 — Calcular desempenho mensal dos grupos\n«roadmap»" as RF21 #F3F4F6
+  }
+}
+
+Ator_usuario -- RF01
+Ator_usuario -- RF02
+Ator_usuario -- RF03
+Ator_usuario -- RF04
+Ator_usuario -- RF05
+Ator_admin_grupo -- RF06
+Ator_admin_grupo -- RF07
+Ator_admin_grupo -- RF08
+Ator_admin_grupo -- RF09
+Ator_usuario -- RF10
+Ator_sistema -- RF11
+Ator_usuario -- RF12
+Ator_sistema -- RF13
+Ator_usuario -- RF14
+Ator_usuario -- RF15
+Ator_usuario -- RF16
+Ator_usuario -- RF17
+Ator_admin_sigame -- RF18
+Ator_admin_sigame -- RF23
+Ator_admin_sigame -- RF19
+Ator_admin_sigame -- RF20
+Ator_sistema -- RF21
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

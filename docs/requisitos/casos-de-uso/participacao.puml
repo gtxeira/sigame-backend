@@ -1,0 +1,64 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Participação e papéis — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administrador de grupo" as Ator_admin_grupo
+actor "Administração SIGAME" as Ator_admin_sigame
+
+rectangle "SIGAME" {
+  usecase "Solicitar entrada" as UC_05_1
+  usecase "Cancelar solicitação ou sair do grupo" as UC_05_2
+  usecase "Consultar próprias solicitações" as UC_05_3
+  usecase "Aprovar ou rejeitar solicitação" as UC_06_1
+  usecase "Remover membro" as UC_06_2
+  usecase "Promover ou rebaixar administrador" as UC_06_3
+  usecase "Consultar participações" as UC_06_4
+  usecase "Arquivar ou desarquivar grupo" as UC_06_5
+  usecase "Excluir grupo" as UC_06_6
+  usecase "Transferir responsabilidade" as UC_06_7
+  usecase "Designar supervisor" as UC_07_1
+  usecase "Remover supervisor" as UC_07_2
+}
+
+Ator_usuario -- UC_05_1
+Ator_usuario -- UC_05_2
+Ator_usuario -- UC_05_3
+Ator_admin_grupo -- UC_06_1
+Ator_admin_grupo -- UC_06_2
+Ator_admin_grupo -- UC_06_3
+Ator_admin_grupo -- UC_06_4
+Ator_admin_sigame -- UC_06_4
+Ator_admin_grupo -- UC_06_5
+Ator_admin_sigame -- UC_06_5
+Ator_admin_grupo -- UC_06_6
+Ator_admin_sigame -- UC_06_6
+Ator_admin_grupo -- UC_06_7
+Ator_admin_grupo -- UC_07_1
+Ator_admin_grupo -- UC_07_2
+
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

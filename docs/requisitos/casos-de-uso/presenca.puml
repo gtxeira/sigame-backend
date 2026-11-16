@@ -1,0 +1,60 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Inscrição e presença — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Administrador de grupo" as Ator_admin_grupo
+actor "Supervisor" as Ator_supervisor
+actor "Administração SIGAME" as Ator_admin_sigame
+actor "Sistema (agendador)" as Ator_sistema
+
+rectangle "SIGAME" {
+  usecase "Inscrever-se em atividade" as UC_10_1
+  usecase "Cancelar inscrição" as UC_10_2
+  usecase "Fazer check-in" as UC_10_3
+  usecase "Listar presenças" as UC_10_4
+  usecase "Validar presença" as UC_10_5
+  usecase "Validar conflito de horário" as UC_11_1
+}
+
+Ator_usuario -- UC_10_1
+Ator_supervisor -- UC_10_1
+Ator_admin_grupo -- UC_10_1
+Ator_usuario -- UC_10_2
+Ator_usuario -- UC_10_3
+Ator_supervisor -- UC_10_3
+Ator_admin_grupo -- UC_10_3
+Ator_admin_grupo -- UC_10_4
+Ator_supervisor -- UC_10_4
+Ator_admin_sigame -- UC_10_4
+Ator_admin_grupo -- UC_10_5
+Ator_supervisor -- UC_10_5
+Ator_admin_sigame -- UC_10_5
+Ator_sistema -- UC_11_1
+
+UC_10_1 ..> UC_11_1 : <<include>>
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml

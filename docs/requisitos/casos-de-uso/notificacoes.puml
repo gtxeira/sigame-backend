@@ -1,0 +1,46 @@
+@startuml
+' GERADO por `just docs-usecases` a partir de casos-de-uso.yaml. Não edite.
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Inter"
+skinparam ArrowColor #6B7280
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #111827
+}
+skinparam usecase {
+  BackgroundColor #EEF2FF
+  BorderColor #4F46E5
+  FontColor #111827
+}
+skinparam rectangle {
+  BackgroundColor #F9FAFB
+  BorderColor #D1D5DB
+}
+title Notificações — SIGAME
+
+actor "Usuário" as Ator_usuario
+actor "Sistema (agendador)" as Ator_sistema
+
+rectangle "SIGAME" {
+  usecase "Consultar inbox" as UC_15_1
+  usecase "Marcar notificação como lida" as UC_15_2
+  usecase "Marcar todas como lidas" as UC_15_3
+  usecase "Assinar notificações em tempo real" as UC_15_4
+  usecase "Entregar por canal externo" as UC_15_5
+}
+
+Ator_usuario -- UC_15_1
+Ator_usuario -- UC_15_2
+Ator_usuario -- UC_15_3
+Ator_usuario -- UC_15_4
+Ator_sistema -- UC_15_5
+
+
+legend right
+  Casos sem marca estão implementados.
+  «roadmap»: planejado, sem endpoint na V1.
+  «adiado»: fora do escopo da V1.
+endlegend
+@enduml
