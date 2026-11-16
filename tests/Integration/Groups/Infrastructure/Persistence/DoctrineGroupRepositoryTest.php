@@ -9,6 +9,7 @@ use App\Groups\Domain\Group\Repository\GroupSearchCriteria;
 use App\Groups\Domain\Group\ValueObject\GroupMemberLimit;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
+use App\Groups\Domain\Group\ValueObject\GroupVisibility;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Domain\ValueObject\Modality;
@@ -364,4 +365,28 @@ it('moves the name reservation to the new owner after a transfer', function () {
             GroupName::fromString('Corrida no Parque')->value(),
             Modality::RUNNING,
         ))->toBeTrue();
+});
+
+it('filters groups by administrative visibility', function () {
+    $repository = $this->service(GroupRepositoryInterface::class);
+
+    $visible = makePersistedGroup($repository, MemberUserId::generate(), 'Visível');
+    $archived = makePersistedGroup($repository, MemberUserId::generate(), 'Arquivado');
+    $deleted = makePersistedGroup($repository, MemberUserId::generate(), 'Excluído');
+
+    $archived->archive($archived->createdBy(), 'Pausa.', false, Instant::now());
+    $deleted->delete($deleted->ownerId(), 'Encerrado.', Instant::now());
+
+    $repository->save($archived);
+    $repository->save($deleted);
+
+    $names = static fn (GroupVisibility $visibility): array => array_map(
+        static fn (Group $group): string => $group->name()->value(),
+        $repository->search(new GroupSearchCriteria(visibility: $visibility))->items,
+    );
+
+    expect($names(GroupVisibility::Visible))->toBe(['Visível'])
+        ->and($names(GroupVisibility::Archived))->toBe(['Arquivado'])
+        ->and($names(GroupVisibility::Deleted))->toBe(['Excluído'])
+        ->and($names(GroupVisibility::All))->toHaveCount(3);
 });

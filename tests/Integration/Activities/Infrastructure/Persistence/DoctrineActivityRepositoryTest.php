@@ -8,6 +8,7 @@ use App\Activities\Domain\Activity\Repository\ActivitySearchCriteria;
 use App\Activities\Domain\Activity\ValueObject\ActivityDescription;
 use App\Activities\Domain\Activity\ValueObject\ActivityGroupId;
 use App\Activities\Domain\Activity\ValueObject\ActivityRoute;
+use App\Activities\Domain\Activity\ValueObject\ActivityStatus;
 use App\Activities\Domain\Activity\ValueObject\ActivityTitle;
 use App\Activities\Domain\Activity\ValueObject\ActivityUserId;
 use App\Activities\Domain\Activity\ValueObject\ActivityWindow;
@@ -148,4 +149,23 @@ it('orders the group and participant lists by start direction', function () {
         ->and($byGroupDesc->items[0]->id()->equals($later->id()))->toBeTrue()
         ->and($byParticipantDesc->items[0]->id()->equals($later->id()))->toBeTrue()
         ->and($byParticipantDesc->items[1]->id()->equals($earlier->id()))->toBeTrue();
+});
+
+it('searches all activities with administrative filters', function () {
+    $repository = $this->service(ActivityRepositoryInterface::class);
+    $groupA = ActivityGroupId::generate();
+    $groupB = ActivityGroupId::generate();
+
+    $scheduled = makeRepositoryActivity('+1 hour', 60, $groupA);
+    $repository->save($scheduled);
+
+    $other = makeRepositoryActivity('+5 hours', 60, $groupB);
+    $repository->save($other);
+
+    expect($repository->searchAll(new ActivitySearchCriteria())->total)->toBe(2)
+        ->and($repository->searchAll(new ActivitySearchCriteria(groupIds: [$groupA->value()]))->total)->toBe(1)
+        ->and($repository->searchAll(new ActivitySearchCriteria(title: 'parque'))->total)->toBe(2)
+        ->and($repository->searchAll(new ActivitySearchCriteria(title: 'natação'))->total)->toBe(0)
+        ->and($repository->searchAll(new ActivitySearchCriteria(status: ActivityStatus::FINISHED))->total)->toBe(0)
+        ->and($repository->searchAll(new ActivitySearchCriteria(status: ActivityStatus::SCHEDULED))->total)->toBe(2);
 });

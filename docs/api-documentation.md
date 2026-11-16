@@ -1,6 +1,6 @@
 # SIGAME — Documentação da API (OpenAPI)
 
-> **Última atualização:** 2026-11-13
+> **Última atualização:** 2026-11-16
 >
 > **Implementação:** `config/packages/nelmio_api_doc.php`, `src/Shared/Presentation/Http/OpenApi/` e atributos `OpenApi\Attributes` nos controllers.
 
@@ -34,7 +34,8 @@ Os paths de negócio abaixo omitem o prefixo `/api/v1`; os probes usam `/api/hea
 | `Atividades` | `/groups/{groupId}/activities`, `/activities/{id}`, `/activities/{id}/enrollments`, `/activities/{id}/attendances` | Recurso/entidade de domínio (REST) | Ciclo de vida, inscrição, check-in e presença em atividades. |
 | `Gamificação` | `/users/me/progress`, `/users/me/progress/history`, `/users/me/achievements`, `/users/me/achievements/{code}/celebrated`, `/gamification/rules` | Intenção self-service | Progresso, histórico, conquistas do usuário autenticado e catálogo de regras da versão vigente. |
 | `Notificações` | `/notifications`, `/notifications/unread-count`, `/notifications/{id}/read`, `/notifications/read-all`, `/notifications/realtime` | Intenção self-service | Inbox, leitura e assinatura do stream do usuário autenticado. |
-| `Usuários` | `/admin/users`, `/admin/users/{id}`, `/admin/users/{id}/status-history`, `/admin/users/{id}/suspend`, `/admin/users/{id}/reactivate` | Recurso/entidade de domínio (REST) | Administração global de contas. |
+| `Usuários` | `/admin/users`, `/admin/users/{id}`, `/admin/users/{id}/status-history`, `/admin/users/{id}/suspend`, `/admin/users/{id}/reactivate`, `/admin/users/export` | Recurso/entidade de domínio (REST) | Administração global de contas. |
+| `Administração` | `/admin/overview`, `/admin/audit` | Funcionalidade transversal | Visão consolidada e trilha de auditoria da operação. |
 | `Saúde` | `/api/health/liveness`, `/api/health/readiness` | Funcionalidade transversal/sistema | Probes operacionais, sem lógica de negócio. |
 | `Webhooks` (futuro) | `/webhooks/*` | Mecanismo de autenticação | Assinatura HMAC, não Bearer JWT; não deve se misturar com `Autenticação`. |
 
@@ -70,7 +71,7 @@ Os grupos organizam as tags na navegação do Scalar. Os nomes dos grupos são i
 | `Acesso` | `Autenticação`, `Sessão`, `Autenticação social`, `Verificação de e-mail`, `Senha` |
 | `Conta` | `Minha conta`, `Onboarding`, `Gamificação`, `Notificações` |
 | `Comunidade` | `Grupos`, `Atividades` |
-| `Administração` | `Usuários` |
+| `Administração` | `Usuários`, `Administração` |
 | `Sistema` | `Saúde` |
 | `Integrações` | `Webhooks` (futuro) |
 
@@ -99,6 +100,7 @@ Todo summary de operação segue a mesma forma: verbo no infinitivo, sentence ca
 | `PUT` | `Substituir` |
 | `PATCH` | `Atualizar` ou verbo de domínio (`Definir`) |
 | `DELETE` | `Remover` |
+| Exportação | `Exportar` |
 | Ação de domínio | verbo específico (`Autenticar`, `Renovar`, `Encerrar`, `Revogar`, `Verificar`, `Reenviar`, `Solicitar`, `Redefinir`, `Alterar`, `Iniciar`, `Concluir`, `Vincular`) |
 
 Decisões de vocabulário:
@@ -181,6 +183,15 @@ Summaries atuais, usados como referência:
 | `GET /admin/users/{id}/status-history` | `Listar histórico de status` |
 | `POST /admin/users/{id}/suspend` | `Suspender conta` |
 | `POST /admin/users/{id}/reactivate` | `Reativar conta` |
+| `GET /admin/overview` | `Obter a visão geral` |
+| `GET /admin/audit` | `Listar a trilha de auditoria` |
+| `GET /admin/groups` | `Listar grupos para a administração` |
+| `GET /admin/groups/{id}` | `Obter grupo para a administração` |
+| `GET /admin/groups/{id}/members` | `Listar participações de um grupo` |
+| `GET /admin/activities` | `Listar atividades para a administração` |
+| `GET /admin/users/export` | `Exportar contas em CSV` |
+| `GET /admin/groups/export` | `Exportar grupos em CSV` |
+| `GET /admin/activities/export` | `Exportar atividades em CSV` |
 | `GET /api/health/liveness` | `Verificar a execução da aplicação` |
 | `GET /api/health/readiness` | `Verificar a prontidão da aplicação` |
 
@@ -268,6 +279,9 @@ Cada formato de `data` tem um atributo próprio. Não use um atributo de lista p
 | `SuccessResponse` | objeto único (`dataModel`) ou objeto inline (`dataProperties`/`dataRequired`) | Recurso único, como `/groups/{id}` ou `/users/me`. |
 | `ListSuccessResponse` | array de `itemModel` | Lista sem paginação. |
 | `PaginatedSuccessResponse` | array de `itemModel` + `meta.pagination` | Lista paginada, obrigatoriamente quando o controller usa `ApiResponse::withPagination()`. |
+
+As exportações são a exceção ao envelope JSON: respondem `text/csv` com `StreamedResponse` e são documentadas com
+`OA\Response` + `OA\MediaType('text/csv')`. Elas não usam os atributos de sucesso acima e não têm `meta`.
 
 `SuccessResponse` rejeita combinações ambíguas no construtor: `dataModel` com `dataProperties` e `dataRequired` sem `dataProperties` lançam `InvalidArgumentException`. A lista de nomes em `dataRequired` também precisa estar declarada em `dataProperties`.
 

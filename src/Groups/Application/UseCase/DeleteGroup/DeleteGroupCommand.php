@@ -13,6 +13,7 @@ final readonly class DeleteGroupCommand
         public GroupId $groupId,
         public MemberUserId $actorId,
         public ?string $reason = null,
+        public bool $isAdminSigame = false,
     ) {
     }
 }

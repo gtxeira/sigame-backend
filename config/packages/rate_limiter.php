@@ -172,14 +172,19 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'limit' => '%env(int:NOTIFICATIONS_REALTIME_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
-            'admin_users_read' => [
+            'admin_read' => [
                 'policy' => 'sliding_window',
-                'limit' => '%env(int:ADMIN_USERS_READ_RATE_LIMIT)%',
+                'limit' => '%env(int:ADMIN_READ_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
-            'admin_users_manage' => [
+            'admin_manage' => [
                 'policy' => 'sliding_window',
-                'limit' => '%env(int:ADMIN_USERS_MANAGE_RATE_LIMIT)%',
+                'limit' => '%env(int:ADMIN_MANAGE_RATE_LIMIT)%',
+                'interval' => '1 minute',
+            ],
+            'admin_export' => [
+                'policy' => 'sliding_window',
+                'limit' => '%env(int:ADMIN_EXPORT_RATE_LIMIT)%',
                 'interval' => '1 minute',
             ],
         ],

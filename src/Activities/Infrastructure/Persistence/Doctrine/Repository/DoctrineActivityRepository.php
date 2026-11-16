@@ -112,6 +112,31 @@ final class DoctrineActivityRepository extends AbstractRepository implements Act
         return new ActivityPage(items: $items, total: $total);
     }
 
+    public function searchAll(ActivitySearchCriteria $criteria): ActivityPage
+    {
+        $queryBuilder = $this->createQueryBuilder('a');
+
+        $this->applyFilters($queryBuilder, $criteria);
+
+        $direction = $criteria->isDescending() ? SortDirection::Descending : SortDirection::Ascending;
+
+        /** @var list<Activity> $items */
+        $items = $queryBuilder
+            ->orderBy('a.startsAt', $direction)
+            ->addOrderBy('a.id', $direction)
+            ->setFirstResult(($criteria->page - 1) * $criteria->perPage)
+            ->setMaxResults($criteria->perPage)
+            ->getQuery()
+            ->getResult();
+
+        $total = (int) $this->countQueryBuilder(null, null, $criteria)
+            ->select('COUNT(a.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return new ActivityPage(items: $items, total: $total);
+    }
+
     public function searchByParticipant(
         ActivityUserId $userId,
         ActivitySearchCriteria $criteria,
@@ -304,6 +329,12 @@ final class DoctrineActivityRepository extends AbstractRepository implements Act
             $queryBuilder
                 ->andWhere('a.groupId IN (:groupIds)')
                 ->setParameter('groupIds', $criteria->groupIds);
+        }
+
+        if (null !== $criteria->title && '' !== trim($criteria->title)) {
+            $queryBuilder
+                ->andWhere('LOWER(a.title) LIKE :title')
+                ->setParameter('title', '%'.mb_strtolower(trim($criteria->title)).'%');
         }
     }
 

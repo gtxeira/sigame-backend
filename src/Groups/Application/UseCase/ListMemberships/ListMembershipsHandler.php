@@ -30,7 +30,7 @@ final readonly class ListMembershipsHandler
             return Result::failure([GroupErrors::groupNotFound()]);
         }
 
-        if (!$group->canBeManagedBy($query->viewerId)) {
+        if (!$query->isAdminSigame && !$group->canBeManagedBy($query->viewerId)) {
             return Result::failure([GroupErrors::adminRequired()]);
         }
 

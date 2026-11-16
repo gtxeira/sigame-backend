@@ -12,6 +12,7 @@ final readonly class UnarchiveGroupCommand
     public function __construct(
         public GroupId $groupId,
         public MemberUserId $actorId,
+        public bool $isAdminSigame = false,
     ) {
     }
 }

@@ -28,6 +28,8 @@ final readonly class ActivitySearchCriteria
         public ?Instant $from = null,
         public ?Instant $to = null,
         public ?array $groupIds = null,
+        /** Busca parcial pelo título. */
+        public ?string $title = null,
         /** Ordem por início: `asc` (padrão) ou `desc`. */
         public string $order = 'asc',
     ) {
@@ -52,6 +54,7 @@ final readonly class ActivitySearchCriteria
             from: $this->from,
             to: $this->to,
             groupIds: $groupIds,
+            title: $this->title,
             order: $this->order,
         );
     }

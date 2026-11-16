@@ -62,6 +62,10 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'description' => 'Administração global de contas, suspensão e reativação.',
                 ],
                 [
+                    'name' => 'Administração',
+                    'description' => 'Visão geral consolidada e trilha de auditoria da operação.',
+                ],
+                [
                     'name' => 'Saúde',
                     'description' => 'Endpoints operacionais de saúde e diagnóstico da aplicação.',
                 ], // Sempre em último, pois é utilitário do sistema
@@ -97,6 +101,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                     'name' => 'Administração',
                     'tags' => [
                         'Usuários',
+                        'Administração',
                     ],
                 ],
                 [

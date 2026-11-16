@@ -15,6 +15,7 @@ use App\Groups\Domain\Group\Repository\GroupSearchCriteria;
 use App\Groups\Domain\Group\ValueObject\GroupId;
 use App\Groups\Domain\Group\ValueObject\GroupName;
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
+use App\Groups\Domain\Group\ValueObject\GroupVisibility;
 use App\Groups\Domain\Group\ValueObject\MembershipStatus;
 use App\Groups\Domain\Group\ValueObject\MemberUserId;
 use App\Shared\Domain\ValueObject\Instant;
@@ -242,9 +243,19 @@ final class DoctrineGroupRepository extends AbstractRepository implements GroupR
 
     private function filteredQueryBuilder(GroupSearchCriteria $criteria): QueryBuilder
     {
-        $queryBuilder = $this->createQueryBuilder('g')
-            ->andWhere('g.archivedAt IS NULL')
-            ->andWhere('g.deletedAt IS NULL');
+        $queryBuilder = $this->createQueryBuilder('g');
+
+        match ($criteria->visibility) {
+            GroupVisibility::Visible => $queryBuilder
+                ->andWhere('g.archivedAt IS NULL')
+                ->andWhere('g.deletedAt IS NULL'),
+            GroupVisibility::Archived => $queryBuilder
+                ->andWhere('g.archivedAt IS NOT NULL')
+                ->andWhere('g.deletedAt IS NULL'),
+            GroupVisibility::Deleted => $queryBuilder
+                ->andWhere('g.deletedAt IS NOT NULL'),
+            GroupVisibility::All => null,
+        };
 
         if (null !== $criteria->modality) {
             $queryBuilder

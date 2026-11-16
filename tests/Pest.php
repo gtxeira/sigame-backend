@@ -60,6 +60,9 @@ pest()
         // Cooldowns por e-mail compartilham o cache.app; limpar evita que o
         // estado de um teste vaze para o próximo.
         $container->get('cache.app')->clear();
+        // O pool do aviso "conta já existe" é separado e também precisa ser limpo.
+        /* @phpstan-ignore-next-line */
+        $container->get('cache.account_exists_notice')->clear();
 
         $this->api = new ApiClient(
             client: $client,

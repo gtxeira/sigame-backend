@@ -9,8 +9,12 @@ use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Event\GroupUnarchived;
 use App\Groups\Domain\Group\Exception\DuplicateGroupException;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
+use App\Shared\Application\Administration\AdminAuditRecord;
+use App\Shared\Application\Administration\AdminAuditRecorderInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\ValueObject\AdminAuditAction;
+use App\Shared\Domain\ValueObject\AdminAuditTargetType;
 
 /**
  * Reativa um grupo arquivado.
@@ -20,6 +24,7 @@ final readonly class UnarchiveGroupHandler
     public function __construct(
         private GroupRepositoryInterface $groupRepository,
         private EventDispatcherInterface $eventDispatcher,
+        private AdminAuditRecorderInterface $auditRecorder,
     ) {
     }
 
@@ -44,7 +49,7 @@ final readonly class UnarchiveGroupHandler
                 return Result::failure([GroupErrors::duplicateGroup()]);
             }
 
-            $unarchive = $group->unarchive($command->actorId);
+            $unarchive = $group->unarchive($command->actorId, $command->isAdminSigame);
 
             if ($unarchive->isFailure()) {
                 return Result::failure($unarchive->errors());
@@ -58,6 +63,16 @@ final readonly class UnarchiveGroupHandler
                 $this->groupRepository->save($group);
             } catch (DuplicateGroupException) {
                 return Result::failure([GroupErrors::duplicateGroup()]);
+            }
+
+            if ($command->isAdminSigame) {
+                $this->auditRecorder->record(new AdminAuditRecord(
+                    action: AdminAuditAction::GroupUnarchived,
+                    targetType: AdminAuditTargetType::Group,
+                    targetId: $group->id()->value(),
+                    targetLabel: $group->name()->value(),
+                    actorId: $command->actorId->value(),
+                ));
             }
 
             $this->eventDispatcher->dispatch(GroupUnarchived::now(

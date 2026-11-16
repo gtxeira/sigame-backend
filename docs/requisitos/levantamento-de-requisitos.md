@@ -114,9 +114,9 @@ administrativos globais.
 | Editar próprio perfil                   |           Sim |             Sim |                         Sim |                  Sim |
 | Criar grupo                             | Se habilitado |             Sim |               Se habilitado |                  Sim |
 | Solicitar entrada em grupo              |           Sim |             Sim |                         Sim |                  Sim |
-| Aprovar entrada                         |           Não |             Sim | Não, salvo delegação futura |                  Sim |
-| Remover membro do grupo                 |           Não |             Sim |                         Não |                  Sim |
-| Promover/rebaixar administrador         |           Não |             Sim |                         Não |                  Sim |
+| Aprovar entrada                         |           Não |             Sim | Não, salvo delegação futura |          Não na V1 |
+| Remover membro do grupo                 |           Não |             Sim |                         Não |          Não na V1 |
+| Promover/rebaixar administrador         |           Não |             Sim |                         Não |          Não na V1 |
 | Criar atividade                         |           Não |             Sim |                         Não |                  Sim |
 | Editar/remarcar atividade               |           Não |             Sim |                         Não |                  Sim |
 | Cancelar atividade                      |           Não |             Sim |                         Não |                  Sim |
@@ -130,6 +130,12 @@ administrativos globais.
 | Listar e consultar contas               |           Não |             Não |                         Não |                  Sim |
 | Suspender conta globalmente             |           Não |             Não |                         Não |                  Sim |
 | Reativar conta globalmente              |           Não |             Não |                         Não |                  Sim |
+| Listar e consultar qualquer grupo       |           Não | Sim, no próprio grupo |                    Não |                  Sim |
+| Consultar membros de qualquer grupo     |           Não |             Sim |                         Não |                  Sim |
+| Arquivar/reativar grupo                 |           Não |             Sim |                         Não |                  Sim |
+| Excluir grupo                           |           Não | Não, só o responsável |                Não |                  Sim |
+| Consultar a auditoria administrativa    |           Não |             Não |                         Não |                  Sim |
+| Exportar contas, grupos e atividades    |           Não |             Não |                         Não |                  Sim |
 | Consultar notificações próprias         |           Sim |             Sim |                         Sim |                  Sim |
 | Marcar notificações próprias como lidas |           Sim |             Sim |                         Sim |                  Sim |
 | Criar recompensa interna                |           Não |             Sim |                    Pendente |                  Sim |
@@ -1147,8 +1153,9 @@ atualização de dados do grupo e ofensiva em risco.
 
 > **Status:** Adiado na V1.
 
-Denúncias de usuários não fazem parte da V1. A moderação é centralizada na administração SIGAME via RF18. O tema deve
-ser reavaliado futuramente, quando houver necessidade e estrutura de moderação dedicada.
+Denúncias de usuários não fazem parte da V1. A moderação é centralizada na administração SIGAME via RF18 (contas) e
+RF23 (grupos, atividades, auditoria e exportações). O tema deve ser reavaliado futuramente, quando houver necessidade e
+estrutura de moderação dedicada.
 
 ### RF17 — Bloquear usuário
 
@@ -1213,6 +1220,43 @@ A administração SIGAME deve poder suspender e reativar globalmente uma conta, 
 - `CA18.13` Suspensão e reativação geram e-mail para o titular.
 - `CA18.14` Usuário inexistente retorna `404`.
 - `CA18.15` A suspensão fica registrada para auditoria.
+
+### RF23 — Console administrativo global e auditoria
+
+> Complementa o RF18: além de contas, a administração SIGAME acompanha grupos e atividades, modera o ciclo de vida e consulta a trilha de auditoria.
+
+A administração SIGAME deve ter uma visão consolidada da operação, consultar qualquer grupo (inclusive arquivado ou excluído), moderar atividades e registrar suas ações em uma trilha append-only, com exportação CSV dos dados operacionais.
+
+#### Regras
+
+- `RN23.1` Visão geral, listagens, auditoria e exportações são exclusivas de `ADMIN_SIGAME`.
+- `RN23.2` A visão geral consolida contas, grupos, atividades e check-ins dos últimos sete dias em uma única resposta.
+- `RN23.3` A listagem administrativa de grupos inclui ativos, arquivados, excluídos ou todos, com busca por nome, modalidade e estado derivado.
+- `RN23.4` A administração consulta as participações de qualquer grupo por situação (pendente, aprovada, recusada ou removida).
+- `RN23.5` A administração arquiva, desarquiva e exclui logicamente qualquer grupo sem vínculo, com motivo opcional de até 500 caracteres.
+- `RN23.6` A exclusão por administração é lógica, terminal e auditada; é a única exceção à regra de que só o responsável exclui o grupo.
+- `RN23.7` A moderação de atividades reutiliza as regras de `ActivityAccessPolicy`: cancelar e invalidar continuam disponíveis ao `ADMIN_SIGAME` em qualquer grupo; inscrição e check-in seguem exigindo vínculo aprovado.
+- `RN23.8` A trilha de auditoria é append-only e registra ação, tipo e id do alvo, rótulo do alvo, autor, motivo e data. Não há edição nem exclusão.
+- `RN23.9` A auditoria cobre apenas ações executadas por `ADMIN_SIGAME`; ações de administradores de grupo continuam em eventos e notificações.
+- `RN23.10` O histórico de status da conta (`RF18`) continua sendo a fonte da tela da conta; a auditoria é a visão global do operador.
+- `RN23.11` As exportações CSV usam os mesmos filtros das listagens, não paginam e não expõem CPF, telefone, peso ou altura.
+- `RN23.12` Aprovar, remover e promover membros continuam exclusivos dos administradores do grupo na V1.
+- `RN23.13` Grupos excluídos aparecem apenas para leitura; as ações de ciclo de vida ficam indisponíveis.
+
+#### Critérios de aceitação
+
+- `CA23.1` Administração SIGAME acessa a visão geral; usuário comum recebe `403`.
+- `CA23.2` A visão geral devolve contadores de contas, grupos, atividades e check-ins.
+- `CA23.3` A listagem administrativa encontra grupos arquivados e excluídos.
+- `CA23.4` A administração arquiva e desarquiva um grupo sem vínculo.
+- `CA23.5` A administração exclui logicamente um grupo sem ser responsável, com motivo e auditoria.
+- `CA23.6` Usuário sem vínculo continua recebendo `403` ao arquivar ou excluir grupo.
+- `CA23.7` A administração lista participações pendentes e aprovadas de qualquer grupo.
+- `CA23.8` A administração cancela e invalida atividades de qualquer grupo e a ação aparece na auditoria.
+- `CA23.9` Invalidar exige motivo entre 3 e 500 caracteres.
+- `CA23.10` A auditoria registra autor, alvo, motivo e data, em ordem decrescente, com filtros por ação, tipo de alvo, autor e período.
+- `CA23.11` As exportações devolvem `text/csv` com cabeçalho e linhas filtradas, sem dados sensíveis de perfil.
+- `CA23.12` As ações idempotentes (arquivar já arquivado, desarquivar ativo) não duplicam auditoria.
 
 ### RNF01 — Privacidade e exposição de dados
 

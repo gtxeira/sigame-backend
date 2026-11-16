@@ -2,7 +2,7 @@
 
 > **Status:** documento de trabalho
 >
-> **Última atualização:** 2026-11-13
+> **Última atualização:** 2026-11-16
 >
 > **Finalidade:** registrar o estado da implementação, o roadmap, as decisões ainda abertas, o histórico de migrations e
 > as dívidas técnicas.
@@ -32,7 +32,7 @@ atualizado no levantamento.
 | 4    | Groups                                                              | Concluída                                              |
 | 5    | Activities                                                          | Concluída                                              |
 | 6    | Gamification                                                        | Em andamento (núcleo implementado; recálculo pendente) |
-| 7    | Notifications + Administração de contas                             | Concluída                                              |
+| 7    | Notifications + Administração (contas e console)                    | Concluída                                              |
 | 8    | Sponsorship + Reports                                               | Não iniciada                                           |
 
 ### 1.2 Capacidades
@@ -65,6 +65,9 @@ atualizado no levantamento.
 | Supervisor do grupo                                                                                                                    | Implementado  | `DesignateSupervisorHandler`, `ClearSupervisorHandler` e `PUT`/`DELETE .../supervisor`                        |
 | Comunicação externa do grupo                                                                                                           | Implementado  | `communicationLink` visível apenas para membros aprovados                                                     |
 | CRUD administrativo completo de usuários                                                                                               | Parcial       | Listagem, busca, detalhe, suspensão e reativação implementados; edição/exclusão fora da V1                    |
+| Console administrativo global                                                                                                          | Implementado  | `src/Administration/`, `/admin/overview`, `/admin/groups`, `/admin/activities` e `/admin/audit`              |
+| Trilha de auditoria append-only                                                                                                        | Implementado  | `admin_audit_entries`, `AdminAuditRecorderInterface` e `GET /admin/audit`                                    |
+| Exportações CSV administrativas                                                                                                        | Implementado  | `CsvResponse` e `/admin/{users,groups,activities}/export`                                                    |
 | Atividades e ciclo de vida                                                                                                             | Implementado  | `Activity`, `ActivityController`, `ActivityLifecycleController` e migration `Version20261109224939`           |
 | Inscrição e conflito de horário                                                                                                        | Implementado  | `EnrollInActivityHandler`, `DoctrineActivityRepository::hasConflictingAttendance()`                           |
 | Check-in e validação de presença                                                                                                       | Implementado  | `CheckInHandler`, `ValidateAttendanceHandler` e `AttendanceValidated`                                         |
@@ -157,6 +160,15 @@ Rotas confirmadas por `bin/console debug:router`:
 | `GET`    | `/api/v1/admin/users/{id}/status-history`                     | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
 | `POST`   | `/api/v1/admin/users/{id}/suspend`                            | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
 | `POST`   | `/api/v1/admin/users/{id}/reactivate`                         | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/overview`                                      | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/audit`                                         | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/groups`                                        | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/groups/{id}`                                   | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/groups/{id}/members`                           | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/activities`                                    | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/users/export`                                  | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/groups/export`                                 | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
+| `GET`    | `/api/v1/admin/activities/export`                             | Bearer JWT + `ROLE_ADMIN_SIGAME`           |
 | `GET`    | `/api/health/liveness`                                        | Pública                                    |
 | `GET`    | `/api/health/readiness`                                       | Pública                                    |
 
@@ -445,7 +457,7 @@ a projeção. A dívida está detalhada no [ADR-036](decisoes.md#adr-036--nível
 - [x] Migration `Version20261113022101` com backfill para quem já está no nível 10.
 - [x] Testes de domínio, aplicação, integração, funcionais e OpenAPI.
 
-### Fase 7 — Notificações + Administração de contas
+### Fase 7 — Notificações + Administração
 
 A especificação detalhada do catálogo, canais e regras está em
 [requisitos/levantamento-de-requisitos.md](requisitos/levantamento-de-requisitos.md#rf15--notificar-eventos-relevantes)
@@ -508,6 +520,27 @@ e [RF18](requisitos/levantamento-de-requisitos.md#rf18--suspender-e-reativar-con
 - [x] Teste de integração do repositório de notificações.
 - [x] `ApiDocumentationTest` atualizado com tags, rotas e summaries.
 - [x] Fechar `just composer quality` e atualizar os documentos correlatos (suíte completa verde em 2026-11-10).
+
+#### 7.8 Console administrativo global
+
+- [x] Módulo `Administration` com `admin_audit_entries` append-only e leitura da visão geral.
+- [x] `GET /admin/overview` com contadores de contas, grupos, atividades e check-ins.
+- [x] `GET /admin/audit` com filtros por ação, tipo de alvo, autor e período.
+- [x] `GET /admin/groups`, `/admin/groups/{id}` e `/admin/groups/{id}/members`.
+- [x] `GET /admin/activities` com filtros por estado, grupo, título e período.
+- [x] `GroupVisibility` na busca de grupos, sem alterar o padrão público.
+- [x] `Group::archive()/unarchive()/delete()` aceitam `ADMIN_SIGAME` sem vínculo.
+- [x] Auditoria de suspensão/reativação, arquivamento, exclusão, cancelamento e invalidação.
+- [x] Rate limits genéricos `admin_read`, `admin_manage` e `admin_export`.
+- [x] Testes unitários, de integração e funcionais do console.
+
+#### 7.9 Exportações CSV
+
+- [x] `CsvResponse` em streaming com `;`, BOM e `Content-Disposition`.
+- [x] `GET /admin/users/export`, `/admin/groups/export` e `/admin/activities/export`.
+- [x] Filtros das listagens reutilizados; sem dados sensíveis de perfil.
+- [x] Passthrough `text/csv` no BFF.
+- [x] Testes funcionais de conteúdo, filtros e autorização.
 
 ### Fase 8 — Sponsorship + Reports
 
@@ -610,6 +643,7 @@ entrypoint do container.
 | `Version20261111120000` | 2026-11-11 | Adiciona `users.birth_date DATE NULL`, preenchida pelo endpoint write-once e exigida no onboarding.                            |
 | `Version20261112160821` | 2026-11-12 | Adiciona `activated_at`, campos de arquivamento e exclusão em `groups`; backfill e índices de inatividade e dedupe.           |
 | `Version20261113022101` | 2026-11-13 | Cria `user_achievements` e faz backfill da conquista `LENDA` para usuários no nível 10.                                       |
+| `Version20261116014724` | 2026-11-16 | Cria `admin_audit_entries` para a trilha de auditoria da administração, com índices de período, alvo, autor e ação.            |
 
 A edição parcial de perfil não exigiu migration: `height_cm`, `weight_kg` e `user_modalities` já existiam. A foto passou
 de URL para chave de objeto em `Version20261108120000`.
@@ -674,6 +708,8 @@ As dívidas adicionais identificadas na revisão da Fase 6 estão em [§5.2](#52
 | **CORS do hub**                                   | O hub SSE é servido pelo Caddy fora do NelmioCors                                                                                                                                                                                                                                                      | Configurar `cors_origins` no hub para a origem do frontend.                                                                                                                                                                                                                 |
 | **Admin provisionado por CLI**                    | Não há endpoint para elevar privilégios                                                                                                                                                                                                                                                                | Manter `app:identity:grant-admin`/`revoke-admin` e documentar a operação.                                                                                                                                                                                                   |
 | **Sem métricas de notificação**                   | Não há contadores de criação, entrega, falha ou lag                                                                                                                                                                                                                                                    | Adicionar logs estruturados/métricas no Monitoring.                                                                                                                                                                                                                         |
+| **Exportação CSV síncrona**                       | As exportações percorrem a base em blocos de 30 na própria requisição; o tempo cresce com o volume                                                                                                                                     | Migrar para relatório assíncrono com link temporário na Fase 8 (`Reports`).                                                                                                                                                                                                  |
+| **Admin global sem gestão de membros**            | Aprovar, remover e promover membros continuam exigindo vínculo com o grupo; o console só lê participações                                                                                                                              | Decisão de produto registrada no `ADR-048`; reavaliar se a operação precisar de intervenção direta.                                                                                                                                                                          |
 
 ### 5.1 Processamento de imagem
 
@@ -753,6 +789,9 @@ da projeção `users.level`; catálogo de regras exposto em `GET /api/v1/gamific
   ([ADR-040](decisoes.md#adr-040--mercure-como-transporte-em-tempo-real-do-sino)).
 - [x] Definir suspensão/reativação, sessões, vínculos e histórico
   ([ADR-039](decisoes.md#adr-039--suspensão-global-de-contas)).
+- [x] Definir console administrativo global, auditoria e exportações
+  ([ADR-048](decisoes.md#adr-048--console-administrativo-global-e-trilha-de-auditoria-append-only) e
+  [ADR-049](decisoes.md#adr-049--exportações-csv-síncronas)).
 - [ ] Definir visibilidade de cada campo de perfil.
 - [ ] Definir regras de geração e resgate de vouchers.
 - [ ] Definir fórmula do indicador mensal.

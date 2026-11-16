@@ -133,6 +133,7 @@ it('follows the summary writing convention', function () {
         'Excluir',
         'Sair',
         'Transferir',
+        'Exportar',
     ];
 
     $problems = [];
@@ -322,6 +323,15 @@ it('documents every public api operation', function () {
             '/api/v1/admin/users/{id}/status-history',
             '/api/v1/admin/users/{id}/suspend',
             '/api/v1/admin/users/{id}/reactivate',
+            '/api/v1/admin/overview',
+            '/api/v1/admin/audit',
+            '/api/v1/admin/groups',
+            '/api/v1/admin/groups/{id}',
+            '/api/v1/admin/groups/{id}/members',
+            '/api/v1/admin/activities',
+            '/api/v1/admin/users/export',
+            '/api/v1/admin/groups/export',
+            '/api/v1/admin/activities/export',
             '/api/v1/notifications',
             '/api/v1/notifications/unread-count',
             '/api/v1/notifications/{id}/read',

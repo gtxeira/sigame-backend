@@ -14,8 +14,12 @@ use App\Identity\Domain\User\Repository\UserSuspensionRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\SuspensionAction;
 use App\Identity\Domain\User\ValueObject\SuspensionReason;
 use App\Identity\Domain\User\ValueObject\UserRole;
+use App\Shared\Application\Administration\AdminAuditRecord;
+use App\Shared\Application\Administration\AdminAuditRecorderInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\ValueObject\AdminAuditAction;
+use App\Shared\Domain\ValueObject\AdminAuditTargetType;
 use App\Shared\Domain\ValueObject\Instant;
 
 /**
@@ -28,6 +32,7 @@ final readonly class SuspendUserHandler
         private UserSuspensionRepositoryInterface $suspensionRepository,
         private TokenPairIssuerInterface $tokenPairIssuer,
         private EventDispatcherInterface $eventDispatcher,
+        private AdminAuditRecorderInterface $auditRecorder,
     ) {
     }
 
@@ -75,6 +80,15 @@ final readonly class SuspendUserHandler
             );
 
             $this->suspensionRepository->save($suspension);
+
+            $this->auditRecorder->record(new AdminAuditRecord(
+                action: AdminAuditAction::AccountSuspended,
+                targetType: AdminAuditTargetType::User,
+                targetId: $user->id()->value(),
+                targetLabel: $user->name(),
+                actorId: $actor->id()->value(),
+                reason: $reason->value()->value(),
+            ));
 
             $this->eventDispatcher->dispatch(UserSuspended::now(
                 userId: $user->id()->value(),

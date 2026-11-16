@@ -333,12 +333,13 @@ final class Group
         ?string $reason,
         bool $automatic,
         Instant $at,
+        bool $isAdminSigame = false,
     ): Result {
         if ($this->isDeleted()) {
             return Result::failure([GroupErrors::groupNotFound()]);
         }
 
-        if (!$automatic) {
+        if (!$automatic && !$isAdminSigame) {
             if (null === $actor) {
                 return Result::failure([GroupErrors::adminRequired()]);
             }
@@ -367,16 +368,18 @@ final class Group
      *
      * @return Result<bool> `true` quando o grupo estava arquivado
      */
-    public function unarchive(MemberUserId $actor): Result
+    public function unarchive(MemberUserId $actor, bool $isAdminSigame = false): Result
     {
         if ($this->isDeleted()) {
             return Result::failure([GroupErrors::groupNotFound()]);
         }
 
-        $adminError = $this->assertAdmin($actor);
+        if (!$isAdminSigame) {
+            $adminError = $this->assertAdmin($actor);
 
-        if (null !== $adminError) {
-            return Result::failure([$adminError]);
+            if (null !== $adminError) {
+                return Result::failure([$adminError]);
+            }
         }
 
         if (null === $this->archivedAt) {
@@ -397,16 +400,18 @@ final class Group
      *
      * @return Result<bool> `true` quando o grupo passou a excluído
      */
-    public function delete(MemberUserId $actor, ?string $reason, Instant $at): Result
+    public function delete(MemberUserId $actor, ?string $reason, Instant $at, bool $isAdminSigame = false): Result
     {
         if ($this->isDeleted()) {
             return Result::failure([GroupErrors::groupNotFound()]);
         }
 
-        $ownerError = $this->assertOwner($actor);
+        if (!$isAdminSigame) {
+            $ownerError = $this->assertOwner($actor);
 
-        if (null !== $ownerError) {
-            return Result::failure([$ownerError]);
+            if (null !== $ownerError) {
+                return Result::failure([$ownerError]);
+            }
         }
 
         $this->deletedAt = $at;

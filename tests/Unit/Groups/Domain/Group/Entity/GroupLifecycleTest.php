@@ -210,3 +210,55 @@ it('keeps the policy constants aligned with the lifecycle rules', function () {
         ->and(GroupPolicy::MIN_LEVEL_TO_JOIN)->toBe(2)
         ->and(GroupPolicy::FORMING_IDLE_DAYS)->toBe(30);
 });
+
+it('lets a SIGAME admin archive and unarchive a group without membership', function () {
+    $owner = MemberUserId::generate();
+    $sigameAdmin = MemberUserId::generate();
+    $group = lifecycleGroup($owner);
+
+    $archive = $group->archive($sigameAdmin, 'Pausa administrativa.', false, Instant::now(), true);
+
+    expect($archive->isSuccess())->toBeTrue()
+        ->and($archive->value())->toBeTrue()
+        ->and($group->isArchived())->toBeTrue()
+        ->and($group->archiveReason())->toBe('Pausa administrativa.');
+
+    $unarchive = $group->unarchive($sigameAdmin, true);
+
+    expect($unarchive->isSuccess())->toBeTrue()
+        ->and($unarchive->value())->toBeTrue()
+        ->and($group->isArchived())->toBeFalse();
+});
+
+it('keeps the group admin requirement for non-SIGAME actors', function () {
+    $owner = MemberUserId::generate();
+    $outsider = MemberUserId::generate();
+    $group = lifecycleGroup($owner);
+
+    $archive = $group->archive($outsider, null, false, Instant::now());
+
+    expect($archive->isFailure())->toBeTrue()
+        ->and($archive->errors()[0]->code)->toBe('GROUP_ADMIN_REQUIRED');
+});
+
+it('lets a SIGAME admin delete a group without being the owner', function () {
+    $owner = MemberUserId::generate();
+    $sigameAdmin = MemberUserId::generate();
+    $group = lifecycleGroup($owner);
+
+    $delete = $group->delete($sigameAdmin, 'Encerrado pela administração.', Instant::now(), true);
+
+    expect($delete->isSuccess())->toBeTrue()
+        ->and($group->isDeleted())->toBeTrue()
+        ->and($group->deleteReason())->toBe('Encerrado pela administração.');
+});
+
+it('keeps the owner requirement to delete for non-SIGAME actors', function () {
+    $owner = MemberUserId::generate();
+    $group = lifecycleGroup($owner);
+
+    $delete = $group->delete(MemberUserId::generate(), null, Instant::now());
+
+    expect($delete->isFailure())->toBeTrue()
+        ->and($delete->errors()[0]->code)->toBe('GROUP_OWNER_REQUIRED');
+});

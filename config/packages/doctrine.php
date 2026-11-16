@@ -11,6 +11,7 @@ use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityTitleType;
 use App\Activities\Infrastructure\Persistence\ORM\Type\ActivityUserIdType;
 use App\Activities\Infrastructure\Persistence\ORM\Type\AttendanceIdType;
 use App\Activities\Infrastructure\Persistence\ORM\Type\MeetingPointType;
+use App\Administration\Infrastructure\Persistence\ORM\Type\AdminAuditEntryIdType;
 use App\Gamification\Infrastructure\Persistence\ORM\Type\PlayerIdType;
 use App\Gamification\Infrastructure\Persistence\ORM\Type\XpEventIdType;
 use App\Groups\Infrastructure\Persistence\ORM\Type\CommunicationLinkType;
@@ -96,6 +97,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'activity_route' => ActivityRouteType::class,
                 'player_id' => PlayerIdType::class,
                 'xp_event_id' => XpEventIdType::class,
+                'admin_audit_entry_id' => AdminAuditEntryIdType::class,
             ],
         ],
         'orm' => [
@@ -106,6 +108,13 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             ],
             'auto_mapping' => false,
             'mappings' => [
+                'Administration' => [
+                    'type' => 'attribute',
+                    'is_bundle' => false,
+                    'dir' => '%kernel.project_dir%/src/Administration/Domain',
+                    'prefix' => 'App\Administration\Domain',
+                    'alias' => 'Administration',
+                ],
                 'Identity' => [
                     'type' => 'attribute',
                     'is_bundle' => false,

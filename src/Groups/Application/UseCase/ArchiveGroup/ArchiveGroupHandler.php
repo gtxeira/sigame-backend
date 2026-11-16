@@ -8,8 +8,12 @@ use App\Groups\Domain\Error\GroupErrors;
 use App\Groups\Domain\Group\Entity\Group;
 use App\Groups\Domain\Group\Event\GroupArchived;
 use App\Groups\Domain\Group\Repository\GroupRepositoryInterface;
+use App\Shared\Application\Administration\AdminAuditRecord;
+use App\Shared\Application\Administration\AdminAuditRecorderInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\ValueObject\AdminAuditAction;
+use App\Shared\Domain\ValueObject\AdminAuditTargetType;
 use App\Shared\Domain\ValueObject\Instant;
 
 /**
@@ -20,6 +24,7 @@ final readonly class ArchiveGroupHandler
     public function __construct(
         private GroupRepositoryInterface $groupRepository,
         private EventDispatcherInterface $eventDispatcher,
+        private AdminAuditRecorderInterface $auditRecorder,
     ) {
     }
 
@@ -40,6 +45,7 @@ final readonly class ArchiveGroupHandler
                 reason: $command->reason,
                 automatic: false,
                 at: Instant::now(),
+                isAdminSigame: $command->isAdminSigame,
             );
 
             if ($archive->isFailure()) {
@@ -51,6 +57,17 @@ final readonly class ArchiveGroupHandler
             }
 
             $this->groupRepository->save($group);
+
+            if ($command->isAdminSigame) {
+                $this->auditRecorder->record(new AdminAuditRecord(
+                    action: AdminAuditAction::GroupArchived,
+                    targetType: AdminAuditTargetType::Group,
+                    targetId: $group->id()->value(),
+                    targetLabel: $group->name()->value(),
+                    actorId: $command->actorId->value(),
+                    reason: $group->archiveReason(),
+                ));
+            }
 
             $this->eventDispatcher->dispatch(GroupArchived::now(
                 groupId: $group->id()->value(),

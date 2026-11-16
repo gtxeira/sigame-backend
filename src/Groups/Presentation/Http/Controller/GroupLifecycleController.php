@@ -112,6 +112,7 @@ final class GroupLifecycleController extends AbstractController
             groupId: GroupId::fromString($id),
             actorId: $actor,
             reason: $request->reason,
+            isAdminSigame: $this->isGranted('ROLE_ADMIN_SIGAME'),
         ));
 
         if ($result->isFailure()) {
@@ -169,6 +170,7 @@ final class GroupLifecycleController extends AbstractController
         $result = ($this->unarchiveGroupHandler)(new UnarchiveGroupCommand(
             groupId: GroupId::fromString($id),
             actorId: $actor,
+            isAdminSigame: $this->isGranted('ROLE_ADMIN_SIGAME'),
         ));
 
         if ($result->isFailure()) {
@@ -238,6 +240,7 @@ final class GroupLifecycleController extends AbstractController
             groupId: GroupId::fromString($id),
             actorId: $actor,
             reason: $request->reason,
+            isAdminSigame: $this->isGranted('ROLE_ADMIN_SIGAME'),
         ));
 
         if ($result->isFailure()) {

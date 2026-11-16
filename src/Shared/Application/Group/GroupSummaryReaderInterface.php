@@ -14,4 +14,13 @@ namespace App\Shared\Application\Group;
 interface GroupSummaryReaderInterface
 {
     public function summary(string $groupId): ?GroupSummary;
+
+    /**
+     * Resolve os nomes de vários grupos de uma vez (read model de listagens).
+     *
+     * @param list<string> $groupIds
+     *
+     * @return array<string, string> indexado pelo id do grupo
+     */
+    public function names(array $groupIds): array;
 }

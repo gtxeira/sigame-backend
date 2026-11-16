@@ -2,7 +2,7 @@
 
 > **Status:** registro vivo
 >
-> **Última atualização:** 2026-11-11
+> **Última atualização:** 2026-11-16
 >
 > **Finalidade:** preservar o contexto e o porquê das decisões já tomadas, para orientar mudanças futuras.
 
@@ -68,6 +68,8 @@ Não altere o texto de uma decisão antiga para "corrigir" a história: se a dec
 | [ADR-044](#adr-044--data-de-nascimento-write-once-e-plataforma-restrita-a-maiores-de-18) | Data de nascimento write-once e plataforma restrita a maiores de 18 | Vigente |
 | [ADR-045](#adr-045--ciclo-de-vida-do-grupo-ativação-persistida-arquivamento-e-exclusão-lógica) | Ciclo de vida do grupo: ativação persistida, arquivamento e exclusão lógica | Vigente |
 | [ADR-047](#adr-047--conquistas-como-marcos-permanentes) | Conquistas como marcos permanentes | Vigente |
+| [ADR-048](#adr-048--console-administrativo-global-e-trilha-de-auditoria-append-only) | Console administrativo global e trilha de auditoria append-only | Vigente |
+| [ADR-049](#adr-049--exportações-csv-síncronas) | Exportações CSV síncronas | Vigente |
 
 Decisões de produto fechadas: [`DEC09`](#dec09--backend-em-symfony), [`DEC13`](#dec13--cpf-opcional-no-cadastro-e-write-once), [`DEC14`](#dec14--login-social-google-nesta-entrega), [`DEC01`](#adr-024--conflito-de-horário-sem-margem-e-sem-exceção), [`DEC10`](#adr-025--janela-operacional-da-atividade-check-in-e-validação), [`DEC11`](#adr-027--poderes-de-atividade-do-supervisor), [`DEC12`](#adr-026--atividade-válida-para-xp-e-mínimo-de-participantes), [`DEC02`](#adr-033--curva-de-níveis-e-xp-por-atividade), [`DEC03`](#adr-035--deleveling-e-piso-no-nível-2), [`DEC04`](#adr-037--notificações-multicanal-com-inbox-canais-e-mercure) e [`DEC05`](#adr-038--denúncias-e-bloqueios-fora-da-v1).
 
@@ -1637,3 +1639,87 @@ O frontend exibia o banner LENDA derivado de `level === 10`, sem registro no bac
 - Testes: `UserAchievementTest`, `AchievementCatalogTest`, `AchievementUnlockerTest`,
   `DoctrineUserAchievementRepositoryTest`, `UnlockAchievementsOnLevelReachedTest`, `AchievementTest`,
   `NotificationPlannerTest` e `ApiDocumentationTest`.
+
+---
+
+## ADR-048 — Console administrativo global e trilha de auditoria append-only
+
+### Contexto
+
+A Fase 7 entregou a administração de contas (`RF18`), mas grupos e atividades só podiam ser moderados por quem tinha
+vínculo com o grupo. O arquivamento de grupo é reversível e o desarquivamento apaga `archived_at`, `archived_by` e
+`archive_reason`; portanto, derivar a auditoria das tabelas atuais perderia o rastro da reativação. Também não havia
+uma visão consolidada da operação: a tela inicial fazia várias chamadas de contagem.
+
+### Decisão
+
+- A leitura global vive em endpoints `/api/v1/admin/**`, com `ROLE_ADMIN_SIGAME` no `access_control`, no
+  `#[IsGranted]` e no BFF.
+- A visão geral (`GET /admin/overview`) é um read model por SQL das tabelas de Identity, Groups e Activities, em uma
+  única resposta.
+- A listagem de grupos ganha `GroupVisibility` (`visible`, `archived`, `deleted`, `all`) sem alterar a busca pública,
+  cujo padrão continua `visible`.
+- `Group::archive()`, `unarchive()` e `delete()` aceitam `bool $isAdminSigame = false`. Quando `true`, dispensam
+  vínculo/responsabilidade; as chamadas existentes mantêm o comportamento anterior.
+- A moderação de atividades continua usando `ActivityAccessPolicy`; nenhuma ação de inscrição/check-in é liberada para
+  quem não é membro.
+- Um módulo `Administration` é criado para a trilha de auditoria e os contadores, sem importar entidades dos módulos
+  donos. Os endpoints de grupos e atividades permanecem nos módulos donos.
+- `admin_audit_entries` é append-only e guarda ação, tipo/id/rótulo do alvo, autor (id/nome), motivo e data. Não há FK
+  para o alvo, para sobreviver à exclusão lógica. O rótulo e o nome do autor são snapshots do momento da ação.
+- A escrita da auditoria acontece na mesma transação do caso de uso; falha de auditoria desfaz a ação. Só ações de
+  `ADMIN_SIGAME` entram na trilha; ações de administradores de grupo continuam em eventos e notificações.
+- O histórico de status da conta (`user_suspensions`) continua sendo a fonte da tela da conta. A auditoria duplica o
+  evento de suspensão/reativação de propósito, porque é a visão global do operador.
+
+### Alternativas consideradas
+
+- **Derivar a auditoria de `groups`/`activities`/`user_suspensions`.** Rejeitada: o desarquivamento apaga os metadados e
+  não haveria como saber quem reativou o grupo nem quando.
+- **Criar um módulo `Moderation` com todos os endpoints administrativos.** Rejeitada na V1: duplicaria consultas e
+  regras dos módulos donos; o módulo `Administration` fica restrito a auditoria e contadores.
+- **Permitir que o admin global aprove/remova/promova membros.** Adiada: as regras de vínculo continuam valendo e o
+  frontend não simula isenções que a API não concede.
+
+### Consequências
+
+- Migration `Version20261116014724` cria `admin_audit_entries`.
+- A exclusão de grupo por `ADMIN_SIGAME` é a exceção explícita à regra de que só o responsável exclui (`RN23.6`).
+- `GET /admin/groups/{id}/members` reutiliza `ListMembershipsHandler` com `isAdminSigame`; a resposta continua
+  `MembershipResponse`.
+- O rate limit administrativo passa a ser genérico (`admin_read`, `admin_manage`, `admin_export`).
+- Testes: `AdminOverviewTest`, `AdminAuditTest`, `AdminGroupTest`, `AdminActivityTest`,
+  `DoctrineAdminAuditRepositoryTest`, `AdminAuditEntryTest`, `GroupLifecycleTest` e `ApiDocumentationTest`.
+
+---
+
+## ADR-049 — Exportações CSV síncronas
+
+### Contexto
+
+A operação precisava tirar os dados das listagens administrativas para conferência e prestação de contas. A V1 tem
+volume pequeno e não possui infraestrutura de relatórios assíncronos (a Fase 8, `Reports`, ainda não começou).
+
+### Decisão
+
+- As exportações são síncronas e transmitidas em streaming (`StreamedResponse`), sem montar a planilha inteira em
+  memória.
+- Formato: `text/csv; charset=UTF-8`, separador `;`, BOM UTF-8, `Content-Disposition: attachment` e `Cache-Control:
+  no-store`.
+- Cada exportação reutiliza os filtros da listagem correspondente e ignora `page`/`perPage`, percorrendo as páginas
+  internamente em blocos de 30.
+- Os endpoints ficam sob `/admin/**`, exigem `ADMIN_SIGAME` e usam o limiter `admin_export` (5/min).
+- As colunas não incluem CPF, telefone, peso ou altura.
+- O BFF repassa `text/csv` sem envelope JSON e mantém `content-disposition`.
+
+### Alternativas consideradas
+
+- **Gerar o CSV no navegador.** Rejeitada: exigiria paginar toda a base pelo cliente e não teria um contrato único.
+- **Relatório assíncrono com fila e link temporário.** Adiado para a Fase 8 (`Reports`), quando o volume justificar.
+- **Separador `,`.** Rejeitado: o Excel em português trata `;` como separador padrão.
+
+### Consequências
+
+- O tempo de resposta cresce com o volume; o limite prático fica documentado como dívida até o relatório assíncrono.
+- `Exportar` passa a ser um verbo aprovado nos summaries da OpenAPI.
+- Testes: `AdminExportTest` e o passthrough de CSV no BFF.

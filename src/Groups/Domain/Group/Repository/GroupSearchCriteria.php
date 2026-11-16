@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Groups\Domain\Group\Repository;
 
 use App\Groups\Domain\Group\ValueObject\GroupStatus;
+use App\Groups\Domain\Group\ValueObject\GroupVisibility;
 use App\Shared\Domain\ValueObject\Instant;
 use App\Shared\Domain\ValueObject\Modality;
 
@@ -36,6 +37,7 @@ final readonly class GroupSearchCriteria
         public ?Instant $activityFrom = null,
         public ?Instant $activityTo = null,
         public ?array $activityGroupIds = null,
+        public GroupVisibility $visibility = GroupVisibility::Visible,
     ) {
         $this->page = max(1, $page);
         $this->perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
@@ -56,6 +58,7 @@ final readonly class GroupSearchCriteria
             activityFrom: $this->activityFrom,
             activityTo: $this->activityTo,
             activityGroupIds: $activityGroupIds,
+            visibility: $this->visibility,
         );
     }
 }

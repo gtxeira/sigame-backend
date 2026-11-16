@@ -17,6 +17,7 @@ use App\Identity\Application\UseCase\Admin\SuspendUser\SuspendUserCommand;
 use App\Identity\Application\UseCase\Admin\SuspendUser\SuspendUserHandler;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\Entity\UserSuspension;
+use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\Repository\UserSearchCriteria;
 use App\Identity\Domain\User\ValueObject\UserId;
 use App\Identity\Domain\User\ValueObject\UserRole;
@@ -42,12 +43,14 @@ use App\Shared\Presentation\Http\OpenApi\UnsupportedMediaTypeResponse;
 use App\Shared\Presentation\Http\OpenApi\ValidationErrorResponse;
 use App\Shared\Presentation\Http\RateLimit\RateLimitGuard;
 use App\Shared\Presentation\Http\Response\ApiResponse;
+use App\Shared\Presentation\Http\Response\CsvResponse;
 use App\Shared\Presentation\Http\Response\ResultResponder;
 use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
@@ -70,12 +73,15 @@ final class AdminUserController extends AbstractController
         private readonly ListStatusHistoryHandler $listStatusHistoryHandler,
         private readonly SuspendUserHandler $suspendUserHandler,
         private readonly ReactivateUserHandler $reactivateUserHandler,
+        private readonly UserRepositoryInterface $userRepository,
         private readonly ResultResponder $resultResponder,
         private readonly RateLimitGuard $rateLimitGuard,
-        #[Autowire(service: 'limiter.admin_users_read')]
+        #[Autowire(service: 'limiter.admin_read')]
         private readonly RateLimiterFactoryInterface $readLimiter,
-        #[Autowire(service: 'limiter.admin_users_manage')]
+        #[Autowire(service: 'limiter.admin_manage')]
         private readonly RateLimiterFactoryInterface $manageLimiter,
+        #[Autowire(service: 'limiter.admin_export')]
+        private readonly RateLimiterFactoryInterface $exportLimiter,
     ) {
     }
 
@@ -330,6 +336,79 @@ final class AdminUserController extends AbstractController
         return $this->resultResponder->success(
             $result->map(static fn (AccountStatusChangeResult $change): AccountStatusChangeResponse => AccountStatusChangeResponse::fromResult($change)),
         );
+    }
+
+    /**
+     * Exportar contas em CSV
+     *
+     * Exporta as contas que atendem aos filtros atuais, sem paginação e sem
+     * dados sensíveis de perfil.
+     */
+    #[Route('/users/export', name: 'app_admin_user_export', methods: ['GET'])]
+    #[IsGranted('ROLE_ADMIN_SIGAME')]
+    #[Security(name: 'bearerAuth')]
+    #[OA\Response(
+        response: 200,
+        description: 'Arquivo CSV com as contas filtradas.',
+        content: new OA\MediaType(
+            mediaType: 'text/csv',
+            schema: new OA\Schema(type: 'string', format: 'binary'),
+        ),
+    )]
+    #[UnauthorizedResponse]
+    #[ForbiddenResponse]
+    #[TooManyRequestsResponse]
+    #[InternalErrorResponse]
+    public function export(#[MapQueryString] AdminUserListQuery $query): StreamedResponse
+    {
+        $actor = $this->actor();
+        $this->rateLimitGuard->assertWithin($this->exportLimiter, $actor->value());
+
+        $criteria = new UserSearchCriteria(
+            query: $query->query,
+            status: null === $query->status ? null : UserStatus::from($query->status),
+            role: null === $query->role ? null : UserRole::from($query->role),
+        );
+
+        return CsvResponse::stream(
+            'contas.csv',
+            ['id', 'nome', 'email', 'email_verificado', 'situacao', 'papel', 'nivel', 'onboarding', 'criado_em'],
+            fn (): iterable => $this->userRows($criteria),
+        );
+    }
+
+    /**
+     * @return iterable<list<string|int>>
+     */
+    private function userRows(UserSearchCriteria $criteria): iterable
+    {
+        $page = 1;
+
+        do {
+            $result = $this->userRepository->search(new UserSearchCriteria(
+                page: $page,
+                perPage: 30,
+                query: $criteria->query,
+                status: $criteria->status,
+                role: $criteria->role,
+            ));
+
+            foreach ($result->items as $user) {
+                yield [
+                    $user->id()->value(),
+                    $user->name(),
+                    $user->email()->value(),
+                    $user->isEmailVerified() ? 'sim' : 'não',
+                    $user->status()->value,
+                    $user->role()->value,
+                    $user->level()->value(),
+                    $user->onboardingStatus()->value,
+                    $user->createdAt()->toIsoStringWithMilliseconds(),
+                ];
+            }
+
+            ++$page;
+        } while ($page <= (int) ceil($result->total / 30));
     }
 
     private function actor(): UserId

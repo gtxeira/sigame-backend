@@ -49,6 +49,11 @@ interface ActivityRepositoryInterface
         ActivitySearchCriteria $criteria,
     ): ActivityPage;
 
+    /**
+     * Lista atividades de todos os grupos (visão administrativa).
+     */
+    public function searchAll(ActivitySearchCriteria $criteria): ActivityPage;
+
     public function hasConflictingAttendance(
         ActivityUserId $userId,
         ActivityWindow $window,

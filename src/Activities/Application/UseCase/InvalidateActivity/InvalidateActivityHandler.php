@@ -10,9 +10,13 @@ use App\Activities\Domain\Activity\Event\ActivityInvalidated;
 use App\Activities\Domain\Activity\Repository\ActivityRepositoryInterface;
 use App\Activities\Domain\Activity\ValueObject\ActivityReason;
 use App\Activities\Domain\Error\ActivityErrors;
+use App\Shared\Application\Administration\AdminAuditRecord;
+use App\Shared\Application\Administration\AdminAuditRecorderInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Application\Group\GroupAccessReaderInterface;
 use App\Shared\Domain\Functional\Result;
+use App\Shared\Domain\ValueObject\AdminAuditAction;
+use App\Shared\Domain\ValueObject\AdminAuditTargetType;
 use App\Shared\Domain\ValueObject\Instant;
 
 final readonly class InvalidateActivityHandler
@@ -22,6 +26,7 @@ final readonly class InvalidateActivityHandler
         private GroupAccessReaderInterface $groupAccessReader,
         private ActivityAccessPolicy $accessPolicy,
         private EventDispatcherInterface $eventDispatcher,
+        private AdminAuditRecorderInterface $auditRecorder,
     ) {
     }
 
@@ -73,6 +78,18 @@ final readonly class InvalidateActivityHandler
 
             if (true === $changed->value()) {
                 $this->activityRepository->save($activity);
+
+                if ($command->isAdminSigame) {
+                    $this->auditRecorder->record(new AdminAuditRecord(
+                        action: AdminAuditAction::ActivityInvalidated,
+                        targetType: AdminAuditTargetType::Activity,
+                        targetId: $activity->id()->value(),
+                        targetLabel: $activity->title()->value(),
+                        actorId: $command->actorId->value(),
+                        reason: $activity->invalidationReason(),
+                    ));
+                }
+
                 $this->eventDispatcher->dispatch(ActivityInvalidated::now(
                     activityId: $activity->id()->value(),
                     groupId: $activity->groupId()->value(),

@@ -18,7 +18,7 @@ O SIGAME é um **monolito modular** estruturado com **Clean Architecture**. Cada
 
 O módulo `Shared` funciona como kernel: concentra value objects, catálogo de erros, eventos, persistência base e a infraestrutura HTTP comum. Módulos funcionais importam apenas a si próprios e `Shared`.
 
-Hoje os módulos de negócio implementados são **Identity**, **Groups**, **Activities**, **Gamification** e **Notifications**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
+Hoje os módulos de negócio implementados são **Identity**, **Groups**, **Activities**, **Gamification**, **Notifications** e **Administration**. `Monitoring` existe como módulo técnico, sem camada de domínio. Os demais módulos estão planejados e descritos em [implementacao.md](implementacao.md#2-roadmap).
 
 ### 1.1 Stack tecnológica
 
@@ -123,9 +123,20 @@ src/
 │       ├── ExceptionListener/               # Api, Domain, Http e Validator
 │       ├── OpenApi/                         # respostas e exemplos reutilizáveis
 │       ├── RateLimit/RateLimitGuard.php
-│       ├── Response/                        # ApiResponse, ResultResponder, ErrorStatusResolver, etc.
+│       ├── Response/                        # ApiResponse, ResultResponder, CsvResponse, etc.
 │       ├── Validation/RequestViolationFactory.php
 │       └── Security/ApiAccessDeniedHandler.php
+│
+├── Administration/                          # trilha de auditoria e visão geral da operação
+│   ├── Domain/Audit/                        # AdminAuditEntry (append-only), repositório e critérios
+│   ├── Application/
+│   │   ├── Audit/ListAdminAudit/            # listagem com filtros
+│   │   └── Overview/                        # AdminOverview e leitura consolidada
+│   ├── Infrastructure/
+│   │   ├── Audit/DoctrineAdminAuditRecorder.php
+│   │   ├── Overview/DoctrineAdminOverviewReader.php
+│   │   └── Persistence/                     # repositório e tipo DBAL
+│   └── Presentation/Http/                   # overview e auditoria
 │
 ├── Monitoring/                              # liveness, readiness e saúde das dependências
 │   ├── Application/Service/SystemHealthCheckerInterface.php
@@ -242,7 +253,8 @@ src/Activities/
 |---|---|---|
 | `Gamification` | Implementado | XP, níveis, ofensiva semanal, deleveling e recálculo |
 | `Notifications` | Implementado | Inbox, leitura, canais e tempo real do sino |
-| `Moderation` | Adiado | Denúncias e bloqueios; administração de contas fica em Identity |
+| `Administration` | Implementado | Visão geral consolidada e trilha de auditoria append-only |
+| `Moderation` | Adiado | Denúncias e bloqueios; administração de contas fica em Identity e o console global em Administration |
 | `Sponsorship` | Planejado | Patrocinadores, benefícios e vouchers |
 | `Reports` | Planejado | Indicadores mensais dos grupos |
 
@@ -446,9 +458,9 @@ Regras:
 | Concluir onboarding | `CompleteOnboardingCommand` | `CompleteOnboardingHandler` | Carrega o usuário → conclui no agregado → persiste → publica `OnboardingCompleted` |
 | Criar grupo | `CreateGroupCommand` | `CreateGroupHandler` | Valida nível 2, dedupe, limite de 5 participações, 1 em formação e limite opcional de membros → cria o grupo com o criador admin → publica `GroupCreated` |
 | Atualizar grupo | `UpdateGroupCommand` | `UpdateGroupHandler` | Exige admin e grupo não arquivado → aplica JSON Merge Patch (inclusive limite de membros) → publica `GroupUpdated` |
-| Arquivar grupo | `ArchiveGroupCommand` | `ArchiveGroupHandler` | Exige admin → arquiva com autor/motivo, idempotente → publica `GroupArchived` |
-| Reativar grupo | `UnarchiveGroupCommand` | `UnarchiveGroupHandler` | Exige admin → limpa o arquivamento, idempotente → publica `GroupUnarchived` |
-| Excluir grupo | `DeleteGroupCommand` | `DeleteGroupHandler` | Exige admin → exclusão lógica terminal → publica `GroupDeleted` |
+| Arquivar grupo | `ArchiveGroupCommand` | `ArchiveGroupHandler` | Exige admin ou `ADMIN_SIGAME` → arquiva com autor/motivo, idempotente → publica `GroupArchived` |
+| Reativar grupo | `UnarchiveGroupCommand` | `UnarchiveGroupHandler` | Exige admin ou `ADMIN_SIGAME` → limpa o arquivamento, idempotente → publica `GroupUnarchived` |
+| Excluir grupo | `DeleteGroupCommand` | `DeleteGroupHandler` | Exige responsável ou `ADMIN_SIGAME` → exclusão lógica terminal → publica `GroupDeleted` |
 | Arquivar inativos | `ArchiveIdleFormingGroupsMessage` | `ArchiveIdleFormingGroupsHandler` | Job diário → arquiva grupos em formação sem atividade há 30 dias → publica `GroupArchived` |
 | Solicitar entrada | `RequestMembershipCommand` | `RequestMembershipHandler` | Exige nível 2 → cria episódio `PENDING`, recusando duplicidade e grupo arquivado → publica `MembershipRequested` |
 | Sair do grupo | `LeaveGroupCommand` | `LeaveGroupHandler` | Cancela pendente ou encerra aprovada, protegendo o último admin → publica `MembershipRequestWithdrawn`/`MembershipLeft` |
@@ -461,7 +473,7 @@ Regras:
 | Listar grupos | `ListGroupsQuery` | `ListGroupsHandler` | Busca paginada com filtros de modalidade, estado, nome e disponibilidade |
 | Listar meus grupos | `ListMyGroupsQuery` | `ListMyGroupsHandler` | Lista grupos com participação aprovada do usuário |
 | Obter grupo | `GetGroupQuery` | `GetGroupHandler` | Carrega o grupo; o link só é exposto na resposta para membro aprovado |
-| Listar membros | `ListMembershipsQuery` | `ListMembershipsHandler` | Exige admin → lista pendentes, aprovados e histórico |
+| Listar membros | `ListMembershipsQuery` | `ListMembershipsHandler` | Exige admin ou `ADMIN_SIGAME` → lista pendentes, aprovados e histórico |
 | Criar atividade | `CreateActivityCommand` | `CreateActivityHandler` | Exige admin → valida grupo ativo → cria e publica `ActivityCreated` |
 | Atualizar/remarcar | `UpdateActivityCommand` | `UpdateActivityHandler` | Exige admin → atualiza dados/janela, grava histórico e publica eventos |
 | Cancelar | `CancelActivityCommand` | `CancelActivityHandler` | Exige admin → só `SCHEDULED` → publica `ActivityCancelled` |
@@ -476,6 +488,11 @@ Regras:
 | Listar atividades | `ListGroupActivitiesQuery` | `ListGroupActivitiesHandler` | Membro aprovado lista com filtros |
 | Listar minhas atividades | `ListMyActivitiesQuery` | `ListMyActivitiesHandler` | Lista atividades com inscrição ativa |
 | Fechar expiradas | `CloseExpiredActivitiesMessage` | `CloseExpiredActivitiesHandler` | Scheduler cancela não iniciadas e finaliza iniciadas vencidas |
+| Visão geral (admin) | — | `GetAdminOverviewHandler` | Lê os contadores consolidados de contas, grupos, atividades e check-ins |
+| Listar grupos (admin) | `ListAdminGroupsQuery` | `ListAdminGroupsHandler` | Busca com `GroupVisibility` (ativos, arquivados, excluídos ou todos) |
+| Obter grupo (admin) | `GetAdminGroupQuery` | `GetAdminGroupHandler` | Carrega inclusive arquivado/excluído, sem vínculo |
+| Listar atividades (admin) | `ListAdminActivitiesQuery` | `ListAdminActivitiesHandler` | Busca global com estado, grupo, título e período |
+| Listar auditoria | `ListAdminAuditQuery` | `ListAdminAuditHandler` | Lista a trilha append-only com filtros |
 
 A camada HTTP do onboarding expõe `POST /api/v1/users/me/onboarding`. O estado está em [implementacao.md](implementacao.md).
 
@@ -729,9 +746,9 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `GET` | `/api/v1/users/me/groups` | `MyGroupsController::list` | Bearer JWT |
 | `GET` | `/api/v1/groups/{id}` | `GroupController::show` | Bearer JWT |
 | `PATCH` | `/api/v1/groups/{id}` | `GroupController::update` | Bearer JWT + admin |
-| `POST` | `/api/v1/groups/{id}/archive` | `GroupLifecycleController::archive` | Bearer JWT + admin |
-| `POST` | `/api/v1/groups/{id}/unarchive` | `GroupLifecycleController::unarchive` | Bearer JWT + admin |
-| `DELETE` | `/api/v1/groups/{id}` | `GroupLifecycleController::delete` | Bearer JWT + admin |
+| `POST` | `/api/v1/groups/{id}/archive` | `GroupLifecycleController::archive` | Bearer JWT + admin/admin SIGAME |
+| `POST` | `/api/v1/groups/{id}/unarchive` | `GroupLifecycleController::unarchive` | Bearer JWT + admin/admin SIGAME |
+| `DELETE` | `/api/v1/groups/{id}` | `GroupLifecycleController::delete` | Bearer JWT + responsável/admin SIGAME |
 | `DELETE` | `/api/v1/groups/{id}/membership` | `GroupMembershipController::leave` | Bearer JWT |
 | `POST` | `/api/v1/groups/{id}/membership-requests` | `GroupMembershipController::request` | Bearer JWT |
 | `GET` | `/api/v1/groups/{id}/memberships` | `GroupMembershipController::list` | Bearer JWT + admin |
@@ -766,6 +783,15 @@ As rotas de negócio usam o prefixo `/api/v1`, declarado na classe do controller
 | `GET` | `/api/v1/admin/users/{id}/status-history` | `AdminUserController::statusHistory` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
 | `POST` | `/api/v1/admin/users/{id}/suspend` | `AdminUserController::suspend` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
 | `POST` | `/api/v1/admin/users/{id}/reactivate` | `AdminUserController::reactivate` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/users/export` | `AdminUserController::export` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/overview` | `AdminOverviewController::show` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/audit` | `AdminAuditController::list` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/groups` | `AdminGroupController::list` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/groups/{id}` | `AdminGroupController::show` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/groups/{id}/members` | `AdminGroupController::members` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/groups/export` | `AdminGroupController::export` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/activities` | `AdminActivityController::list` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
+| `GET` | `/api/v1/admin/activities/export` | `AdminActivityController::export` | Bearer JWT + `ROLE_ADMIN_SIGAME` |
 | `GET` | `/api/health/liveness` | `HealthController::liveness` | Pública |
 | `GET` | `/api/health/readiness` | `HealthController::index` | Pública |
 

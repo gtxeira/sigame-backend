@@ -105,6 +105,9 @@ O ambiente de teste cria um banco com sufixo `_test`; o ambiente de desenvolvime
 | `AUTH_SOCIAL_RATE_LIMIT` | `10` | Tentativas de login social por minuto |
 | `AUTH_REFRESH_RATE_LIMIT` | `30` | Renovações por minuto |
 | `USER_CPF_RATE_LIMIT` | `10` | Definições de CPF por minuto |
+| `ADMIN_READ_RATE_LIMIT` | `60` | Leituras administrativas por minuto |
+| `ADMIN_MANAGE_RATE_LIMIT` | `10` | Ações administrativas por minuto |
+| `ADMIN_EXPORT_RATE_LIMIT` | `5` | Exportações CSV por minuto |
 | `JWKS_CACHE_TTL` | `3600` | Cache do JWKS do provedor social |
 | `SYMFONY_TRUSTED_PROXIES` | — | Proxies confiáveis (no dev, `private_ranges`); obrigatório junto com `SYMFONY_TRUSTED_HEADERS` |
 | `SYMFONY_TRUSTED_HEADERS` | — | Cabeçalhos aceitos do proxy; o BFF do Nuxt envia `x-forwarded-for` |

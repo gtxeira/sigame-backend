@@ -12,6 +12,7 @@ final readonly class ListMembershipsQuery
     public function __construct(
         public GroupId $groupId,
         public MemberUserId $viewerId,
+        public bool $isAdminSigame = false,
     ) {
     }
 }

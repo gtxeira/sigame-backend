@@ -12,7 +12,10 @@ use App\Identity\Domain\User\Event\UserSuspended;
 use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\Repository\UserSuspensionRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
+use App\Shared\Application\Administration\AdminAuditRecord;
+use App\Shared\Application\Administration\AdminAuditRecorderInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
+use App\Shared\Domain\ValueObject\AdminAuditAction;
 use App\Shared\Domain\ValueObject\Email;
 use Mockery as m;
 
@@ -35,6 +38,7 @@ it('suspends a regular user, records history, revokes sessions and publishes the
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $tokens = m::mock(TokenPairIssuerInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -45,8 +49,13 @@ it('suspends a regular user, records history, revokes sessions and publishes the
     $suspensions->shouldReceive('save')->once();
     $tokens->shouldReceive('revokeAllSessions')->once()->with($target->id());
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(UserSuspended::class));
+    $audit->shouldReceive('record')->once()->with(m::on(
+        static fn (AdminAuditRecord $record): bool => AdminAuditAction::AccountSuspended === $record->action
+            && $target->id()->value() === $record->targetId
+            && $actor->id()->value() === $record->actorId,
+    ));
 
-    $result = (new SuspendUserHandler($users, $suspensions, $tokens, $dispatcher))(
+    $result = (new SuspendUserHandler($users, $suspensions, $tokens, $dispatcher, $audit))(
         new SuspendUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -70,6 +79,7 @@ it('refuses to suspend an admin account', function () {
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $tokens = m::mock(TokenPairIssuerInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -79,8 +89,9 @@ it('refuses to suspend an admin account', function () {
     $suspensions->shouldNotReceive('save');
     $tokens->shouldNotReceive('revokeAllSessions');
     $dispatcher->shouldNotReceive('dispatch');
+    $audit->shouldNotReceive('record');
 
-    $result = (new SuspendUserHandler($users, $suspensions, $tokens, $dispatcher))(
+    $result = (new SuspendUserHandler($users, $suspensions, $tokens, $dispatcher, $audit))(
         new SuspendUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -102,6 +113,7 @@ it('returns changed false when the user is already suspended', function () {
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $tokens = m::mock(TokenPairIssuerInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -111,8 +123,9 @@ it('returns changed false when the user is already suspended', function () {
     $suspensions->shouldNotReceive('save');
     $tokens->shouldNotReceive('revokeAllSessions');
     $dispatcher->shouldNotReceive('dispatch');
+    $audit->shouldNotReceive('record');
 
-    $result = (new SuspendUserHandler($users, $suspensions, $tokens, $dispatcher))(
+    $result = (new SuspendUserHandler($users, $suspensions, $tokens, $dispatcher, $audit))(
         new SuspendUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),

@@ -13,6 +13,7 @@ use App\Identity\Domain\User\Repository\UserRepositoryInterface;
 use App\Identity\Domain\User\Repository\UserSuspensionRepositoryInterface;
 use App\Identity\Domain\User\ValueObject\HashedPassword;
 use App\Identity\Domain\User\ValueObject\SuspensionAction;
+use App\Shared\Application\Administration\AdminAuditRecorderInterface;
 use App\Shared\Application\Event\EventDispatcherInterface;
 use App\Shared\Domain\ValueObject\Email;
 use Mockery as m;
@@ -36,6 +37,7 @@ it('reactivates a suspended user, records history and publishes the event', func
     $users = m::mock(UserRepositoryInterface::class);
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -45,8 +47,9 @@ it('reactivates a suspended user, records history and publishes the event', func
     $users->shouldReceive('save')->once()->with($target);
     $suspensions->shouldReceive('save')->once()->with(m::type(UserSuspension::class));
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(UserReactivated::class));
+    $audit->shouldReceive('record')->once();
 
-    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher))(
+    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher, $audit))(
         new ReactivateUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -69,6 +72,7 @@ it('returns changed false when the user is already active', function () {
     $users = m::mock(UserRepositoryInterface::class);
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -77,8 +81,9 @@ it('returns changed false when the user is already active', function () {
     $users->shouldNotReceive('save');
     $suspensions->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
+    $audit->shouldNotReceive('record');
 
-    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher))(
+    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher, $audit))(
         new ReactivateUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -100,6 +105,7 @@ it('records a null reason when the optional reason is blank', function () {
     $users = m::mock(UserRepositoryInterface::class);
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -109,8 +115,9 @@ it('records a null reason when the optional reason is blank', function () {
     $users->shouldReceive('save')->once()->with($target);
     $suspensions->shouldReceive('save')->once();
     $dispatcher->shouldReceive('dispatch')->once()->with(m::type(UserReactivated::class));
+    $audit->shouldReceive('record')->once();
 
-    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher))(
+    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher, $audit))(
         new ReactivateUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -131,6 +138,7 @@ it('rejects an invalid reason before changing the account', function () {
     $users = m::mock(UserRepositoryInterface::class);
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -139,8 +147,9 @@ it('rejects an invalid reason before changing the account', function () {
     $users->shouldNotReceive('save');
     $suspensions->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
+    $audit->shouldNotReceive('record');
 
-    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher))(
+    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher, $audit))(
         new ReactivateUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -161,6 +170,7 @@ it('fails when the target account does not exist', function () {
     $users = m::mock(UserRepositoryInterface::class);
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -169,8 +179,9 @@ it('fails when the target account does not exist', function () {
     $users->shouldNotReceive('save');
     $suspensions->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
+    $audit->shouldNotReceive('record');
 
-    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher))(
+    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher, $audit))(
         new ReactivateUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
@@ -189,6 +200,7 @@ it('fails when the actor account does not exist', function () {
     $users = m::mock(UserRepositoryInterface::class);
     $suspensions = m::mock(UserSuspensionRepositoryInterface::class);
     $dispatcher = m::mock(EventDispatcherInterface::class);
+    $audit = m::mock(AdminAuditRecorderInterface::class);
 
     $users->shouldReceive('transactional')->once()->andReturnUsing(
         static fn (callable $operation): mixed => $operation(),
@@ -198,8 +210,9 @@ it('fails when the actor account does not exist', function () {
     $users->shouldNotReceive('save');
     $suspensions->shouldNotReceive('save');
     $dispatcher->shouldNotReceive('dispatch');
+    $audit->shouldNotReceive('record');
 
-    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher))(
+    $result = (new ReactivateUserHandler($users, $suspensions, $dispatcher, $audit))(
         new ReactivateUserCommand(
             userId: $target->id(),
             actorId: $actor->id(),
