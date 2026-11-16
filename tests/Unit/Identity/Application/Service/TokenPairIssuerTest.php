@@ -19,14 +19,24 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
 
-function tokenPairUser(): User
+function tokenPairUser(bool $verified = true, bool $admin = false): User
 {
-    return User::register(
+    $user = User::register(
         cpf: null,
         email: Email::fromString('token-pair@example.com')->value(),
         password: HashedPassword::fromHash('hashed'),
         name: 'Token Pair User',
     );
+
+    if ($verified) {
+        $user->verifyEmail();
+    }
+
+    if ($admin) {
+        $user->grantAdminRole();
+    }
+
+    return $user;
 }
 
 /**
@@ -195,6 +205,54 @@ it('revokes the family when a revoked token is reused outside the grace window',
 
     expect($result->isFailure())->toBeTrue()
         ->and($result->errors()[0]->code)->toBe('REFRESH_TOKEN_REUSED');
+});
+
+it('revokes the family when an unverified account tries to rotate', function () {
+    $clock = new MockClock('2026-01-01 00:00:00 UTC');
+    $parts = tokenPairIssuer($clock);
+    $token = RefreshToken::create(
+        user: tokenPairUser(verified: false),
+        tokenHash: TokenHash::fromRaw('rt_unverified'),
+        familyId: TokenFamilyId::generate(),
+        expiresAt: Instant::fromDateTime($clock->now()->modify('+1 day')),
+    );
+
+    $parts['refresh']->shouldReceive('hash')->once()->andReturn($token->tokenHash());
+    $parts['repository']->shouldReceive('findByTokenHash')->once()->andReturn($token);
+    $parts['repository']->shouldReceive('revokeFamily')->once()->with($token->familyId());
+
+    $result = $parts['issuer']->rotate('rt_unverified');
+
+    expect($result->isFailure())->toBeTrue()
+        ->and($result->errors()[0]->code)->toBe('EMAIL_NOT_VERIFIED');
+});
+
+it('allows an unverified admin to rotate the refresh token', function () {
+    $clock = new MockClock('2026-01-01 00:00:00 UTC');
+    $parts = tokenPairIssuer($clock);
+    $family = TokenFamilyId::generate();
+    $token = RefreshToken::create(
+        user: tokenPairUser(verified: false, admin: true),
+        tokenHash: TokenHash::fromRaw('rt_unverified_admin'),
+        familyId: $family,
+        expiresAt: Instant::fromDateTime($clock->now()->modify('+1 day')),
+    );
+    $newRaw = 'rt_'.str_repeat('c', 64);
+    $generated = new GeneratedRefreshToken($newRaw, TokenHash::fromRaw($newRaw));
+
+    $parts['refresh']->shouldReceive('hash')->once()->andReturn($token->tokenHash());
+    $parts['repository']->shouldReceive('findByTokenHash')->once()->andReturn($token);
+    $parts['refresh']->shouldReceive('generate')->once()->andReturn($generated);
+    $parts['repository']->shouldReceive('rotate')->once()->with(
+        $token,
+        Mockery::on(static fn (RefreshToken $replacement): bool => $replacement->familyId()->equals($family)
+            && $replacement->tokenHash()->equals($generated->hash)),
+    );
+
+    $result = $parts['issuer']->rotate('rt_unverified_admin');
+
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->value()->refreshToken)->toBe($newRaw);
 });
 
 it('rejects a rotation when another request holds the lock', function () {

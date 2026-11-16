@@ -11,6 +11,7 @@ use App\Identity\Domain\RefreshToken\Repository\RefreshTokenRepositoryInterface;
 use App\Identity\Domain\RefreshToken\ValueObject\TokenFamilyId;
 use App\Identity\Domain\User\Entity\User;
 use App\Identity\Domain\User\ValueObject\UserId;
+use App\Identity\Domain\User\ValueObject\UserRole;
 use App\Shared\Domain\Functional\Result;
 use App\Shared\Domain\ValueObject\Instant;
 use Psr\Clock\ClockInterface;
@@ -107,6 +108,12 @@ final readonly class TokenPairIssuer implements TokenPairIssuerInterface
                 $this->refreshTokenRepository->revokeFamily($current->familyId());
 
                 return Result::failure([IdentityErrors::accountSuspended()]);
+            }
+
+            if (!$user->isEmailVerified() && UserRole::ADMIN_SIGAME !== $user->role()) {
+                $this->refreshTokenRepository->revokeFamily($current->familyId());
+
+                return Result::failure([IdentityErrors::emailNotVerified()]);
             }
 
             $generated = $this->refreshTokenGenerator->generate();

@@ -80,6 +80,11 @@ O e-mail é único no agregado `User` (`users.email`) e é a fonte de verdade pa
 - cadastro por provedor social nasce **verificado**, porque o provedor confirmou `email_verified=true`;
 - a verificação é registrada em `GET /api/v1/users/me` em `emailVerified`.
 
+Além do login, um gate de `kernel.request` (`EmailVerifiedGateListener`) responde `403 EMAIL_NOT_VERIFIED`
+em toda rota autenticada de uso enquanto o endereço não estiver confirmado. Só `GET /users/me` e
+`/api/v1/auth/*` permanecem disponíveis; contas `ADMIN_SIGAME` são isentas. A rotação do refresh token
+também revoga a família e falha com o mesmo código, então uma sessão de conta não verificada não se renova.
+
 ### 1.5 Fusos horários
 
 O domínio persiste e compara todos os instantes em **UTC**. Datas exibidas ao usuário
@@ -686,6 +691,8 @@ A plataforma é restrita a **maiores de 18 anos** (`ADR-044`).
   `403 USER_PROFILE_INCOMPLETE`.
 - A única exceção além do fluxo de autenticação (`/api/v1/auth/*`, incluindo logout e renovação) é `GET /users/me` e
   o próprio `PATCH /users/me/birth-date`. Contas `ADMIN_SIGAME` são isentas do bloqueio.
+- O gate de e-mail (`EMAIL_NOT_VERIFIED`) tem precedência quando as duas pendências existem: a conta precisa confirmar
+  o endereço antes de concluir o nascimento. Ver seção 1.4.
 - A data é definida uma única vez em `PATCH /api/v1/users/me/birth-date` (`AAAA-MM-DD`) e não pode ser alterada pelo
   usuário. Correção só por suporte, com auditoria.
 - O onboarding exige a data (`USER_BIRTH_DATE_REQUIRED`).

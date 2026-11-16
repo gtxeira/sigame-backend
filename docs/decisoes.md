@@ -410,6 +410,8 @@ O cadastro local não confirmava o e-mail e não havia recuperação de senha. S
 > **Emenda (2026-11-06):** a rota de reenvio passou de `POST /users/me/email/resend` para `POST /auth/email/verification/resend`, mantendo a exigência de Bearer. O par de verificação ficou sob `/auth/email`.
 
 > **Emenda (2026-11-15):** com a verificação obrigatória para entrar, o reenvio passou a ser público, recebe `{ email }` e responde sempre `204`. Ele só envia quando a conta existe e ainda não foi verificada; assim não vaza a existência nem o estado da conta. O cooldown por e-mail e o rate limit continuam valendo.
+
+> **Emenda (2026-11-16):** a verificação passou a ser exigida também nas rotas de uso, e não só no login. Um gate de `kernel.request` (`EmailVerifiedGateListener`) responde `403 EMAIL_NOT_VERIFIED` em toda rota autenticada, liberando apenas `GET /users/me` e `/api/v1/auth/*`; `ADMIN_SIGAME` é isento. A rotação de refresh token revoga a família e falha com o mesmo código quando a conta não está verificada. É defesa em profundidade para tokens fora do fluxo de login (legado/importação) e para qualquer fluxo futuro que venha a invalidar a confirmação do endereço.
 - Contas só sociais podem ganhar uma credencial local via reset (o e-mail já foi verificado pelo provedor).
 - O envio é síncrono; a migração para Messenger fica registrada como evolução.
 
