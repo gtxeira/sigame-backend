@@ -1,0 +1,15 @@
+erDiagram
+
+"public.notification_deliveries" }o--|| "public.notifications" : "FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE"
+"public.notifications" }o--|| "public.users" : "recipient_id"
+
+"public.users" {
+  uuid id ""
+}
+"public.notification_deliveries" {
+  uuid notification_id ""
+}
+"public.notifications" {
+  uuid id ""
+  uuid recipient_id ""
+}

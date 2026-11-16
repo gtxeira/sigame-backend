@@ -1,0 +1,18 @@
+erDiagram
+
+"public.user_progress" |o--|| "public.users" : "Detected Relation"
+"public.xp_events" }o--|| "public.users" : "Detected Relation"
+"public.user_achievements" }o--|| "public.users" : "Detected Relation"
+
+"public.users" {
+  uuid id ""
+}
+"public.user_progress" {
+  uuid user_id ""
+}
+"public.xp_events" {
+  uuid user_id ""
+}
+"public.user_achievements" {
+  uuid user_id ""
+}

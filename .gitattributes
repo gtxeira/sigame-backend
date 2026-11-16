@@ -13,5 +13,8 @@
 bin/console text eol=lf
 composer.lock text eol=lf merge=ours
 
+# Documentação do banco gerada por `just docs-erd` (tbls): o GitHub recolhe o diff.
+docs/db/** linguist-generated=true
+
 *.ico binary
 *.png binary

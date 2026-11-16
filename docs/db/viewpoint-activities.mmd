@@ -1,0 +1,48 @@
+erDiagram
+
+"public.activity_attendances" }o--|| "public.activities" : "FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE"
+"public.activity_reschedules" }o--|| "public.activities" : "FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE"
+"public.activities" }o--|| "public.users" : "created_by"
+"public.activities" |o--o| "public.users" : "started_by"
+"public.activities" |o--o| "public.users" : "finished_by"
+"public.activities" |o--o| "public.users" : "cancelled_by"
+"public.activities" |o--o| "public.users" : "invalidated_by"
+"public.activity_attendances" |o--o| "public.users" : "validated_by"
+"public.activity_attendances" |o--o| "public.users" : "cancelled_by"
+"public.activity_reschedules" }o--|| "public.users" : "changed_by"
+"public.groups" }o--|| "public.users" : "created_by"
+"public.groups" }o--|| "public.users" : "owner_id"
+"public.groups" |o--o| "public.users" : "archived_by"
+"public.groups" |o--o| "public.users" : "deleted_by"
+"public.activities" }o--|| "public.groups" : "Detected Relation"
+"public.activity_attendances" }o--|| "public.users" : "Detected Relation"
+
+"public.users" {
+  uuid id ""
+}
+"public.groups" {
+  uuid id ""
+  uuid created_by ""
+  uuid archived_by ""
+  uuid deleted_by ""
+  uuid owner_id ""
+}
+"public.activities" {
+  uuid id ""
+  uuid group_id ""
+  uuid created_by ""
+  uuid started_by ""
+  uuid finished_by ""
+  uuid cancelled_by ""
+  uuid invalidated_by ""
+}
+"public.activity_attendances" {
+  uuid user_id ""
+  uuid validated_by ""
+  uuid cancelled_by ""
+  uuid activity_id ""
+}
+"public.activity_reschedules" {
+  uuid changed_by ""
+  uuid activity_id ""
+}

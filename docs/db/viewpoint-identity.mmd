@@ -1,0 +1,32 @@
+erDiagram
+
+"public.user_modalities" }o--|| "public.users" : "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+"public.user_identities" }o--|| "public.users" : "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+"public.refresh_tokens" }o--|| "public.users" : "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+"public.refresh_tokens" }o--o| "public.refresh_tokens" : "FOREIGN KEY (replaced_by_id) REFERENCES refresh_tokens(id) ON DELETE SET NULL"
+"public.identity_otp_challenges" }o--|| "public.users" : "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+"public.identity_password_reset_tickets" }o--|| "public.users" : "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+"public.identity_password_reset_tickets" }o--|| "public.identity_otp_challenges" : "FOREIGN KEY (challenge_id) REFERENCES identity_otp_challenges(id) ON DELETE CASCADE"
+
+"public.users" {
+  uuid id ""
+}
+"public.user_modalities" {
+  uuid user_id ""
+}
+"public.user_identities" {
+  uuid user_id ""
+}
+"public.refresh_tokens" {
+  uuid id ""
+  uuid user_id ""
+  uuid replaced_by_id ""
+}
+"public.identity_otp_challenges" {
+  uuid id ""
+  uuid user_id ""
+}
+"public.identity_password_reset_tickets" {
+  uuid user_id ""
+  uuid challenge_id ""
+}

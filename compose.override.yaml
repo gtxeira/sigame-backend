@@ -138,6 +138,23 @@ services:
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
 
+  # Gera a documentação do banco e o DER (ver `.tbls.yml` e `just docs-erd`).
+  # Serviço one-shot: só roda com `docker compose run --rm docs ...`.
+  docs:
+    image: ghcr.io/k1low/tbls:v1.96.1
+    profiles: ["docs"]
+    restart: "no"
+    working_dir: /work
+    volumes:
+      - ./:/work
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sigame}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sigame}
+      POSTGRES_DB: ${POSTGRES_DB:-sigame}
+    depends_on:
+      postgres:
+        condition: service_started
+
 ###> symfony/mailer ###
   mailer:
     image: axllent/mailpit

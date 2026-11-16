@@ -247,6 +247,7 @@ Módulos implementados: `Identity`, `Groups`, `Activities`, `Gamification` e `No
 | [docs/api-documentation.md](docs/api-documentation.md)                                         | Convenções de tags, summaries, segurança e versionamento da OpenAPI    |
 | [docs/implementacao.md](docs/implementacao.md)                                                 | Estado atual, roadmap, decisões abertas, migrations e dívidas técnicas |
 | [docs/decisoes.md](docs/decisoes.md)                                                           | Registro do porquê das decisões arquiteturais e de produto             |
+| [docs/diagramas.md](docs/diagramas.md)                                                         | DER gerado do banco (tbls) e como regenerar/verificar os diagramas     |
 | [docs/requisitos/levantamento-de-requisitos.md](docs/requisitos/levantamento-de-requisitos.md) | Requisitos funcionais, regras de negócio e critérios de aceitação      |
 
 ## Contribuição

@@ -1,0 +1,268 @@
+# Configuração do tbls — gera a documentação e o DER a partir do PostgreSQL
+# real (schema criado pelas migrations). Não edite os arquivos de `docs/db/`:
+# eles são gerados por `just docs-erd`.
+#
+# O DSN usa as mesmas variáveis do Compose. O serviço `docs` (profile `docs`)
+# injeta POSTGRES_USER, POSTGRES_PASSWORD e POSTGRES_DB no container.
+dsn: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+
+name: SIGAME
+desc: "Modelo de dados do SIGAME (PostgreSQL 18, schema criado pelas migrations)."
+
+# Traduz os títulos gerados para manter a documentação em PT-BR.
+dict:
+  Description: Descrição
+  Viewpoints: Contextos
+  Tables: Tabelas
+  Relations: Relacionamentos
+  Columns: Colunas
+  Constraints: Restrições
+  Indexes: Índices
+  Triggers: Gatilhos
+  Name: Nome
+  Comment: Comentário
+  Type: Tipo
+  Default: Padrão
+  Nullable: Nulo
+  Children: Filhos
+  Parents: Pais
+  Definition: Definição
+  Table Definition: Definição da tabela
+
+docPath: docs/db
+
+# O schema.json não é consumido pelo projeto e só geraria ruído no diff.
+disableOutputSchema: true
+
+format:
+  # No índice, mostra só o primeiro parágrafo do comentário de cada tabela.
+  showOnlyFirstParagraph: true
+
+er:
+  # Mermaid é renderizado nativamente pelo GitHub; os SVGs para o TCC saem
+  # de `tbls out -t svg` (ver recipe `docs-erd`).
+  format: mermaid
+  # Inclui os comentários de tabela/coluna no diagrama.
+  comment: true
+  distance: 2
+  # Mostra apenas PK e FKs no diagrama: o detalhamento fica nas tabelas .md.
+  showColumnTypes:
+    related: true
+    primary: true
+
+# Tabelas de infraestrutura do framework, fora do modelo de domínio.
+exclude:
+  - doctrine_migration_versions
+  - messenger_messages
+
+# Deriva relações a partir de convenções de nome (ex.: activities.group_id →
+# groups.id). Completa as FKs que o domínio não declara no banco.
+detectVirtualRelations:
+  enabled: true
+  strategy: default
+
+# Relações implícitas que a convenção não cobre (autores, atores e
+# responsáveis gravados como UUID sem FK declarada).
+relations:
+  # `def` vira o rótulo da aresta no diagrama: sem ele, todas as relações
+  # para `users` apareceriam como "Additional Relation" e ficariam ambíguas.
+  - table: activities
+    columns: [created_by]
+    parentTable: users
+    parentColumns: [id]
+    def: created_by
+  - table: activities
+    columns: [started_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: started_by
+  - table: activities
+    columns: [finished_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: finished_by
+  - table: activities
+    columns: [cancelled_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: cancelled_by
+  - table: activities
+    columns: [invalidated_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: invalidated_by
+  - table: activity_attendances
+    columns: [validated_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: validated_by
+  - table: activity_attendances
+    columns: [cancelled_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: cancelled_by
+  - table: activity_reschedules
+    columns: [changed_by]
+    parentTable: users
+    parentColumns: [id]
+    def: changed_by
+  - table: groups
+    columns: [created_by]
+    parentTable: users
+    parentColumns: [id]
+    def: created_by
+  - table: groups
+    columns: [owner_id]
+    parentTable: users
+    parentColumns: [id]
+    def: owner_id
+  - table: groups
+    columns: [archived_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: archived_by
+  - table: groups
+    columns: [deleted_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: deleted_by
+  - table: group_memberships
+    columns: [decided_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: decided_by
+  - table: group_memberships
+    columns: [removed_by]
+    parentTable: users
+    parentColumns: [id]
+    cardinality: zero or one
+    def: removed_by
+  - table: group_ownership_transfers
+    columns: [previous_owner_id]
+    parentTable: users
+    parentColumns: [id]
+    def: previous_owner_id
+  - table: group_ownership_transfers
+    columns: [new_owner_id]
+    parentTable: users
+    parentColumns: [id]
+    def: new_owner_id
+  - table: group_ownership_transfers
+    columns: [actor_id]
+    parentTable: users
+    parentColumns: [id]
+    def: actor_id
+  - table: notifications
+    columns: [recipient_id]
+    parentTable: users
+    parentColumns: [id]
+    def: recipient_id
+  - table: admin_audit_entries
+    columns: [actor_id]
+    parentTable: users
+    parentColumns: [id]
+    def: actor_id
+
+# Comentários exibidos na documentação e nos diagramas. Ficam no repositório
+# (versionados) para não exigirem COMMENT ON nem alterar o schema.
+comments:
+  - table: users
+    tableComment: Conta do usuário com perfil, papel global, status e projeções de nível.
+  - table: user_identities
+    tableComment: Identidade de login do usuário (credencial local ou social).
+  - table: user_modalities
+    tableComment: Modalidades praticadas pelo usuário (no máximo uma principal).
+  - table: refresh_tokens
+    tableComment: Refresh tokens opacos por família de sessão (somente hash).
+  - table: identity_otp_challenges
+    tableComment: Desafio OTP de uso único para verificação de e-mail e reset de senha.
+  - table: identity_password_reset_tickets
+    tableComment: Ticket temporário de troca de senha emitido após a validação do OTP.
+  - table: groups
+    tableComment: Raiz do agregado de grupos esportivos.
+  - table: group_memberships
+    tableComment: Episódio de participação de um usuário em um grupo.
+  - table: group_ownership_transfers
+    tableComment: Histórico append-only de transferência de responsabilidade do grupo.
+  - table: activities
+    tableComment: Raiz do agregado de atividades de grupo (janela e ciclo de vida).
+  - table: activity_attendances
+    tableComment: Episódio de inscrição, check-in e presença em uma atividade.
+  - table: activity_reschedules
+    tableComment: Histórico append-only de remarcações de atividade.
+  - table: user_progress
+    tableComment: Progresso agregado do usuário (XP, nível e ofensiva semanal).
+  - table: xp_events
+    tableComment: Ledger append-only de XP; estornos geram lançamentos negativos.
+  - table: user_achievements
+    tableComment: Conquistas desbloqueadas, registradas uma única vez por código.
+  - table: notifications
+    tableComment: Notificação canônica persistida no inbox do destinatário.
+  - table: notification_deliveries
+    tableComment: Tentativa de entrega de uma notificação em canal externo.
+  - table: admin_audit_entries
+    tableComment: Auditoria append-only das ações da administração global.
+  - table: user_suspensions
+    tableComment: Histórico append-only de suspensão e reativação de conta.
+
+# Recortes por bounded context. Cada viewpoint vira um documento e um SVG
+# próprios (ver recipe `docs-erd`), com `users` como nó compartilhado.
+viewpoints:
+  - id: identity
+    name: Identity
+    desc: Contas, identidades de login, modalidades e credenciais temporárias.
+    tables:
+      - users
+      - user_identities
+      - user_modalities
+      - refresh_tokens
+      - identity_otp_challenges
+      - identity_password_reset_tickets
+  - id: groups
+    name: Groups
+    desc: Grupos esportivos, participação e transferência de responsabilidade.
+    tables:
+      - groups
+      - group_memberships
+      - group_ownership_transfers
+      - users
+  - id: activities
+    name: Activities
+    desc: Atividades de grupo, inscrições, presença e remarcações.
+    tables:
+      - activities
+      - activity_attendances
+      - activity_reschedules
+      - groups
+      - users
+  - id: gamification
+    name: Gamification
+    desc: Progresso, ledger de XP e conquistas.
+    tables:
+      - user_progress
+      - xp_events
+      - user_achievements
+      - users
+  - id: notifications
+    name: Notifications
+    desc: Inbox canônico e entregas por canal externo.
+    tables:
+      - notifications
+      - notification_deliveries
+      - users
+  - id: administration
+    name: Administration
+    desc: Auditoria administrativa e suspensões de conta.
+    tables:
+      - admin_audit_entries
+      - user_suspensions
+      - users

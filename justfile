@@ -6,6 +6,9 @@ _exec     := _compose + " exec"
 _php      := _exec + " php"
 _test_php := _exec + " -e APP_ENV=test -e XDEBUG_MODE=off php"
 _storage_bucket := "profile-images"
+_uid      := `id -u`
+_gid      := `id -g`
+_docs     := _compose + " run --rm -T --user " + _uid + ":" + _gid + " docs"
 
 # ── Docker 🐳 ────────────────────────────────────────────────────────────────
 
@@ -79,6 +82,22 @@ sh:
 [group('Docker')]
 bash:
     @{{ _exec }} php bash
+
+# ── Documentação 📚 ─────────────────────────────────────────────────────────
+
+# Gera a documentação do banco e os DERs (tbls) a partir do PostgreSQL migrado
+[group('Documentação')]
+docs-erd:
+    @{{ _docs }} doc --rm-dist
+    @{{ _docs }} out -t mermaid -o docs/db/schema.mmd
+    @for ctx in identity groups activities gamification notifications administration; do \
+        {{ _docs }} out -t mermaid --viewpoint "$ctx" -o "docs/db/viewpoint-$ctx.mmd"; \
+    done
+
+# Verifica se a documentação do banco está atualizada (exit != 0 em caso de drift)
+[group('Documentação')]
+docs-erd-check:
+    @{{ _docs }} diff
 
 # ── Qualidade de código 🧹 ───────────────────────────────────────────────────
 
