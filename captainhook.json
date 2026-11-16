@@ -42,7 +42,18 @@
         },
         {
             "action": "docker compose exec -T php vendor/bin/phpstan analyse --no-progress {$STAGED_FILES|of-type:php}"
+        },
+        {
+            "action": "docker compose exec -T php php bin/console app:docs:usecases --check"
         }
+    ]
+  },
+  "pre-push": {
+    "enabled": true,
+    "actions": [
+      {
+        "action": "just docs-erd-check"
+      }
     ]
   }
 }

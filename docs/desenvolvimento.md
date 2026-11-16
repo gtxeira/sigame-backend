@@ -241,7 +241,7 @@ just phpstan
 
 ### 6.3 CaptainHook
 
-O `captainhook.json` valida mensagens de commit no padrão **Conventional Commits** e, no pre-commit, roda php-cs-fixer e PHPStan nos arquivos staged.
+O `captainhook.json` valida mensagens de commit no padrão **Conventional Commits** e, no pre-commit, roda php-cs-fixer e PHPStan nos arquivos staged, além de `app:docs:usecases --check` para garantir que o catálogo de casos de uso e os artefatos gerados estejam atualizados. No pre-push, roda `just docs-erd-check`, que compara o schema do banco migrado com `docs/db/`.
 
 Tipos aceitos: `feat`, `fix`, `ci`, `docs`, `perf`, `refactor`, `style`, `test`, `chore`, `revert`.
 

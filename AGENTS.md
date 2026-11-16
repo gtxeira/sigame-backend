@@ -90,6 +90,10 @@ Agent workflow:
 
 See `docs/diagramas.md` for the full workflow.
 
+CaptainHook enforces both gates locally: `pre-commit` runs
+`app:docs:usecases --check` and `pre-push` runs `just docs-erd-check`. Do not bypass them with
+`--no-verify`.
+
 ## Architecture rules (enforced by tests)
 
 - `Shared` must not import a feature module. A feature module may import only itself

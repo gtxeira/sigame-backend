@@ -112,6 +112,14 @@ docs-usecases:
 docs-usecases-check:
     @{{ _php }} php bin/console app:docs:usecases --check
 
+# Gera toda a documentação (DER + casos de uso)
+[group('Documentação')]
+docs: docs-erd docs-usecases
+
+# Valida toda a documentação sem escrever (DER + casos de uso)
+[group('Documentação')]
+docs-check: docs-erd-check docs-usecases-check
+
 # ── Qualidade de código 🧹 ───────────────────────────────────────────────────
 
 # Roda o php-cs-fixer --fix (altera os arquivos)

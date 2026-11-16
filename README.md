@@ -211,9 +211,13 @@ just test-integration  # repositórios e adaptadores reais
 just cs-check          # padrão de código
 just phpstan           # análise estática nível 6
 just composer quality  # cs:check + phpstan + test
+just docs              # gera DER e casos de uso
+just docs-check        # valida DER e casos de uso sem escrever
 ```
 
 Os testes de banco rodam em transação com rollback (DAMA) e o schema vem das migrations (`Foundry reset.mode: migrate`). Detalhes e convenções estão em [docs/desenvolvimento.md](docs/desenvolvimento.md).
+
+Os hooks do CaptainHook rodam o check de casos de uso no pre-commit e o check do DER no pre-push; `--no-verify` contorna a garantia local.
 
 ## Estrutura do projeto
 
